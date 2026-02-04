@@ -10,30 +10,118 @@
         {
             "id": "2",
             "title": "Integrate Native Ad-Blocker",
-            "status": "todo",
+            "status": "completed",
             "context": "Install '@cliqz/adblocker-electron' or similar. Configure it in 'src/main/main.ts' to intercept network requests and block ads/trackers automatically.",
-            "created_at": "2024-05-22T10:01:00.000000"
+            "created_at": "2024-05-22T10:01:00.000000",
+            "subtasks": [
+                {
+                    "id": "2.1",
+                    "title": "Install @ghostery/adblocker-electron package",
+                    "status": "completed"
+                },
+                {
+                    "id": "2.2",
+                    "title": "Configure ElectronBlocker in main process",
+                    "status": "completed"
+                },
+                {
+                    "id": "2.3",
+                    "title": "Add ad-block toggle to sidebar settings",
+                    "status": "completed"
+                },
+                {
+                    "id": "2.4",
+                    "title": "Add blocked count indicator in UI",
+                    "status": "completed"
+                }
+            ]
         },
         {
             "id": "3",
             "title": "Implement Captcha Bypass Integration",
             "status": "todo",
             "context": "Add settings UI to accept 2Captcha/CapSolver API keys. middleware in Python backend to use these keys when 'browser-use' encounters a captcha.",
-            "created_at": "2024-05-22T10:02:00.000000"
+            "created_at": "2024-05-22T10:02:00.000000",
+            "subtasks": [
+                {
+                    "id": "3.1",
+                    "title": "Create settings modal/page component",
+                    "status": "todo"
+                },
+                {
+                    "id": "3.2",
+                    "title": "Add API key input fields for 2Captcha/CapSolver",
+                    "status": "todo"
+                },
+                {
+                    "id": "3.3",
+                    "title": "Store API keys securely (electron-store)",
+                    "status": "todo"
+                },
+                {
+                    "id": "3.4",
+                    "title": "Add captcha solver middleware in Python backend",
+                    "status": "todo"
+                }
+            ]
         },
         {
             "id": "4",
             "title": "Security & Privacy Hardening",
             "status": "todo",
             "context": "Audit Electron 'webPreferences' (ensure contextIsolation: true, nodeIntegration: false). Ensure Python backend binds only to 127.0.0.1.",
-            "created_at": "2024-05-22T10:03:00.000000"
+            "created_at": "2024-05-22T10:03:00.000000",
+            "subtasks": [
+                {
+                    "id": "4.1",
+                    "title": "Audit webPreferences in BrowserWindow",
+                    "status": "todo"
+                },
+                {
+                    "id": "4.2",
+                    "title": "Add CSP headers",
+                    "status": "todo"
+                },
+                {
+                    "id": "4.3",
+                    "title": "Verify Python backend localhost binding",
+                    "status": "todo"
+                },
+                {
+                    "id": "4.4",
+                    "title": "Sanitize IPC communication",
+                    "status": "todo"
+                }
+            ]
         },
         {
             "id": "5",
             "title": "Optimize Agent Token Usage",
             "status": "todo",
             "context": "Review 'browser-use' system prompts. Ensure we are not sending unnecessary HTML data to the LLM to save user costs.",
-            "created_at": "2024-05-22T10:04:00.000000"
+            "created_at": "2024-05-22T10:04:00.000000",
+            "subtasks": [
+                {
+                    "id": "5.1",
+                    "title": "Analyze current token usage per request",
+                    "status": "todo"
+                },
+                {
+                    "id": "5.2",
+                    "title": "Implement HTML sanitization before LLM",
+                    "status": "todo"
+                },
+                {
+                    "id": "5.3",
+                    "title": "Add token counter display in UI",
+                    "status": "todo"
+                },
+                {
+                    "id": "5.4",
+                    "title": "Optimize system prompts",
+                    "status": "todo"
+                }
+            ]
         }
     ]
 }

@@ -16,6 +16,9 @@ import {
     Zap,
     Pin,
     PinOff,
+    Shield,
+    ShieldOff,
+    ShieldCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -40,8 +43,46 @@ export function Sidebar({ className }: SidebarProps) {
     const [isVisible, setIsVisible] = useState(false);
     const [isPinned, setIsPinned] = useState(false);
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+    const [adBlockEnabled, setAdBlockEnabled] = useState(true);
+    const [blockedCount, setBlockedCount] = useState(0);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLDivElement>(null);
+
+    // Initialize ad-block status and listen for updates
+    useEffect(() => {
+        // Check if running in Electron
+        if (typeof window !== 'undefined' && window.electron?.adBlock) {
+            // Get initial status
+            window.electron.adBlock.getStatus().then((status) => {
+                setAdBlockEnabled(status.enabled);
+                setBlockedCount(status.count);
+            });
+
+            // Listen for blocked count updates
+            const unsubscribeBlocked = window.electron.adBlock.onBlocked((data) => {
+                setBlockedCount(data.count);
+            });
+
+            // Listen for status changes
+            const unsubscribeStatus = window.electron.adBlock.onStatusChange((data) => {
+                setAdBlockEnabled(data.enabled);
+                setBlockedCount(data.count);
+            });
+
+            return () => {
+                unsubscribeBlocked();
+                unsubscribeStatus();
+            };
+        }
+    }, []);
+
+    // Toggle ad-blocker
+    const handleToggleAdBlock = async () => {
+        if (typeof window !== 'undefined' && window.electron?.adBlock) {
+            const result = await window.electron.adBlock.toggle(!adBlockEnabled);
+            setAdBlockEnabled(result.enabled);
+        }
+    };
 
     const navItems: NavItem[] = [
         { icon: Compass, label: 'Discover', active: true },
@@ -298,6 +339,29 @@ export function Sidebar({ className }: SidebarProps) {
 
                 {/* Footer */}
                 <footer className="p-3 border-t border-border/40 space-y-1">
+                    {/* Ad Blocker Toggle */}
+                    <button
+                        onClick={handleToggleAdBlock}
+                        className={cn(
+                            "nav-item w-full group",
+                            adBlockEnabled && "text-success"
+                        )}
+                    >
+                        {adBlockEnabled ? (
+                            <ShieldCheck className="h-[18px] w-[18px] shrink-0 text-success" />
+                        ) : (
+                            <ShieldOff className="h-[18px] w-[18px] shrink-0 text-text-tertiary" />
+                        )}
+                        <span className={adBlockEnabled ? "text-success" : ""}>
+                            {adBlockEnabled ? "Protected" : "Unprotected"}
+                        </span>
+                        {adBlockEnabled && blockedCount > 0 && (
+                            <span className="ml-auto badge bg-success/10 text-success text-[10px]">
+                                {blockedCount > 999 ? '999+' : blockedCount} blocked
+                            </span>
+                        )}
+                    </button>
+
                     {/* Settings */}
                     <button className="nav-item w-full">
                         <Settings className="h-[18px] w-[18px] shrink-0" />
