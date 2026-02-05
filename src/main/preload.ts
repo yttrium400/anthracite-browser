@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Tab Management
     tabs: {
-        create: (url?: string) => ipcRenderer.invoke('create-tab', url),
+        create: (url?: string, options?: { realmId?: string; dockId?: string }) => ipcRenderer.invoke('create-tab', url, options),
         close: (tabId: string) => ipcRenderer.invoke('close-tab', tabId),
         switch: (tabId: string) => ipcRenderer.invoke('switch-tab', tabId),
         getAll: () => ipcRenderer.invoke('get-tabs'),
@@ -110,11 +110,117 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Search suggestions (Google API via main process to avoid CORS)
     searchSuggestions: (query: string) => ipcRenderer.invoke('search-suggestions', query),
+
+    // Realm Management
+    realms: {
+        getAll: () => ipcRenderer.invoke('get-realms'),
+        get: (realmId: string) => ipcRenderer.invoke('get-realm', realmId),
+        getActiveId: () => ipcRenderer.invoke('get-active-realm-id'),
+        setActive: (realmId: string) => ipcRenderer.invoke('set-active-realm', realmId),
+        create: (name: string, icon?: string, color?: string) => ipcRenderer.invoke('create-realm', name, icon, color),
+        update: (realmId: string, updates: { name?: string; icon?: string; color?: string }) => ipcRenderer.invoke('update-realm', realmId, updates),
+        delete: (realmId: string) => ipcRenderer.invoke('delete-realm', realmId),
+        reorder: (realmIds: string[]) => ipcRenderer.invoke('reorder-realms', realmIds),
+
+        // Event listeners
+        onCreated: (callback: (realm: any) => void) => {
+            const subscription = (_event: any, realm: any) => callback(realm)
+            ipcRenderer.on('realm-created', subscription)
+            return () => ipcRenderer.removeListener('realm-created', subscription)
+        },
+        onUpdated: (callback: (realm: any) => void) => {
+            const subscription = (_event: any, realm: any) => callback(realm)
+            ipcRenderer.on('realm-updated', subscription)
+            return () => ipcRenderer.removeListener('realm-updated', subscription)
+        },
+        onDeleted: (callback: (data: { realmId: string }) => void) => {
+            const subscription = (_event: any, data: any) => callback(data)
+            ipcRenderer.on('realm-deleted', subscription)
+            return () => ipcRenderer.removeListener('realm-deleted', subscription)
+        },
+        onActiveChanged: (callback: (data: { realmId: string }) => void) => {
+            const subscription = (_event: any, data: any) => callback(data)
+            ipcRenderer.on('active-realm-changed', subscription)
+            return () => ipcRenderer.removeListener('active-realm-changed', subscription)
+        },
+    },
+
+    // Dock Management
+    docks: {
+        getAll: (realmId?: string) => ipcRenderer.invoke('get-docks', realmId),
+        get: (dockId: string) => ipcRenderer.invoke('get-dock', dockId),
+        create: (name: string, realmId: string, icon?: string, color?: string) => ipcRenderer.invoke('create-dock', name, realmId, icon, color),
+        update: (dockId: string, updates: { name?: string; icon?: string; color?: string; isCollapsed?: boolean }) => ipcRenderer.invoke('update-dock', dockId, updates),
+        toggleCollapse: (dockId: string) => ipcRenderer.invoke('toggle-dock-collapse', dockId),
+        delete: (dockId: string) => ipcRenderer.invoke('delete-dock', dockId),
+        reorder: (realmId: string, dockIds: string[]) => ipcRenderer.invoke('reorder-docks', realmId, dockIds),
+        moveToRealm: (dockId: string, newRealmId: string) => ipcRenderer.invoke('move-dock-to-realm', dockId, newRealmId),
+
+        // Event listeners
+        onCreated: (callback: (dock: any) => void) => {
+            const subscription = (_event: any, dock: any) => callback(dock)
+            ipcRenderer.on('dock-created', subscription)
+            return () => ipcRenderer.removeListener('dock-created', subscription)
+        },
+        onUpdated: (callback: (dock: any) => void) => {
+            const subscription = (_event: any, dock: any) => callback(dock)
+            ipcRenderer.on('dock-updated', subscription)
+            return () => ipcRenderer.removeListener('dock-updated', subscription)
+        },
+        onDeleted: (callback: (data: { dockId: string }) => void) => {
+            const subscription = (_event: any, data: any) => callback(data)
+            ipcRenderer.on('dock-deleted', subscription)
+            return () => ipcRenderer.removeListener('dock-deleted', subscription)
+        },
+    },
+
+    // Tab Organization
+    tabOrganization: {
+        get: (tabId: string) => ipcRenderer.invoke('get-tab-organization', tabId),
+        getAll: () => ipcRenderer.invoke('get-all-tab-organizations'),
+        moveToDock: (tabId: string, dockId: string) => ipcRenderer.invoke('move-tab-to-dock', tabId, dockId),
+        moveToLoose: (tabId: string, realmId?: string) => ipcRenderer.invoke('move-tab-to-loose', tabId, realmId),
+        moveToRealm: (tabId: string, realmId: string) => ipcRenderer.invoke('move-tab-to-realm', tabId, realmId),
+        pin: (tabId: string) => ipcRenderer.invoke('pin-tab', tabId),
+        unpin: (tabId: string) => ipcRenderer.invoke('unpin-tab', tabId),
+        reorderInDock: (dockId: string, tabIds: string[]) => ipcRenderer.invoke('reorder-tabs-in-dock', dockId, tabIds),
+        reorderLoose: (realmId: string, tabIds: string[]) => ipcRenderer.invoke('reorder-loose-tabs', realmId, tabIds),
+
+        // Event listener
+        onChanged: (callback: (data: { tabId: string; realmId: string; dockId: string | null; order: number; isPinned: boolean }) => void) => {
+            const subscription = (_event: any, data: any) => callback(data)
+            ipcRenderer.on('tab-organization-changed', subscription)
+            return () => ipcRenderer.removeListener('tab-organization-changed', subscription)
+        },
+    },
+
+    // Sidebar State (full snapshot)
+    sidebarState: {
+        get: () => ipcRenderer.invoke('get-sidebar-state'),
+    },
 })
 
 // ============================================
 // Type Definitions for Renderer
 // ============================================
+
+// Import shared types for type definitions
+import type { Realm, Dock, ThemeColor, IconName, SidebarSnapshot } from '../shared/types'
+
+// Extended Tab info with organization
+interface OrganizedTabInfo extends TabInfo {
+    realmId: string
+    dockId: string | null
+    order: number
+    isPinned: boolean
+}
+
+interface TabOrganization {
+    realmId: string
+    dockId: string | null
+    order: number
+    isPinned: boolean
+}
 
 declare global {
     interface Window {
@@ -126,7 +232,7 @@ declare global {
                 once: (channel: string, func: (...args: any[]) => void) => void
             }
             tabs: {
-                create: (url?: string) => Promise<{ id: string }>
+                create: (url?: string, options?: { realmId?: string; dockId?: string }) => Promise<{ id: string; realmId?: string }>
                 close: (tabId: string) => Promise<{ success: boolean }>
                 switch: (tabId: string) => Promise<{ success: boolean }>
                 getAll: () => Promise<TabInfo[]>
@@ -162,6 +268,48 @@ declare global {
                 clear: () => Promise<{ success: boolean }>
             }
             searchSuggestions: (query: string) => Promise<string[]>
+            realms: {
+                getAll: () => Promise<Realm[]>
+                get: (realmId: string) => Promise<Realm | null>
+                getActiveId: () => Promise<string>
+                setActive: (realmId: string) => Promise<{ success: boolean }>
+                create: (name: string, icon?: IconName, color?: ThemeColor) => Promise<Realm>
+                update: (realmId: string, updates: { name?: string; icon?: IconName; color?: ThemeColor }) => Promise<Realm | null>
+                delete: (realmId: string) => Promise<{ success: boolean }>
+                reorder: (realmIds: string[]) => Promise<{ success: boolean }>
+                onCreated: (callback: (realm: Realm) => void) => () => void
+                onUpdated: (callback: (realm: Realm) => void) => () => void
+                onDeleted: (callback: (data: { realmId: string }) => void) => () => void
+                onActiveChanged: (callback: (data: { realmId: string }) => void) => () => void
+            }
+            docks: {
+                getAll: (realmId?: string) => Promise<Dock[]>
+                get: (dockId: string) => Promise<Dock | null>
+                create: (name: string, realmId: string, icon?: IconName, color?: ThemeColor) => Promise<Dock | null>
+                update: (dockId: string, updates: { name?: string; icon?: IconName; color?: ThemeColor; isCollapsed?: boolean }) => Promise<Dock | null>
+                toggleCollapse: (dockId: string) => Promise<Dock | null>
+                delete: (dockId: string) => Promise<{ success: boolean }>
+                reorder: (realmId: string, dockIds: string[]) => Promise<{ success: boolean }>
+                moveToRealm: (dockId: string, newRealmId: string) => Promise<{ success: boolean }>
+                onCreated: (callback: (dock: Dock) => void) => () => void
+                onUpdated: (callback: (dock: Dock) => void) => () => void
+                onDeleted: (callback: (data: { dockId: string }) => void) => () => void
+            }
+            tabOrganization: {
+                get: (tabId: string) => Promise<TabOrganization | null>
+                getAll: () => Promise<Record<string, TabOrganization>>
+                moveToDock: (tabId: string, dockId: string) => Promise<{ success: boolean }>
+                moveToLoose: (tabId: string, realmId?: string) => Promise<{ success: boolean }>
+                moveToRealm: (tabId: string, realmId: string) => Promise<{ success: boolean }>
+                pin: (tabId: string) => Promise<{ success: boolean }>
+                unpin: (tabId: string) => Promise<{ success: boolean }>
+                reorderInDock: (dockId: string, tabIds: string[]) => Promise<{ success: boolean }>
+                reorderLoose: (realmId: string, tabIds: string[]) => Promise<{ success: boolean }>
+                onChanged: (callback: (data: { tabId: string; realmId: string; dockId: string | null; order: number; isPinned: boolean }) => void) => () => void
+            }
+            sidebarState: {
+                get: () => Promise<{ activeRealmId: string; realms: Realm[]; docks: Dock[]; tabs: OrganizedTabInfo[] }>
+            }
         }
     }
 }

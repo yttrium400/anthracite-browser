@@ -237,6 +237,627 @@
             "priority": "high",
             "context": "Video reload loop caused by duplicate IPC handler registration crashing the app when opening tabs/switching focus. Fixed by sharing webview session (partition) and checking initialization status. Restricted ad blocker to single session to prevent global IPC conflicts.",
             "created_at": "2024-05-22T15:00:00.000000"
+        },
+        {
+            "id": "13",
+            "title": "Implement Arc-style Sidebar with Realms & Docks",
+            "status": "pending",
+            "priority": "high",
+            "context": "Transform the flat tab list into a hierarchical organization system inspired by Arc browser. Implement 'Realms' (workspaces like Work, Gaming, Hobbies) containing 'Docks' (collapsible groups of related tabs). Support loose tabs outside docks, swipe/navigation to switch realms, and full persistence. Production-grade implementation with no mocks or hardcoded data.",
+            "created_at": "2025-02-05T12:00:00.000000",
+            "subtasks": [
+                {
+                    "id": "13.1",
+                    "title": "Design & Create Data Models",
+                    "status": "completed",
+                    "context": "Define TypeScript interfaces for Realm, Dock, and enhanced Tab structures. Realms contain Docks and loose tabs. Docks contain tabs and have collapsed state. Each entity needs unique IDs, names, colors/icons, ordering, and timestamps.",
+                    "subtasks": [
+                        {
+                            "id": "13.1.1",
+                            "title": "Create Realm interface (id, name, icon, color, dockIds[], looseTabIds[], order, createdAt)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.1.2",
+                            "title": "Create Dock interface (id, name, icon, color, tabIds[], isCollapsed, realmId, order)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.1.3",
+                            "title": "Extend Tab interface to include dockId (optional), realmId, and order fields",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.1.4",
+                            "title": "Create SidebarState interface (activeRealmId, realms[], docks[], expandedDockIds[])",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.2",
+                    "title": "Implement Persistent Storage Layer",
+                    "status": "completed",
+                    "context": "Create a storage module for Realms and Docks using JSON file storage (similar to history.ts). Handle CRUD operations with debounced saves. Store in userData directory. Consider future SQLite migration.",
+                    "subtasks": [
+                        {
+                            "id": "13.2.1",
+                            "title": "Create src/main/store.ts with RealmStore class",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.2.2",
+                            "title": "Implement CRUD operations for Realms (create, read, update, delete, reorder)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.2.3",
+                            "title": "Implement CRUD operations for Docks (create, read, update, delete, reorder, collapse/expand)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.2.4",
+                            "title": "Implement tab-to-dock/realm assignment operations (move tab to dock, move to loose, move between docks)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.2.5",
+                            "title": "Add debounced file persistence with atomic writes",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.2.6",
+                            "title": "Create default realm on first launch (e.g., 'General' realm)",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.3",
+                    "title": "Create IPC Handlers for Realm/Dock Management",
+                    "status": "completed",
+                    "context": "Expose storage operations to renderer via IPC. Follow existing patterns in main.ts and preload.ts.",
+                    "subtasks": [
+                        {
+                            "id": "13.3.1",
+                            "title": "Add IPC handlers in main.ts for realm operations (get-realms, create-realm, update-realm, delete-realm, switch-realm, reorder-realms)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.3.2",
+                            "title": "Add IPC handlers for dock operations (get-docks, create-dock, update-dock, delete-dock, toggle-dock-collapse, reorder-docks)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.3.3",
+                            "title": "Add IPC handlers for tab organization (move-tab-to-dock, move-tab-to-loose, move-tab-to-realm, reorder-tabs-in-dock)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.3.4",
+                            "title": "Update preload.ts to expose realms and docks APIs to renderer",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.3.5",
+                            "title": "Add IPC events for state change notifications (realm-updated, dock-updated, tab-organization-changed)",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.4",
+                    "title": "Modify Tab Creation to Support Realms/Docks",
+                    "status": "completed",
+                    "context": "Update createTab() in main.ts to assign tabs to active realm. Handle tab assignment when realm/dock context is provided.",
+                    "subtasks": [
+                        {
+                            "id": "13.4.1",
+                            "title": "Update createTab() to accept optional realmId and dockId parameters",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.4.2",
+                            "title": "Auto-assign new tabs to active realm as loose tabs by default",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.4.3",
+                            "title": "Update Tab interface in main.ts to include realmId and dockId",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.4.4",
+                            "title": "Handle tab close to remove from dock/realm associations",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.5",
+                    "title": "Build Realm Switcher UI Component",
+                    "status": "completed",
+                    "context": "Create the realm navigation at top/bottom of sidebar. Support visual switching, keyboard shortcuts, and swipe gestures.",
+                    "subtasks": [
+                        {
+                            "id": "13.5.1",
+                            "title": "Create RealmSwitcher.tsx component with horizontal realm indicators",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.5.2",
+                            "title": "Display realm icons/colors with active state indicator",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.5.3",
+                            "title": "Add click-to-switch realm functionality",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.5.4",
+                            "title": "Implement swipe left/right gesture detection for realm switching",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.5.5",
+                            "title": "Add keyboard shortcuts for realm switching (Ctrl/Cmd + 1-9 or arrow keys)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.5.6",
+                            "title": "Add '+' button to create new realm with name/icon picker modal",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.5.7",
+                            "title": "Add context menu for realm (rename, change icon/color, delete)",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.6",
+                    "title": "Build Dock Component with Collapse/Expand",
+                    "status": "completed",
+                    "context": "Create the collapsible dock UI that contains grouped tabs. Show dock header with collapse toggle, tab count, and nested tabs.",
+                    "subtasks": [
+                        {
+                            "id": "13.6.1",
+                            "title": "Create Dock.tsx component with header (name, icon, collapse toggle, tab count)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.6.2",
+                            "title": "Implement collapse/expand animation for dock contents",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.6.3",
+                            "title": "Render nested tab list inside dock (indented styling)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.6.4",
+                            "title": "Add context menu for dock (rename, change color/icon, delete, move to realm)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.6.5",
+                            "title": "Show dock badge with tab count when collapsed",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.6.6",
+                            "title": "Add '+' button on dock header to create new tab inside dock",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.7",
+                    "title": "Refactor Sidebar.tsx for Hierarchical Structure",
+                    "status": "completed",
+                    "context": "Transform Sidebar.tsx from flat tab list to realm-aware hierarchical view showing docks and loose tabs for the active realm.",
+                    "subtasks": [
+                        {
+                            "id": "13.7.1",
+                            "title": "Add state management for activeRealmId and subscribe to realm changes",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.7.2",
+                            "title": "Replace flat tabs list with: Docks section + Loose Tabs section",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.7.3",
+                            "title": "Integrate RealmSwitcher component at sidebar bottom",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.7.4",
+                            "title": "Filter displayed tabs to only show active realm's tabs",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.7.5",
+                            "title": "Add 'Create Dock' button in sidebar for grouping tabs",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.7.6",
+                            "title": "Update 'New Tab' button to create tab in active realm",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.8",
+                    "title": "Implement Drag-and-Drop for Tab Organization",
+                    "status": "pending",
+                    "context": "Enable dragging tabs between docks, to loose section, and reordering within docks. Use native HTML5 DnD or a library like dnd-kit.",
+                    "subtasks": [
+                        {
+                            "id": "13.8.1",
+                            "title": "Add drag handles to tab items in sidebar",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.8.2",
+                            "title": "Implement drag-to-reorder tabs within same dock",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.8.3",
+                            "title": "Implement drag tab from dock to loose section",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.8.4",
+                            "title": "Implement drag tab from loose to dock",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.8.5",
+                            "title": "Implement drag tab between different docks",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.8.6",
+                            "title": "Implement drag dock to reorder within realm",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.8.7",
+                            "title": "Add visual drop indicators and hover states during drag",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.8.8",
+                            "title": "Persist order changes after drop",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.9",
+                    "title": "Create Realm/Dock Management Modals",
+                    "status": "completed",
+                    "context": "Build modal dialogs for creating and editing realms and docks with name, icon, and color selection.",
+                    "subtasks": [
+                        {
+                            "id": "13.9.1",
+                            "title": "Create RealmModal.tsx for create/edit realm (name input, icon picker, color picker)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.9.2",
+                            "title": "Create DockModal.tsx for create/edit dock (name input, icon picker, color picker)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.9.3",
+                            "title": "Create IconPicker.tsx component with curated icon set",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.9.4",
+                            "title": "Create ColorPicker.tsx component with preset color palette",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.9.5",
+                            "title": "Add confirmation dialog for delete operations",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.10",
+                    "title": "Implement Context Menus",
+                    "status": "pending",
+                    "context": "Add right-click context menus for tabs, docks, and realms with relevant actions.",
+                    "subtasks": [
+                        {
+                            "id": "13.10.1",
+                            "title": "Create ContextMenu.tsx reusable component",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.10.2",
+                            "title": "Add tab context menu (Close, Move to Dock submenu, Move to Realm submenu, Pin/Unpin)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.10.3",
+                            "title": "Add dock context menu (Rename, Change Icon, Change Color, Collapse/Expand, Delete)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.10.4",
+                            "title": "Add realm context menu (Rename, Change Icon, Change Color, Delete)",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.11",
+                    "title": "Handle Edge Cases & UX Polish",
+                    "status": "pending",
+                    "context": "Handle empty states, realm deletion with tabs, dock deletion with tabs, and other edge cases gracefully.",
+                    "subtasks": [
+                        {
+                            "id": "13.11.1",
+                            "title": "Handle empty realm state (show 'Create your first dock' prompt)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.11.2",
+                            "title": "Handle realm deletion (move tabs to default realm or prompt user)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.11.3",
+                            "title": "Handle dock deletion (move tabs to loose section of same realm)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.11.4",
+                            "title": "Prevent deletion of last realm (always keep at least one)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.11.5",
+                            "title": "Add smooth animations for realm transitions",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.11.6",
+                            "title": "Add keyboard navigation within sidebar (arrow keys, enter, escape)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.11.7",
+                            "title": "Remember collapsed/expanded state of docks across sessions",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.12",
+                    "title": "Testing & Stability",
+                    "status": "pending",
+                    "context": "Thoroughly test all interactions, persistence, and edge cases. Ensure no data loss on crashes.",
+                    "subtasks": [
+                        {
+                            "id": "13.12.1",
+                            "title": "Test realm CRUD operations (create, rename, reorder, delete)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.12.2",
+                            "title": "Test dock CRUD operations (create, rename, collapse, reorder, delete)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.12.3",
+                            "title": "Test tab movement between docks and realms",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.12.4",
+                            "title": "Test persistence across app restarts",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.12.5",
+                            "title": "Test drag-and-drop across all scenarios",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.12.6",
+                            "title": "Test keyboard shortcuts and accessibility",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.13",
+                    "title": "Tab Pinning Feature",
+                    "status": "pending",
+                    "context": "Allow users to pin important tabs that always appear at the top of their realm, regardless of dock. Pinned tabs persist across sessions and show a distinct visual style.",
+                    "subtasks": [
+                        {
+                            "id": "13.13.1",
+                            "title": "Add isPinned field to Tab interface",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.13.2",
+                            "title": "Create PinnedTabs section at top of sidebar (above docks)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.13.3",
+                            "title": "Add pin/unpin toggle in tab context menu and as icon button",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.13.4",
+                            "title": "Style pinned tabs distinctly (compact, icon-only option, or full)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.13.5",
+                            "title": "Persist pinned state in storage",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.13.6",
+                            "title": "Add IPC handlers for pin/unpin operations",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.14",
+                    "title": "Quick Realm Search (Cmd+Shift+K)",
+                    "status": "pending",
+                    "context": "Global search modal to find and switch to any tab across all realms. Shows realm/dock context for each result. Keyboard-driven navigation.",
+                    "subtasks": [
+                        {
+                            "id": "13.14.1",
+                            "title": "Create RealmSearch.tsx modal component with search input",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.14.2",
+                            "title": "Implement search across all tabs in all realms (fuzzy match on title/URL)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.14.3",
+                            "title": "Display results with realm/dock breadcrumb (e.g., 'Gaming > COD > Tab Name')",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.14.4",
+                            "title": "Add keyboard navigation (arrow keys, enter to select, escape to close)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.14.5",
+                            "title": "Register Cmd+Shift+K global shortcut to open search",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.14.6",
+                            "title": "On selection: switch to tab's realm and activate the tab",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.15",
+                    "title": "Realm Templates",
+                    "status": "pending",
+                    "context": "Pre-configured realm templates for common use cases (Developer, Social, Entertainment, etc.) with suggested docks. Users can choose a template when creating a new realm.",
+                    "subtasks": [
+                        {
+                            "id": "13.15.1",
+                            "title": "Define template data structure (name, icon, color, defaultDocks[])",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.15.2",
+                            "title": "Create templates: Developer (GitHub, Docs, Stack Overflow), Social (Twitter, Reddit, Discord), Entertainment (YouTube, Netflix, Spotify), Work (Email, Calendar, Notion)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.15.3",
+                            "title": "Add template selection step in RealmModal when creating new realm",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.15.4",
+                            "title": "Option to start from blank or choose template",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.15.5",
+                            "title": "Auto-create docks from template on realm creation",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.16",
+                    "title": "Tab Splitting (Drag to Create Dock)",
+                    "status": "pending",
+                    "context": "When dragging a tab to an empty area or special drop zone, automatically create a new dock containing that tab. Quick way to organize without manual dock creation.",
+                    "subtasks": [
+                        {
+                            "id": "13.16.1",
+                            "title": "Add 'New Dock' drop zone that appears during tab drag",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.16.2",
+                            "title": "Detect drop on 'New Dock' zone and trigger dock creation flow",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.16.3",
+                            "title": "Auto-name new dock based on tab title or domain",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.16.4",
+                            "title": "Move the dragged tab into the newly created dock",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.16.5",
+                            "title": "Add visual feedback during drag showing dock creation preview",
+                            "status": "pending"
+                        }
+                    ]
+                },
+                {
+                    "id": "13.17",
+                    "title": "Realm Indicator in TopBar",
+                    "status": "pending",
+                    "context": "Show current realm name and color in the URL bar area. Clicking opens realm switcher. Provides context without needing to open sidebar.",
+                    "subtasks": [
+                        {
+                            "id": "13.17.1",
+                            "title": "Add RealmIndicator component to TopBar (left of URL bar)",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.17.2",
+                            "title": "Display current realm icon and name with color accent",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.17.3",
+                            "title": "Click to open realm dropdown/switcher inline",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.17.4",
+                            "title": "Subscribe to realm changes to keep indicator in sync",
+                            "status": "pending"
+                        },
+                        {
+                            "id": "13.17.5",
+                            "title": "Subtle color bar or border showing realm color",
+                            "status": "pending"
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

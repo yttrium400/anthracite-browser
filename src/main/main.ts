@@ -12,6 +12,42 @@ import {
     clearHistory,
     closeDatabase
 } from './history'
+import {
+    // Realm operations
+    getRealms,
+    getRealm,
+    getActiveRealmId,
+    setActiveRealmId,
+    createRealmFromParams,
+    updateRealm,
+    deleteRealm,
+    reorderRealms,
+    // Dock operations
+    getDocks,
+    getDock,
+    createDockFromParams,
+    updateDock,
+    toggleDockCollapse,
+    deleteDock,
+    reorderDocks,
+    moveDockToRealm,
+    // Tab organization
+    getTabOrganization,
+    assignTabToActiveRealm,
+    moveTabToDock,
+    moveTabToLoose,
+    moveTabToRealm,
+    pinTab,
+    unpinTab,
+    reorderTabsInDock,
+    reorderLooseTabs,
+    removeTabOrganization,
+    // State
+    getFullState,
+    getAllTabOrganizations,
+    closeStore,
+} from './store'
+import type { ThemeColor, IconName } from '../shared/types'
 
 // ============================================
 // Types
@@ -93,7 +129,7 @@ function normalizeUrl(input: string): string {
 // Tab Management
 // ============================================
 
-function createTab(url: string = 'poseidon://newtab'): Tab {
+function createTab(url: string = 'poseidon://newtab', options?: { realmId?: string; dockId?: string }): Tab {
     const id = generateTabId()
 
     const view = new BrowserView({
@@ -103,6 +139,22 @@ function createTab(url: string = 'poseidon://newtab'): Tab {
             sandbox: true,
         }
     })
+
+    // Assign tab to realm/dock
+    if (options?.dockId) {
+        moveTabToDock(id, options.dockId)
+    } else if (options?.realmId) {
+        moveTabToRealm(id, options.realmId)
+    } else {
+        // Default: assign to active realm as loose tab
+        assignTabToActiveRealm(id)
+    }
+
+    // Notify renderer of tab organization
+    const org = getTabOrganization(id)
+    if (org && win && !win.isDestroyed()) {
+        win.webContents.send('tab-organization-changed', { tabId: id, ...org })
+    }
 
     // Enable ad-blocker on this view
     // REMOVED: conflicting with webview session ad-blocker. 
@@ -222,6 +274,9 @@ function closeTab(tabId: string): void {
     const tab = tabs.get(tabId)
     if (!tab) return
 
+    // Remove tab organization
+    removeTabOrganization(tabId)
+
         // Destroy the view (for cleanup)
         ; (tab.view.webContents as any).destroy()
     tabs.delete(tabId)
@@ -259,24 +314,36 @@ function navigateTab(tabId: string, url: string): void {
 
 function sendTabUpdate(tab: Tab): void {
     if (!win || win.isDestroyed()) return
+    const org = getTabOrganization(tab.id)
     win.webContents.send('tab-updated', {
         id: tab.id,
         title: tab.title,
         url: tab.url,
         favicon: tab.favicon,
-        isLoading: tab.isLoading
+        isLoading: tab.isLoading,
+        realmId: org?.realmId,
+        dockId: org?.dockId,
+        order: org?.order,
+        isPinned: org?.isPinned,
     })
 }
 
 function sendTabsUpdate(): void {
     if (!win || win.isDestroyed()) return
-    const tabList = Array.from(tabs.values()).map(tab => ({
-        id: tab.id,
-        title: tab.title,
-        url: tab.url,
-        favicon: tab.favicon,
-        isLoading: tab.isLoading
-    }))
+    const tabList = Array.from(tabs.values()).map(tab => {
+        const org = getTabOrganization(tab.id)
+        return {
+            id: tab.id,
+            title: tab.title,
+            url: tab.url,
+            favicon: tab.favicon,
+            isLoading: tab.isLoading,
+            realmId: org?.realmId,
+            dockId: org?.dockId,
+            order: org?.order,
+            isPinned: org?.isPinned,
+        }
+    })
     win.webContents.send('tabs-updated', tabList)
 }
 
@@ -392,11 +459,11 @@ function toggleAdBlocker(enabled: boolean): void {
 
 function setupIPC(): void {
     // Tab management
-    ipcMain.handle('create-tab', (_, url?: string) => {
+    ipcMain.handle('create-tab', (_, url?: string, options?: { realmId?: string; dockId?: string }) => {
         // Use createTab's default (poseidon://newtab) when no URL provided
-        const tab = url ? createTab(url) : createTab()
+        const tab = url ? createTab(url, options) : createTab(undefined, options)
         switchToTab(tab.id)
-        return { id: tab.id }
+        return { id: tab.id, realmId: getTabOrganization(tab.id)?.realmId }
     })
 
     ipcMain.handle('close-tab', (_, tabId: string) => {
@@ -410,13 +477,20 @@ function setupIPC(): void {
     })
 
     ipcMain.handle('get-tabs', () => {
-        return Array.from(tabs.values()).map(tab => ({
-            id: tab.id,
-            title: tab.title,
-            url: tab.url,
-            favicon: tab.favicon,
-            isLoading: tab.isLoading
-        }))
+        return Array.from(tabs.values()).map(tab => {
+            const org = getTabOrganization(tab.id)
+            return {
+                id: tab.id,
+                title: tab.title,
+                url: tab.url,
+                favicon: tab.favicon,
+                isLoading: tab.isLoading,
+                realmId: org?.realmId,
+                dockId: org?.dockId,
+                order: org?.order,
+                isPinned: org?.isPinned,
+            }
+        })
     })
 
     ipcMain.handle('get-active-tab', () => {
@@ -574,6 +648,242 @@ function setupIPC(): void {
         } catch (err) {
             console.error('Failed to fetch search suggestions:', err)
             return []
+        }
+    })
+
+    // ============================================
+    // Realm Management
+    // ============================================
+
+    ipcMain.handle('get-realms', () => {
+        return getRealms()
+    })
+
+    ipcMain.handle('get-realm', (_, realmId: string) => {
+        return getRealm(realmId)
+    })
+
+    ipcMain.handle('get-active-realm-id', () => {
+        return getActiveRealmId()
+    })
+
+    ipcMain.handle('set-active-realm', (_, realmId: string) => {
+        const success = setActiveRealmId(realmId)
+        if (success && win && !win.isDestroyed()) {
+            win.webContents.send('active-realm-changed', { realmId })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('create-realm', (_, name: string, icon?: IconName, color?: ThemeColor) => {
+        const realm = createRealmFromParams(name, icon, color)
+        if (win && !win.isDestroyed()) {
+            win.webContents.send('realm-created', realm)
+        }
+        return realm
+    })
+
+    ipcMain.handle('update-realm', (_, realmId: string, updates: { name?: string; icon?: IconName; color?: ThemeColor }) => {
+        const realm = updateRealm(realmId, updates)
+        if (realm && win && !win.isDestroyed()) {
+            win.webContents.send('realm-updated', realm)
+        }
+        return realm
+    })
+
+    ipcMain.handle('delete-realm', (_, realmId: string) => {
+        const success = deleteRealm(realmId)
+        if (success && win && !win.isDestroyed()) {
+            win.webContents.send('realm-deleted', { realmId })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('reorder-realms', (_, realmIds: string[]) => {
+        const success = reorderRealms(realmIds)
+        if (success && win && !win.isDestroyed()) {
+            win.webContents.send('realms-reordered', { realmIds })
+        }
+        return { success }
+    })
+
+    // ============================================
+    // Dock Management
+    // ============================================
+
+    ipcMain.handle('get-docks', (_, realmId?: string) => {
+        return getDocks(realmId)
+    })
+
+    ipcMain.handle('get-dock', (_, dockId: string) => {
+        return getDock(dockId)
+    })
+
+    ipcMain.handle('create-dock', (_, name: string, realmId: string, icon?: IconName, color?: ThemeColor) => {
+        const dock = createDockFromParams(name, realmId, icon, color)
+        if (dock && win && !win.isDestroyed()) {
+            win.webContents.send('dock-created', dock)
+        }
+        return dock
+    })
+
+    ipcMain.handle('update-dock', (_, dockId: string, updates: { name?: string; icon?: IconName; color?: ThemeColor; isCollapsed?: boolean }) => {
+        const dock = updateDock(dockId, updates)
+        if (dock && win && !win.isDestroyed()) {
+            win.webContents.send('dock-updated', dock)
+        }
+        return dock
+    })
+
+    ipcMain.handle('toggle-dock-collapse', (_, dockId: string) => {
+        const dock = toggleDockCollapse(dockId)
+        if (dock && win && !win.isDestroyed()) {
+            win.webContents.send('dock-updated', dock)
+        }
+        return dock
+    })
+
+    ipcMain.handle('delete-dock', (_, dockId: string) => {
+        const success = deleteDock(dockId)
+        if (success && win && !win.isDestroyed()) {
+            win.webContents.send('dock-deleted', { dockId })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('reorder-docks', (_, realmId: string, dockIds: string[]) => {
+        const success = reorderDocks(realmId, dockIds)
+        if (success && win && !win.isDestroyed()) {
+            win.webContents.send('docks-reordered', { realmId, dockIds })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('move-dock-to-realm', (_, dockId: string, newRealmId: string) => {
+        const success = moveDockToRealm(dockId, newRealmId)
+        if (success && win && !win.isDestroyed()) {
+            win.webContents.send('dock-moved', { dockId, newRealmId })
+        }
+        return { success }
+    })
+
+    // ============================================
+    // Tab Organization
+    // ============================================
+
+    ipcMain.handle('get-tab-organization', (_, tabId: string) => {
+        return getTabOrganization(tabId)
+    })
+
+    ipcMain.handle('get-all-tab-organizations', () => {
+        return getAllTabOrganizations()
+    })
+
+    ipcMain.handle('move-tab-to-dock', (_, tabId: string, dockId: string) => {
+        const success = moveTabToDock(tabId, dockId)
+        if (success && win && !win.isDestroyed()) {
+            const org = getTabOrganization(tabId)
+            win.webContents.send('tab-organization-changed', { tabId, ...org })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('move-tab-to-loose', (_, tabId: string, realmId?: string) => {
+        const success = moveTabToLoose(tabId, realmId)
+        if (success && win && !win.isDestroyed()) {
+            const org = getTabOrganization(tabId)
+            win.webContents.send('tab-organization-changed', { tabId, ...org })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('move-tab-to-realm', (_, tabId: string, realmId: string) => {
+        const success = moveTabToRealm(tabId, realmId)
+        if (success && win && !win.isDestroyed()) {
+            const org = getTabOrganization(tabId)
+            win.webContents.send('tab-organization-changed', { tabId, ...org })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('pin-tab', (_, tabId: string) => {
+        const success = pinTab(tabId)
+        if (success && win && !win.isDestroyed()) {
+            const org = getTabOrganization(tabId)
+            win.webContents.send('tab-organization-changed', { tabId, ...org })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('unpin-tab', (_, tabId: string) => {
+        const success = unpinTab(tabId)
+        if (success && win && !win.isDestroyed()) {
+            const org = getTabOrganization(tabId)
+            win.webContents.send('tab-organization-changed', { tabId, ...org })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('reorder-tabs-in-dock', (_, dockId: string, tabIds: string[]) => {
+        const success = reorderTabsInDock(dockId, tabIds)
+        // Emit events for each reordered tab so frontend updates
+        if (success && win && !win.isDestroyed()) {
+            tabIds.forEach(tabId => {
+                const org = getTabOrganization(tabId)
+                if (org) {
+                    win!.webContents.send('tab-organization-changed', { tabId, ...org })
+                }
+            })
+        }
+        return { success }
+    })
+
+    ipcMain.handle('reorder-loose-tabs', (_, realmId: string, tabIds: string[]) => {
+        const success = reorderLooseTabs(realmId, tabIds)
+        // Emit events for each reordered tab so frontend updates
+        if (success && win && !win.isDestroyed()) {
+            tabIds.forEach(tabId => {
+                const org = getTabOrganization(tabId)
+                if (org) {
+                    win!.webContents.send('tab-organization-changed', { tabId, ...org })
+                }
+            })
+        }
+        return { success }
+    })
+
+    // ============================================
+    // Sidebar State
+    // ============================================
+
+    ipcMain.handle('get-sidebar-state', () => {
+        const state = getFullState()
+        const organizations = getAllTabOrganizations()
+
+        // Build tab info with organization data
+        const tabsWithOrg = Array.from(tabs.values()).map(tab => {
+            const org = organizations[tab.id] || {
+                realmId: state.activeRealmId,
+                dockId: null,
+                order: 0,
+                isPinned: false,
+            }
+            return {
+                id: tab.id,
+                title: tab.title,
+                url: tab.url,
+                favicon: tab.favicon,
+                isLoading: tab.isLoading,
+                realmId: org.realmId,
+                dockId: org.dockId,
+                order: org.order,
+                isPinned: org.isPinned,
+            }
+        })
+
+        return {
+            ...state,
+            tabs: tabsWithOrg,
         }
     })
 }
@@ -783,6 +1093,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
     killPythonBackend()
     closeDatabase()
+    closeStore()
 })
 
 app.on('activate', () => {
