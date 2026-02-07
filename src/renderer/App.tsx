@@ -15,7 +15,12 @@ interface Tab {
 }
 
 function App() {
-    const [isSidebarPinned, setIsSidebarPinned] = useState(false);
+    const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('sidebar-pinned') === 'true';
+        }
+        return false;
+    });
     const [isReady, setIsReady] = useState(false);
     const [tabs, setTabs] = useState<Tab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -23,12 +28,17 @@ function App() {
     const [showRealmSearch, setShowRealmSearch] = useState(false);
     const webviewRefs = useRef<Map<string, Electron.WebviewTag>>(new Map());
 
+    // Persist sidebar pinned state
+    useEffect(() => {
+        localStorage.setItem('sidebar-pinned', isSidebarPinned.toString());
+    }, [isSidebarPinned]);
+
     const activeTab = tabs.find(t => t.id === activeTabId);
     const isHomePage = activeTab?.url === 'poseidon://newtab';
     const isSettingsPage = activeTab?.url === 'poseidon://settings';
     const isInternalPage = activeTab?.url?.startsWith('poseidon://');
 
-    // Keyboard shortcut for Realm Search (Cmd+Shift+K)
+    // ... existing keyboard shortcut ...
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
@@ -150,13 +160,14 @@ function App() {
             {/* Top Navigation Bar */}
             <TopBar isSidebarPinned={isSidebarPinned} />
 
+            {/* Floating Sidebar - z-index ensures it's above webview */}
+            <Sidebar isPinned={isSidebarPinned} onPinnedChange={setIsSidebarPinned} />
+
             {/* Main Content Area */}
             <main className={cn(
                 "flex-1 relative transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
                 isSidebarPinned && "ml-[300px]" // 280px sidebar + 20px gap
             )}>
-                {/* Floating Sidebar - z-index ensures it's above webview */}
-                <Sidebar onPinnedChange={setIsSidebarPinned} />
 
                 {/* Loading state */}
                 {!isReady ? (

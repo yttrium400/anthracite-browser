@@ -46,8 +46,13 @@ import type { Realm, Dock as DockType, IconName, ThemeColor } from '../../shared
 
 interface SidebarProps {
     className?: string;
-    onPinnedChange?: (pinned: boolean) => void;
+    isPinned: boolean;
+    onPinnedChange: (pinned: boolean) => void;
 }
+
+// ... existing interfaces ...
+
+// ... existing interfaces ...
 
 interface Tab {
     id: string;
@@ -96,14 +101,8 @@ function LooseTabsDropZone({ looseTabs, activeRealmDocks, children }: LooseTabsD
     );
 }
 
-export function Sidebar({ className, onPinnedChange }: SidebarProps) {
+export function Sidebar({ className, isPinned, onPinnedChange }: SidebarProps) {
     const [isVisible, setIsVisible] = useState(false);
-    const [isPinned, setIsPinned] = useState(false);
-
-    // Sync pinned state with parent
-    useEffect(() => {
-        onPinnedChange?.(isPinned);
-    }, [isPinned, onPinnedChange]);
 
     // Ad blocker state
     const [adBlockEnabled, setAdBlockEnabled] = useState(true);
@@ -347,13 +346,16 @@ export function Sidebar({ className, onPinnedChange }: SidebarProps) {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
                 e.preventDefault();
-                setIsPinned(prev => !prev);
-                setIsVisible(prev => !prev);
+                onPinnedChange(!isPinned);
+                // Also toggle visibility if we're unpinning, or keep it visible if pinning
+                if (!isPinned) {
+                    setIsVisible(true);
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [isPinned, onPinnedChange]);
 
     // Tab actions
     const handleCreateTab = useCallback((dockId?: string) => {
@@ -954,6 +956,7 @@ export function Sidebar({ className, onPinnedChange }: SidebarProps) {
                     ref={sidebarRef}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
+                    style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                     className={cn(
                         "fixed left-3 top-3 bottom-3 w-[280px] z-50",
                         "bg-white/95 backdrop-blur-2xl",
@@ -961,7 +964,7 @@ export function Sidebar({ className, onPinnedChange }: SidebarProps) {
                         "shadow-large",
                         "flex flex-col",
                         "transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                        isVisible
+                        isPinned || isVisible
                             ? "translate-x-0 opacity-100"
                             : "-translate-x-[calc(100%+20px)] opacity-0",
                         className
@@ -987,7 +990,7 @@ export function Sidebar({ className, onPinnedChange }: SidebarProps) {
                         </div>
 
                         <button
-                            onClick={() => setIsPinned(!isPinned)}
+                            onClick={() => onPinnedChange(!isPinned)}
                             className={cn(
                                 "btn-icon h-8 w-8",
                                 isPinned && "bg-brand-muted text-brand"
@@ -1208,12 +1211,6 @@ export function Sidebar({ className, onPinnedChange }: SidebarProps) {
                                     <div className="flex items-center justify-between text-xs">
                                         <span className="text-text-secondary">Ads & Trackers blocked</span>
                                         <span className="font-medium text-text-primary">{blockedCount.toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {httpsUpgradeCount > 0 && (
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-text-secondary">HTTPS upgrades</span>
-                                        <span className="font-medium text-brand">{httpsUpgradeCount.toLocaleString()}</span>
                                     </div>
                                 )}
                             </div>
