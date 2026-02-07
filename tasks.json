@@ -858,6 +858,38 @@
                     ]
                 }
             ]
+        },
+        {
+            "id": "14",
+            "title": "Fix Sidebar Pinning Behavior",
+            "status": "pending",
+            "priority": "high",
+            "context": "Currently, pinning the sidebar makes it float over content, obscuring the left side of web pages. When pinned, it should shift the web view content area to the right so that no content is hidden, effectively resizing the browser view area.",
+            "created_at": "2024-06-15T10:00:00.000000"
+        },
+        {
+            "id": "15",
+            "title": "Instant Tab Name Updates",
+            "status": "pending",
+            "priority": "medium",
+            "context": "Tab names currently only update on new tab creation or reload. They should update instantly when navigation occurs (e.g. visiting YouTube or searching Google) to reflect the new page title.",
+            "created_at": "2024-06-15T10:05:00.000000"
+        },
+        {
+            "id": "16",
+            "title": "Fix Reload Behavior",
+            "status": "pending",
+            "priority": "medium",
+            "context": "Reloading a page currently creates a new tab instead of refreshing the current one. It should keep the user on the same tab and reload the content in-place.",
+            "created_at": "2024-06-15T10:10:00.000000"
+        },
+        {
+            "id": "17",
+            "title": "Fix Navigation Controls (Back/Forward/Swipe)",
+            "status": "pending",
+            "priority": "high",
+            "context": "The back button is inactive even when there is history to go back to. Swipe gestures (left/right) for navigation are also missing. Need to fix the back/forward button state management and implement swipe gesture handling.",
+            "created_at": "2024-06-15T10:15:00.000000"
         }
     ]
 }
