@@ -10,6 +10,14 @@ export default defineConfig({
             main: {
                 // Shortcut of `build.lib.entry`.
                 entry: 'src/main/main.ts',
+                vite: {
+                    build: {
+                        rollupOptions: {
+                            // Mark better-sqlite3 as external (native module)
+                            external: ['better-sqlite3'],
+                        },
+                    },
+                },
             },
             preload: {
                 // Shortcut of `build.rollupOptions.input`.

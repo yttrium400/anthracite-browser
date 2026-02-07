@@ -10,7 +10,10 @@ import {
     getTopSites,
     getRecentHistory,
     clearHistory,
-    closeDatabase
+    closeDatabase,
+    migrateFromJson,
+    deleteOldHistory,
+    getHistoryCount
 } from './history'
 import {
     // Realm operations
@@ -123,7 +126,23 @@ function normalizeUrl(input: string): string {
     }
 
     // Treat as search query
-    return `https://www.google.com/search?q=${encodeURIComponent(url)}`
+    const engine = settingsStore.get('defaultSearchEngine')
+    return getSearchUrl(url, engine)
+}
+
+function getSearchUrl(query: string, engine: string): string {
+    const encoded = encodeURIComponent(query)
+    switch (engine) {
+        case 'duckduckgo':
+            return `https://duckduckgo.com/?q=${encoded}`
+        case 'bing':
+            return `https://www.bing.com/search?q=${encoded}`
+        case 'brave':
+            return `https://search.brave.com/search?q=${encoded}`
+        case 'google':
+        default:
+            return `https://www.google.com/search?q=${encoded}`
+    }
 }
 
 // ============================================
@@ -158,14 +177,11 @@ function createTab(url: string = 'poseidon://newtab', options?: { realmId?: stri
     }
 
     // Enable ad-blocker on this view
-    // REMOVED: conflicting with webview session ad-blocker. 
-    // We only enable it on the actual webview session (did-attach-webview) to avoid 
-    // "Attempted to register a second handler" crash in electron-ad-blocker.
-    /*
+    // Enable ad-blocker on this view if enabled in settings
     if (blocker && adBlockEnabled) {
+        // We need to enable it on the session
         safeEnableBlocking(view.webContents.session)
     }
-    */
 
     const tab: Tab = {
         id,
@@ -404,12 +420,10 @@ async function initAdBlocker(): Promise<void> {
         })
 
         // Enable on default session
-        // REMOVED: conflicting with webview session. We prioritizing the webview session.
-        /*
+        // Enable on default session if enabled
         if (adBlockEnabled) {
             safeEnableBlocking(session.defaultSession)
         }
-        */
 
         console.log('Ad blocker initialized')
     } catch (error) {
@@ -622,7 +636,9 @@ function setupIPC(): void {
     ipcMain.handle('set-setting', (_, key: keyof AppSettings, value: any) => {
         const settings = settingsStore.set(key, value)
         // Notify renderer of settings change
-        mainWindow?.webContents.send('settings-changed', { key, value, settings })
+        if (win && !win.isDestroyed()) {
+            win.webContents.send('settings-changed', { key, value, settings })
+        }
 
         // Apply setting immediately if it affects the main process
         if (key === 'adBlockerEnabled') {
@@ -634,7 +650,9 @@ function setupIPC(): void {
 
     ipcMain.handle('update-settings', (_, updates: Partial<AppSettings>) => {
         const settings = settingsStore.update(updates)
-        mainWindow?.webContents.send('settings-changed', { settings })
+        if (win && !win.isDestroyed()) {
+            win.webContents.send('settings-changed', { settings })
+        }
 
         // Apply ad blocker setting if included
         if ('adBlockerEnabled' in updates) {
@@ -646,7 +664,9 @@ function setupIPC(): void {
 
     ipcMain.handle('reset-settings', () => {
         const settings = settingsStore.reset()
-        mainWindow?.webContents.send('settings-changed', { settings })
+        if (win && !win.isDestroyed()) {
+            win.webContents.send('settings-changed', { settings })
+        }
         toggleAdBlocker(settings.adBlockerEnabled)
         return settings
     })
@@ -1146,6 +1166,10 @@ app.on('activate', () => {
 
 app.whenReady().then(async () => {
     setupIPC()
+
+    // Migrate history from JSON to SQLite (one-time)
+    migrateFromJson()
+
     await initAdBlocker()
     startPythonBackend()
     createWindow()

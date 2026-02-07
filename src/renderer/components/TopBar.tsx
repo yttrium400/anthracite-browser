@@ -297,23 +297,8 @@ export function TopBar({ className }: TopBarProps) {
 
             const input = inputValue.trim();
 
-            // Check if it looks like a URL (has protocol or looks like domain.tld)
-            const hasProtocol = input.startsWith('http://') || input.startsWith('https://');
-            const looksLikeUrl = /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(input);
-
-            let navigateUrl: string;
-            if (hasProtocol) {
-                // Already has protocol - use as-is
-                navigateUrl = input;
-            } else if (looksLikeUrl) {
-                // Looks like a domain (e.g., "youtube.com", "github.io") - add https
-                navigateUrl = `https://${input}`;
-            } else {
-                // Everything else is a search query
-                navigateUrl = `https://www.google.com/search?q=${encodeURIComponent(input)}`;
-            }
-
-            window.electron.navigation.navigate(navigateUrl);
+            // Send raw input to main process - let it handle normalization and search engine selection
+            window.electron.navigation.navigate(input);
             setIsEditing(false);
             inputRef.current?.blur();
         }
@@ -327,10 +312,9 @@ export function TopBar({ className }: TopBarProps) {
             setInputValue(suggestion.url);
             window.electron?.navigation.navigate(suggestion.url);
         } else {
-            // Search suggestion - always perform Google search
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(suggestion.title)}`;
+            // Search suggestion - let main process handle the search
             setInputValue(suggestion.title);
-            window.electron?.navigation.navigate(searchUrl);
+            window.electron?.navigation.navigate(suggestion.title);
         }
 
         setIsEditing(false);
