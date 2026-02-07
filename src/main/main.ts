@@ -76,6 +76,7 @@ let blocker: ElectronBlocker | null = null
 let blockedCount = 0
 let httpsUpgradeCount = 0
 let adBlockEnabled = true
+let httpsUpgradeEnabled = true
 
 // Tab management
 const tabs: Map<string, Tab> = new Map()
@@ -399,9 +400,50 @@ function safeEnableBlocking(sess: Electron.Session) {
     blocker.enableBlockingInSession(sess)
 }
 
+const isLocal = (url: string) => {
+    return url.includes('localhost') || url.includes('127.0.0.1') || url.startsWith('file:') || url.startsWith('poseidon:')
+}
+
+function setupRequestInterceptor(sess: Electron.Session): void {
+    // We attach a single listener that handles both HTTPS Upgrade and Ad Blocking
+    // because Electron only allows one listener per event type.
+
+    // First, remove any existing listener to prevent duplicates
+    sess.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+        // console.log('[Interceptor] Request:', details.url, 'HTTPS Upgrade Enabled:', httpsUpgradeEnabled)
+
+        // 1. HTTPS Upgrade
+        if (httpsUpgradeEnabled && details.url.startsWith('http://') && !isLocal(details.url)) {
+            const httpsUrl = details.url.replace('http:', 'https:')
+            console.log('[HTTPS Upgrade] Upgrading:', details.url, '->', httpsUrl)
+            return callback({ redirectURL: httpsUrl })
+        }
+
+        // 2. Ad Blocking
+        if (adBlockEnabled && blocker) {
+            // Delegate to ad blocker, but spy on the result
+            return blocker.onBeforeRequest(details, (response) => {
+                if (response && response.redirectURL &&
+                    details.url.startsWith('http://') &&
+                    response.redirectURL.startsWith('https://')) {
+                    console.log('[AdBlocker] Upgrading request:', details.url, '->', response.redirectURL)
+                }
+                callback(response)
+            })
+        }
+
+        // 3. Default (Allow)
+        callback({})
+    })
+}
+
+
 async function initAdBlocker(): Promise<void> {
     try {
         console.log('Initializing ad blocker...')
+
+        // Initialize HTTPS upgrade setting
+        httpsUpgradeEnabled = settingsStore.get('httpsUpgradeEnabled')
 
         blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch)
 
@@ -419,11 +461,13 @@ async function initAdBlocker(): Promise<void> {
             }
         })
 
-        // Enable on default session
         // Enable on default session if enabled
         if (adBlockEnabled) {
             safeEnableBlocking(session.defaultSession)
         }
+
+        // Always setup interceptor (handles HTTPS upgrade even if ad block is off)
+        setupRequestInterceptor(session.defaultSession)
 
         console.log('Ad blocker initialized')
     } catch (error) {
@@ -436,8 +480,6 @@ function toggleAdBlocker(enabled: boolean): void {
     console.log('[AdBlock] Toggling ad blocker:', enabled)
 
     if (blocker) {
-        // Since all tabs use the default session (no partition specified in BrowserView),
-        // we can just toggle it on defaultSession.
         const sess = session.defaultSession
 
         if (enabled) {
@@ -449,7 +491,6 @@ function toggleAdBlocker(enabled: boolean): void {
             console.log('[AdBlock] Disabling blocking on default session')
             if (blocker.isBlockingEnabled(sess)) {
                 // Polyfill unregisterPreloadScript if missing (Electron 28+ removed it)
-                // This prevents the adblocker library from crashing when trying to remove its script
                 // @ts-ignore
                 if (typeof sess.unregisterPreloadScript !== 'function') {
                     // @ts-ignore
@@ -462,16 +503,23 @@ function toggleAdBlocker(enabled: boolean): void {
                     console.error('[AdBlock] Error disabling blocking:', e)
                 }
             }
-            // Force disable in case isBlockingEnabled is not tracking correctly
-            // This explicitly unregisters the network listener if possible, 
-            // but disableBlockingInSession should handle it.
         }
+
+        // Re-apply our interceptor to ensure HTTPS upgrade persists or AdBlock is hooked up
+        // (disableBlockingInSession removes the listener, so we MUST re-add ours)
+        setupRequestInterceptor(sess)
     }
+}
+
+function toggleHttpsUpgrade(enabled: boolean): void {
+    httpsUpgradeEnabled = enabled
+    console.log('[HTTPS Upgrade] Toggling:', enabled)
+    // Re-apply interceptor to update logic
+    setupRequestInterceptor(session.defaultSession)
 }
 
 // ============================================
 // IPC Handlers
-// ============================================
 
 function setupIPC(): void {
     // Tab management
@@ -636,6 +684,14 @@ function setupIPC(): void {
 
     ipcMain.handle('set-setting', (_, key: keyof AppSettings, value: any) => {
         const settings = settingsStore.set(key, value)
+
+        // Handle side effects
+        if (key === 'adBlockerEnabled') {
+            toggleAdBlocker(value)
+        } else if (key === 'httpsUpgradeEnabled') {
+            toggleHttpsUpgrade(value)
+        }
+
         // Notify renderer of settings change
         if (win && !win.isDestroyed()) {
             win.webContents.send('settings-changed', { key, value, settings })
