@@ -106,11 +106,10 @@ async def run_agent_task_logic(instruction: str, cdp_url: str = "http://127.0.0.
     await _switch_to_agent_tab(browser_session, target_id)
 
     agent = Agent(
-        task=instruction,
+        task=instruction + "\n\nIMPORTANT: As soon as the task is complete, immediately call the done action with a summary. Do not continue browsing or repeat actions.",
         llm=ChatOpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY")),
         browser_session=browser_session,
         use_vision='auto',
-        max_steps=15,
     )
 
     result = await agent.run()

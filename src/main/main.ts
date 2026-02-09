@@ -211,7 +211,6 @@ function createTab(url: string = 'poseidon://newtab', options?: { realmId?: stri
 
     // Main navigation event - fires for full page loads
     view.webContents.on('did-navigate', (_, url) => {
-        console.log('[Nav] did-navigate:', url)
         // Don't overwrite poseidon:// URL when BrowserView loads about:blank for CDP
         if (!(tab as any)._isInternalPage || !url.startsWith('about:')) {
             tab.url = url
@@ -222,7 +221,6 @@ function createTab(url: string = 'poseidon://newtab', options?: { realmId?: stri
 
     // In-page navigation (hash changes, pushState)
     view.webContents.on('did-navigate-in-page', (_, url) => {
-        console.log('[Nav] did-navigate-in-page:', url)
         if (!(tab as any)._isInternalPage || !url.startsWith('about:')) {
             tab.url = url
             sendTabUpdate(tab)
@@ -233,7 +231,6 @@ function createTab(url: string = 'poseidon://newtab', options?: { realmId?: stri
     // Frame navigation - catches navigations in sub-frames
     view.webContents.on('did-frame-navigate', (_, url, httpResponseCode, httpStatusText, isMainFrame) => {
         if (isMainFrame) {
-            console.log('[Nav] did-frame-navigate (main):', url)
             // Don't overwrite poseidon:// URL when BrowserView loads about:blank for CDP
             if (!(tab as any)._isInternalPage || !url.startsWith('about:')) {
                 ;(tab as any)._isInternalPage = false
@@ -247,7 +244,6 @@ function createTab(url: string = 'poseidon://newtab', options?: { realmId?: stri
     // Also update URL after page finishes loading (fallback)
     view.webContents.on('did-finish-load', () => {
         const currentUrl = view.webContents.getURL()
-        console.log('[Nav] did-finish-load, URL:', currentUrl)
         // Don't overwrite poseidon:// URL when BrowserView loads about:blank for CDP
         if (currentUrl && currentUrl !== tab.url && !((tab as any)._isInternalPage && currentUrl.startsWith('about:'))) {
             tab.url = currentUrl
@@ -434,7 +430,6 @@ function safeEnableBlocking(sess: Electron.Session) {
     if (!sess.registerPreloadScript) {
         // @ts-ignore
         sess.registerPreloadScript = (_: any) => {
-            console.log('Shimmed registerPreloadScript - cosmetic filtering limited')
             return () => { }
         }
     }
@@ -457,7 +452,6 @@ function setupRequestInterceptor(sess: Electron.Session): void {
         // 1. HTTPS Upgrade
         if (httpsUpgradeEnabled && details.url.startsWith('http://') && !isLocal(details.url)) {
             const httpsUrl = details.url.replace('http:', 'https:')
-            console.log('[HTTPS Upgrade] Upgrading:', details.url, '->', httpsUrl)
             return callback({ redirectURL: httpsUrl })
         }
 
@@ -465,11 +459,6 @@ function setupRequestInterceptor(sess: Electron.Session): void {
         if (adBlockEnabled && blocker) {
             // Delegate to ad blocker, but spy on the result
             return blocker.onBeforeRequest(details, (response) => {
-                if (response && response.redirectURL &&
-                    details.url.startsWith('http://') &&
-                    response.redirectURL.startsWith('https://')) {
-                    console.log('[AdBlocker] Upgrading request:', details.url, '->', response.redirectURL)
-                }
                 callback(response)
             })
         }
@@ -482,11 +471,7 @@ function setupRequestInterceptor(sess: Electron.Session): void {
 
 async function initAdBlocker(): Promise<void> {
     try {
-        console.log('Initializing ad blocker...')
-
-        // Initialize HTTPS upgrade setting
         httpsUpgradeEnabled = settingsStore.get('httpsUpgradeEnabled')
-
         blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch)
 
         blocker.on('request-blocked', (request) => {
@@ -511,7 +496,6 @@ async function initAdBlocker(): Promise<void> {
         // Always setup interceptor (handles HTTPS upgrade even if ad block is off)
         setupRequestInterceptor(session.defaultSession)
 
-        console.log('Ad blocker initialized')
     } catch (error) {
         console.error('Failed to initialize ad blocker:', error)
     }
@@ -519,18 +503,15 @@ async function initAdBlocker(): Promise<void> {
 
 function toggleAdBlocker(enabled: boolean): void {
     adBlockEnabled = enabled
-    console.log('[AdBlock] Toggling ad blocker:', enabled)
 
     if (blocker) {
         const sess = session.defaultSession
 
         if (enabled) {
             if (!blocker.isBlockingEnabled(sess)) {
-                console.log('[AdBlock] Enabling blocking on default session')
                 safeEnableBlocking(sess)
             }
         } else {
-            console.log('[AdBlock] Disabling blocking on default session')
             if (blocker.isBlockingEnabled(sess)) {
                 // Polyfill unregisterPreloadScript if missing (Electron 28+ removed it)
                 // @ts-ignore
@@ -555,8 +536,6 @@ function toggleAdBlocker(enabled: boolean): void {
 
 function toggleHttpsUpgrade(enabled: boolean): void {
     httpsUpgradeEnabled = enabled
-    console.log('[HTTPS Upgrade] Toggling:', enabled)
-    // Re-apply interceptor to update logic
     setupRequestInterceptor(session.defaultSession)
 }
 
@@ -1224,18 +1203,12 @@ function createWindow(): void {
 
     // Enable ad-blocking on webview tags when they are attached
     win.webContents.on('did-attach-webview', (_, webContents) => {
-        console.log('Webview attached, enabling ad-blocker...')
-
         // Enable ad-blocker on this webview's session
         if (blocker && adBlockEnabled && !blocker.isBlockingEnabled(webContents.session)) {
             try {
                 safeEnableBlocking(webContents.session)
-                console.log('Ad-blocker enabled for webview')
             } catch (err) {
                 console.error('Failed to enable ad-blocker for webview session:', err)
-                // Fallback: Ensure network filters are applied even if IPC registration failed
-                // checks if listeners are missing and adds them manually if needed could go here
-                // but restricting to single session usually solves the root cause.
             }
         }
 
@@ -1252,7 +1225,6 @@ function createWindow(): void {
                 if (!isLocal && adBlockEnabled) {
                     const httpsUrl = details.url.replace('http://', 'https://')
                     httpsUpgradeCount++
-                    console.log(`HTTPS Upgrade: ${details.url} -> ${httpsUrl}`)
 
                     // Notify renderer of the upgrade
                     if (win && !win.isDestroyed()) {
@@ -1287,7 +1259,6 @@ function createWindow(): void {
                 const { match } = blocker.match(request)
 
                 if (match) {
-                    console.log(`Blocked popup (ad): ${url}`)
                     blockedCount++
                     if (win && !win.isDestroyed()) {
                         win.webContents.send('ad-blocked', { count: blockedCount, url })
@@ -1301,9 +1272,6 @@ function createWindow(): void {
             const isStreamingSite = /footybite|totalsportek|soccerstreams/i.test(currentUrl)
 
             if (isStreamingSite) {
-                // Block all popups on streaming sites unless explicit whitelist logic (which is hard to determine)
-                // Brave/uBlock often default to denying all popups on these sites
-                console.log(`Blocked popup (streaming site): ${url}`)
                 blockedCount++
                 if (win && !win.isDestroyed()) {
                     win.webContents.send('ad-blocked', { count: blockedCount, url })
@@ -1334,7 +1302,8 @@ function startPythonBackend(): void {
         '-m', 'uvicorn', 'backend.server:app',
         '--host', '127.0.0.1',
         '--port', '8000',
-        '--reload'
+        '--reload',
+        '--log-level', 'warning'
     ], {
         cwd: path.join(__dirname, '../'),
         stdio: 'inherit'
