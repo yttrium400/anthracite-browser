@@ -886,60 +886,60 @@
         {
             "id": "17",
             "title": "Fix Navigation Controls (Back/Forward/Swipe)",
-            "status": "pending",
+            "status": "completed",
             "priority": "high",
-            "context": "The back button is inactive even when there is history to go back to. Swipe gestures (left/right) for navigation are also missing. Need to fix the back/forward button state management and implement swipe gesture handling.",
+            "context": "Fixed: (1) Removed duplicate nav buttons from outside URL bar (kept inline ones). (2) tabsWithWebview now populated from all web navigations (not just URL bar), ensuring canGoBack fallback works for link-navigated tabs. (3) Added two-finger trackpad swipe gesture support (horizontal wheel events) for back/forward navigation. (4) Cleaned up verbose console.logs from TopBar, App, and main process.",
             "created_at": "2024-06-15T10:15:00.000000"
         },
         {
             "id": "18",
             "title": "Phase 1: Agent Runs Inside Poseidon (CDP Integration)",
-            "status": "in-progress",
+            "status": "completed",
             "priority": "high",
-            "context": "Connect browser-use agent to Poseidon's own Electron browser via CDP instead of launching a separate Chrome window. Agent operates inside a Poseidon tab, visible to the user.",
+            "context": "Agent runs inside Poseidon tabs via CDP (--remote-debugging-port=9222). BrowserViews attached off-screen for rendering surface. Screenshots optimized with JPEG+optimizeForSpeed. Navigation guards preserve poseidon:// URLs. Off-screen BrowserView audio muted. Agent prompted to call done action on completion.",
             "created_at": "2026-02-09T10:00:00.000000",
             "subtasks": [
                 {
                     "id": "18.1",
                     "title": "Enable CDP remote debugging on Electron",
                     "status": "completed",
-                    "context": "Add --remote-debugging-port=9222 to Electron's app launch args in main.ts. Verify CDP endpoint is accessible at http://127.0.0.1:9222."
+                    "context": "--remote-debugging-port=9222 in main.ts app launch args."
                 },
                 {
                     "id": "18.2",
                     "title": "Add IPC handler to create an agent tab and return its target info",
                     "status": "completed",
-                    "context": "New IPC channel 'create-agent-tab' that creates a BrowserView tab, navigates to about:blank, and returns {tabId, targetId} to the renderer. The targetId comes from view.webContents (needed for CDP targeting)."
+                    "context": "IPC 'create-agent-tab' with before/after CDP /json target diffing to identify exact new target ID."
                 },
                 {
                     "id": "18.3",
                     "title": "Add backend endpoint to accept CDP URL + target info",
                     "status": "completed",
-                    "context": "Update /agent/run endpoint to accept cdp_url and target_id params. Create BrowserSession(cdp_url=..., keep_alive=True) and pass to Agent."
+                    "context": "/agent/run accepts cdp_url and target_id. BrowserSession(cdp_url=..., keep_alive=True)."
                 },
                 {
                     "id": "18.4",
                     "title": "Update frontend agent flow: create tab first, then call backend with CDP info",
                     "status": "completed",
-                    "context": "When user triggers agent task: (1) call IPC create-agent-tab, (2) switch to that tab, (3) POST to /agent/run with instruction + cdp_url + target_id. Show agent working live in the tab."
+                    "context": "TopBar handleRunAgent: create-agent-tab IPC → POST /agent/run with cdp_url + target_id."
                 },
                 {
                     "id": "18.5",
                     "title": "Keep tab alive after agent completes (keep_alive=True)",
                     "status": "completed",
-                    "context": "Ensure BrowserSession uses keep_alive=True so the tab persists. User can continue browsing or give another command from the same tab."
+                    "context": "BrowserSession keep_alive=True. Tab persists for continued browsing."
                 },
                 {
                     "id": "18.6",
                     "title": "Test end-to-end: agent task runs visibly inside Poseidon tab",
-                    "status": "in-progress",
-                    "context": "Verify: give agent a task like 'search for cats on google', watch it execute inside a Poseidon tab, tab stays alive after completion, URL bar updates, tab title updates. Known issues: (1) home tab goes blank when agent starts - nav event guards need verification, (2) screenshot via CDP hangs because BrowserView has no rendering surface (workaround: use_vision='auto' + 5s timeout fallback)."
+                    "status": "completed",
+                    "context": "Verified: agent opens YouTube, searches, clicks video, plays it — all inside Poseidon tab. Home tab preserved. Audio muted on off-screen BrowserView."
                 },
                 {
                     "id": "18.7",
-                    "title": "Fix CDP screenshots: BrowserView has no rendering surface",
-                    "status": "pending",
-                    "context": "ROOT CAUSE: Poseidon uses a dual rendering architecture - BrowserView (main process, state tracking) + <webview> tag (renderer, actual display). CDP targets correspond to BrowserView webContents, which are NOT attached to any visible window via addBrowserView(). This means Page.captureScreenshot hangs indefinitely because there's no rendered frame to capture. CURRENT WORKAROUND: use_vision='auto' so agent only requests screenshots when explicitly needed, plus 5s timeout fallback that returns None. FIX OPTIONS: (A) Attach BrowserViews to the window off-screen so they render (simplest but may have perf impact), (B) Route screenshot requests through Electron's webContents.capturePage() IPC instead of CDP (requires HTTP endpoint or IPC bridge from Python), (C) Capture from the <webview> webContents instead of BrowserView (need to map between the two), (D) Use Electron's desktopCapturer API to grab the visible window region. Option B is likely the cleanest production approach."
+                    "title": "Fix CDP rendering surface for DOM extraction and screenshots",
+                    "status": "completed",
+                    "context": "BrowserViews attached to window off-screen (y:-10000) via addBrowserView(). This gives CDP a rendering surface for DOM extraction, screenshots, and AX tree on JS-heavy sites. Audio muted on off-screen views. Screenshots patched to JPEG quality=40 optimizeForSpeed."
                 }
             ]
         },

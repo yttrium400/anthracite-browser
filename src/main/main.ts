@@ -61,6 +61,23 @@ import type { ThemeColor, IconName } from '../shared/types'
 // Types
 // ============================================
 
+// Add web-contents-created handler to capture swipe gestures from webviews
+app.on('web-contents-created', (_event, contents) => {
+    // We only care about guest webcontents (webviews), but checking type won't hurt
+    // This allows us to detect the "finger lift" (gestureScrollEnd) which is not available via wheel events
+    contents.on('input-event', (_event, input) => {
+        if (input.type === 'gestureScrollBegin') {
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('scroll-touch-begin')
+            }
+        } else if (input.type === 'gestureScrollEnd' || input.type === 'gestureFlingStart') {
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('scroll-touch-end')
+            }
+        }
+    })
+})
+
 interface Tab {
     id: string
     view: BrowserView
@@ -233,7 +250,7 @@ function createTab(url: string = 'poseidon://newtab', options?: { realmId?: stri
         if (isMainFrame) {
             // Don't overwrite poseidon:// URL when BrowserView loads about:blank for CDP
             if (!(tab as any)._isInternalPage || !url.startsWith('about:')) {
-                ;(tab as any)._isInternalPage = false
+                ; (tab as any)._isInternalPage = false
                 tab.url = url
                 sendTabUpdate(tab)
                 addHistoryEntry(url, tab.title, tab.favicon)
@@ -294,7 +311,7 @@ function createTab(url: string = 'poseidon://newtab', options?: { realmId?: stri
     // (required for CDP's Runtime.runIfWaitingForDebugger to not hang).
     if (url === 'poseidon://newtab' || url === 'poseidon://settings') {
         // Mark as internal so nav events don't overwrite the poseidon:// URL
-        ;(tab as any)._isInternalPage = true
+        ; (tab as any)._isInternalPage = true
         view.webContents.loadURL('about:blank')
     } else {
         view.webContents.loadURL(normalizeUrl(url))
@@ -329,7 +346,7 @@ function closeTab(tabId: string): void {
     if (win && !win.isDestroyed()) {
         win.removeBrowserView(tab.view)
     }
-    ;(tab.view.webContents as any).destroy()
+    ; (tab.view.webContents as any).destroy()
     tabs.delete(tabId)
 
     // If this was the active tab, switch to another
@@ -732,6 +749,10 @@ function setupIPC(): void {
         }
     })
 
+    ipcMain.handle('get-webview-preload-path', () => {
+        return path.join(__dirname, 'webview-preload.js')
+    })
+
     // Settings
     ipcMain.handle('get-settings', () => {
         return settingsStore.getAll()
@@ -1091,6 +1112,28 @@ function createWindow(): void {
     // Show when ready to prevent flash
     win.once('ready-to-show', () => {
         win?.show()
+    })
+
+    // macOS native swipe gesture for back/forward navigation
+    // Fires on finger lift after a two/three-finger swipe (based on System Preferences)
+    win.on('swipe', (_event, direction) => {
+        if (!win || win.isDestroyed()) return
+        win.webContents.send('swipe-navigate', direction)
+    })
+
+    // macOS trackpad scroll phase detection on ALL webContents (including webview guests).
+    // scroll-touch-begin/end are macOS-only webContents events that fire when fingers
+    // touch/leave the trackpad — the same signal browsers use to distinguish direct
+    // manipulation from momentum/inertia scrolling.
+    app.on('web-contents-created', (_event, contents) => {
+        ; (contents as any).on('scroll-touch-begin', () => {
+            if (!win || win.isDestroyed()) return
+            win.webContents.send('scroll-touch-begin')
+        })
+            ; (contents as any).on('scroll-touch-end', () => {
+                if (!win || win.isDestroyed()) return
+                win.webContents.send('scroll-touch-end')
+            })
     })
 
     // Set up custom menu to prevent Cmd+R from reloading the main window

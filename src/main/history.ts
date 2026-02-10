@@ -33,7 +33,6 @@ function getDatabase(): Database.Database {
 
     const userDataPath = app.getPath('userData')
     const dbPath = path.join(userDataPath, 'history.db')
-    console.log('History database path:', dbPath)
 
     db = new Database(dbPath)
 
@@ -65,7 +64,6 @@ function getDatabase(): Database.Database {
         CREATE INDEX IF NOT EXISTS idx_history_last_visited ON history(last_visited DESC);
     `)
 
-    console.log('History database initialized')
     return db
 }
 
@@ -244,7 +242,6 @@ export function clearHistory(): void {
 
     try {
         stmtClear!.run()
-        console.log('History cleared')
     } catch (err) {
         console.error('Failed to clear history:', err)
     }
@@ -264,7 +261,6 @@ export function deleteOldHistory(retentionDays: number): number {
             DELETE FROM history WHERE last_visited < ?
         `).run(cutoffTime)
 
-        console.log(`Deleted ${result.changes} old history entries`)
         return result.changes
     } catch (err) {
         console.error('Failed to delete old history:', err)
@@ -302,7 +298,6 @@ export function closeDatabase(): void {
         stmtTopSites = null
         stmtRecent = null
         stmtClear = null
-        console.log('History database closed')
     }
 }
 
@@ -315,7 +310,6 @@ export function migrateFromJson(): void {
     const jsonPath = path.join(userDataPath, 'browsing-history.json')
 
     if (!fs.existsSync(jsonPath)) {
-        console.log('No JSON history file to migrate')
         return
     }
 
@@ -324,7 +318,6 @@ export function migrateFromJson(): void {
         const jsonHistory = JSON.parse(data) as { entries: any[], nextId: number }
 
         if (!jsonHistory.entries || jsonHistory.entries.length === 0) {
-            console.log('No entries to migrate')
             return
         }
 
@@ -347,11 +340,9 @@ export function migrateFromJson(): void {
         })
 
         insertMany(jsonHistory.entries)
-        console.log(`Migrated ${jsonHistory.entries.length} history entries from JSON to SQLite`)
 
         // Rename old file to indicate migration completed
         fs.renameSync(jsonPath, jsonPath + '.migrated')
-        console.log('JSON history file renamed to .migrated')
     } catch (err) {
         console.error('Failed to migrate JSON history:', err)
     }

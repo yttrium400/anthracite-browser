@@ -85,6 +85,21 @@ contextBridge.exposeInMainWorld('electron', {
             ipcRenderer.on('navigate-to-url', subscription)
             return () => ipcRenderer.removeListener('navigate-to-url', subscription)
         },
+        onSwipe: (callback: (direction: string) => void) => {
+            const subscription = (_event: any, direction: string) => callback(direction)
+            ipcRenderer.on('swipe-navigate', subscription)
+            return () => ipcRenderer.removeListener('swipe-navigate', subscription)
+        },
+        onScrollTouchBegin: (callback: () => void) => {
+            const subscription = () => callback()
+            ipcRenderer.on('scroll-touch-begin', subscription)
+            return () => ipcRenderer.removeListener('scroll-touch-begin', subscription)
+        },
+        onScrollTouchEnd: (callback: () => void) => {
+            const subscription = () => callback()
+            ipcRenderer.on('scroll-touch-end', subscription)
+            return () => ipcRenderer.removeListener('scroll-touch-end', subscription)
+        },
     },
 
     // Ad Blocker
@@ -109,6 +124,9 @@ contextBridge.exposeInMainWorld('electron', {
         },
         getPreloadPath: () => ipcRenderer.invoke('get-adblock-preload-path'),
     },
+
+    // Webview preload
+    getWebviewPreloadPath: () => ipcRenderer.invoke('get-webview-preload-path'),
 
     // Settings
     settings: {
@@ -302,6 +320,9 @@ declare global {
                 stop: () => Promise<{ success: boolean }>
                 onReloadActiveTab: (callback: () => void) => () => void
                 onNavigateToUrl: (callback: (data: { tabId: string; url: string }) => void) => () => void
+                onSwipe: (callback: (direction: string) => void) => () => void
+                onScrollTouchBegin: (callback: () => void) => () => void
+                onScrollTouchEnd: (callback: () => void) => () => void
             }
             adBlock: {
                 toggle: (enabled: boolean) => Promise<{ enabled: boolean }>
@@ -329,6 +350,7 @@ declare global {
                 recent: (limit?: number) => Promise<HistoryEntry[]>
                 clear: () => Promise<{ success: boolean }>
             }
+            getWebviewPreloadPath: () => Promise<string>
             searchSuggestions: (query: string) => Promise<string[]>
             realms: {
                 getAll: () => Promise<Realm[]>

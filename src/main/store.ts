@@ -58,7 +58,6 @@ function getStorePath(): string {
     if (!storePath) {
         const userDataPath = app.getPath('userData')
         storePath = path.join(userDataPath, STORE_FILE)
-        console.log('[Store] Path:', storePath)
     }
     return storePath
 }
@@ -95,7 +94,6 @@ function loadStore(): StoreData {
         console.error('[Store] Failed to load:', error)
     }
 
-    console.log('[Store] Creating default data')
     return createDefaultData()
 }
 
@@ -130,7 +128,6 @@ function saveStoreSync(): void {
         fs.writeFileSync(tempPath, JSON.stringify(storeData, null, 2))
         fs.renameSync(tempPath, filePath)
 
-        console.log('[Store] Saved')
     } catch (error) {
         console.error('[Store] Failed to save:', error)
     }
@@ -179,7 +176,7 @@ export function createRealmFromParams(
     storeData!.realms.push(realm)
     saveStoreDebounced()
 
-    console.log('[Store] Created realm:', realm.name)
+
     return realm
 }
 
@@ -198,7 +195,6 @@ export function updateRealm(
     realm.updatedAt = Date.now()
 
     saveStoreDebounced()
-    console.log('[Store] Updated realm:', realm.name)
     return realm
 }
 
@@ -212,13 +208,11 @@ export function deleteRealm(realmId: string): boolean {
 
     // Prevent deleting the default realm
     if (realm.isDefault) {
-        console.log('[Store] Cannot delete default realm')
         return false
     }
 
     // Prevent deleting last realm
     if (storeData!.realms.length <= 1) {
-        console.log('[Store] Cannot delete last realm')
         return false
     }
 
@@ -244,7 +238,6 @@ export function deleteRealm(realmId: string): boolean {
     storeData!.realms.splice(realmIndex, 1)
 
     saveStoreDebounced()
-    console.log('[Store] Deleted realm:', realm.name)
     return true
 }
 
@@ -299,7 +292,6 @@ export function createDockFromParams(
 
     // Verify realm exists
     if (!storeData!.realms.find(r => r.id === realmId)) {
-        console.log('[Store] Cannot create dock: realm not found')
         return null
     }
 
@@ -311,7 +303,6 @@ export function createDockFromParams(
     storeData!.docks.push(dock)
     saveStoreDebounced()
 
-    console.log('[Store] Created dock:', dock.name)
     return dock
 }
 
@@ -331,7 +322,6 @@ export function updateDock(
     dock.updatedAt = Date.now()
 
     saveStoreDebounced()
-    console.log('[Store] Updated dock:', dock.name)
     return dock
 }
 
@@ -368,7 +358,6 @@ export function deleteDock(dockId: string): boolean {
     storeData!.docks.splice(dockIndex, 1)
 
     saveStoreDebounced()
-    console.log('[Store] Deleted dock:', dock.name)
     return true
 }
 
@@ -422,7 +411,6 @@ export function moveDockToRealm(dockId: string, newRealmId: string): boolean {
     dock.updatedAt = Date.now()
 
     saveStoreDebounced()
-    console.log('[Store] Moved dock to realm:', dock.name, '->', newRealm.name)
     return true
 }
 
@@ -647,12 +635,10 @@ export function closeStore(): void {
         clearTimeout(saveTimeout)
     }
     saveStoreSync()
-    console.log('[Store] Closed')
 }
 
 // For testing/debugging
 export function resetStore(): void {
     storeData = createDefaultData()
     saveStoreSync()
-    console.log('[Store] Reset to defaults')
 }

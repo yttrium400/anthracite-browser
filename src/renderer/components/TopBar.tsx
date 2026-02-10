@@ -208,11 +208,8 @@ export function TopBar({
 
             // Listen for tab updates (loading state, URL, title, etc.)
             const unsubscribeUpdate = window.electron.tabs.onTabUpdated((tab) => {
-                console.log('[TopBar] onTabUpdated received:', { tabId: tab.id, url: tab.url, activeTabId: activeTabIdRef.current });
-
                 // Use ref to get current activeTabId to avoid stale closure
                 if (activeTabIdRef.current && tab.id === activeTabIdRef.current) {
-                    console.log('[TopBar] Updating active tab URL to:', tab.url);
                     setActiveTab(prev => prev ? { ...prev, ...tab } : null);
                     // Always update URL when navigation happens (unless editing)
                     const isInternalUrl = tab.url.startsWith('poseidon://') || tab.url.startsWith('about:');
@@ -222,7 +219,6 @@ export function TopBar({
                             // Only update if not currently editing
                             const inputEl = inputRef.current;
                             const isFocused = inputEl === document.activeElement;
-                            console.log('[TopBar] Input focused?', isFocused, 'Setting URL:', isFocused ? 'skipped' : tab.url);
                             if (!isFocused) {
                                 return tab.url;
                             }
@@ -349,7 +345,6 @@ export function TopBar({
         try {
             // 1. Create a new agent tab inside Poseidon and get CDP info
             const agentTab = await (window as any).electron.agent.createAgentTab();
-            console.log('Agent tab created:', agentTab);
 
             // 2. Run the agent task, connected to Poseidon via CDP
             const response = await fetch('http://127.0.0.1:8000/agent/run', {
@@ -364,7 +359,6 @@ export function TopBar({
                 }),
             });
             const data = await response.json();
-            console.log('Agent Result:', data);
         } catch (error) {
             console.error('Failed to run agent:', error);
         } finally {
@@ -469,46 +463,6 @@ export function TopBar({
                     isSidebarPinned ? "w-[300px]" : "w-[68px]"
                 )}
             />
-
-            {/* Navigation Buttons */}
-            <div
-                className="flex items-center gap-1"
-                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            >
-                <button
-                    onClick={onBack}
-                    disabled={!canGoBack}
-                    className={cn(
-                        "btn-icon h-8 w-8",
-                        !canGoBack && "opacity-30 cursor-not-allowed"
-                    )}
-                    title="Go back"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                </button>
-                <button
-                    onClick={onForward}
-                    disabled={!canGoForward}
-                    className={cn(
-                        "btn-icon h-8 w-8",
-                        !canGoForward && "opacity-30 cursor-not-allowed"
-                    )}
-                    title="Go forward"
-                >
-                    <ArrowRight className="h-4 w-4" />
-                </button>
-                <button
-                    onClick={onReload}
-                    className="btn-icon h-8 w-8"
-                    title={isLoading ? "Stop" : "Reload"}
-                >
-                    {isLoading ? (
-                        <X className="h-4 w-4" />
-                    ) : (
-                        <RotateCw className="h-4 w-4" />
-                    )}
-                </button>
-            </div>
 
             {/* Realm Indicator */}
             {currentRealm && (

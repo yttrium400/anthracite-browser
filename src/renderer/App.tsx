@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { HomePage } from './components/HomePage';
 import { SettingsPage } from './components/SettingsPage';
 import { RealmSearch } from './components/RealmSearch';
+import { SwipeNavigator, type SwipeNavigatorHandle } from './components/SwipeNavigator';
 import { cn } from './lib/utils';
 
 interface Tab {
@@ -23,10 +24,12 @@ interface WebviewControllerProps {
     lastWebUrl?: string; // Last web URL for preserving history when on internal page
     onUpdate: (tabId: string, data: Partial<Tab>) => void;
     onMount: (tabId: string, element: Electron.WebviewTag) => void;
-    preloadPath: string; // Added preloadPath prop
+    onSwipeWheel: (deltaX: number) => void;
+    preloadPath: string;
+    webviewPreloadPath: string;
 }
 
-const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onMount, preloadPath }: WebviewControllerProps) => {
+const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onMount, onSwipeWheel, preloadPath, webviewPreloadPath }: WebviewControllerProps) => {
     const webviewRef = useRef<Electron.WebviewTag | null>(null);
 
     useEffect(() => {
@@ -46,12 +49,10 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
         };
 
         const handleNavigate = (e: any) => {
-            console.log('[Webview] did-navigate', e.url);
             onUpdate(tab.id, { url: e.url });
             checkNavigationState();
         };
         const handleNavigateInPage = (e: any) => {
-            console.log('[Webview] did-navigate-in-page', e.url);
             onUpdate(tab.id, { url: e.url });
             checkNavigationState();
         };
@@ -67,6 +68,15 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
             checkNavigationState();
         };
 
+        // Handle IPC messages from webview preload (swipe wheel events)
+        const handleIpcMessage = (e: any) => {
+            if (!isActive) return;
+            if (e.channel === 'swipe-wheel') {
+                const { deltaX } = e.args[0];
+                onSwipeWheel(deltaX);
+            }
+        };
+
         // Add listeners
         element.addEventListener('did-navigate', handleNavigate);
         element.addEventListener('did-navigate-in-page', handleNavigateInPage);
@@ -74,6 +84,7 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
         element.addEventListener('page-favicon-updated', handleFaviconUpdated);
         element.addEventListener('did-start-loading', handleStartLoading);
         element.addEventListener('did-stop-loading', handleStopLoading);
+        element.addEventListener('ipc-message', handleIpcMessage);
 
         // cleanup
         return () => {
@@ -83,8 +94,9 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
             element.removeEventListener('page-favicon-updated', handleFaviconUpdated);
             element.removeEventListener('did-start-loading', handleStartLoading);
             element.removeEventListener('did-stop-loading', handleStopLoading);
+            element.removeEventListener('ipc-message', handleIpcMessage);
         };
-    }, [tab.id, onUpdate, onMount]);
+    }, [tab.id, isActive, onUpdate, onMount, onSwipeWheel]);
 
     // Determine the URL for the webview.
     // If on an internal page but we have a lastWebUrl, keep using that to preserve history.
@@ -105,9 +117,9 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
                 ref={webviewRef}
                 src={webviewSrc}
                 className="h-full w-full"
-                webpreferences="contextIsolation=yes, nodeIntegration=no, sandbox=yes"
+                webpreferences="contextIsolation=yes, nodeIntegration=no"
                 partition="persist:poseidon"
-                preload={preloadPath}
+                preload={webviewPreloadPath}
                 // @ts-ignore
                 allowpopups="true"
             />
@@ -126,7 +138,12 @@ function App() {
     const [tabs, setTabs] = useState<Tab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const [preloadPath, setPreloadPath] = useState<string>('');
+    const [webviewPreloadPath, setWebviewPreloadPath] = useState<string>('');
     const [showRealmSearch, setShowRealmSearch] = useState(false);
+
+    // Swipe gesture state
+    const swipeAccumulated = useRef(0);
+    const swipeActive = useRef(false);
     const webviewRefs = useRef<Map<string, Electron.WebviewTag>>(new Map());
     const pendingNavigation = useRef<{ tabId: string; url: string } | null>(null);
     // Track tabs that have loaded web content (to preserve webview even when showing home page)
@@ -208,11 +225,15 @@ function App() {
         if (typeof window !== 'undefined' && window.electron) {
             setIsReady(true);
 
-            // Fetch ad blocker preload path
+            // Fetch preload paths
             window.electron.adBlock.getPreloadPath().then(path => {
                 if (path) {
-                    console.log('Ad blocker preload path:', path);
                     setPreloadPath(`file://${path}`);
+                }
+            });
+            window.electron.getWebviewPreloadPath().then(path => {
+                if (path) {
+                    setWebviewPreloadPath(`file://${path}`);
                 }
             });
 
@@ -282,8 +303,14 @@ function App() {
         setTabs(prev => prev.map(t =>
             t.id === tabId ? { ...t, ...data } : t
         ));
-        // 2. Track last web URL for preserving webview history
+        // 2. Track web content for back/forward navigation
         if (data.url && !data.url.startsWith('poseidon://')) {
+            setTabsWithWebview(prev => {
+                if (prev.has(tabId)) return prev;
+                const next = new Set(prev);
+                next.add(tabId);
+                return next;
+            });
             setLastWebUrls(prev => {
                 const next = new Map(prev);
                 next.set(tabId, data.url!);
@@ -338,22 +365,24 @@ function App() {
         const tab = tabs.find(t => t.id === activeTabId);
         const webview = webviewRefs.current.get(activeTabId);
 
-        if (tab?.url === 'poseidon://newtab' && webview) {
-            // On home page with a preserved webview — restore the webview's current URL
-            // We didn't actually navigate the webview when going "back" to home page,
-            // so we just need to show the webview again by restoring its URL to the tab
-            const webviewUrl = webview.getURL();
-            console.log('[Forward] On home page, webview URL:', webviewUrl);
+        if (tab?.url.startsWith('poseidon://') && webview) {
+            // On an internal page with a preserved webview — restore the web URL.
+            // The webview still has the page loaded (we just overlaid the home page on top).
+            // Update tab URL to show the webview again.
+            const lastUrl = lastWebUrls.get(activeTabId);
+            const webviewUrl = lastUrl || webview.getURL();
             if (webviewUrl && webviewUrl !== 'about:blank') {
-                window.electron?.navigation.navigate(webviewUrl);
+                // Update local state immediately (removes internal page overlay)
                 setTabs(prev => prev.map(t =>
-                    t.id === activeTabId ? { ...t, url: webviewUrl, canGoForward: false } : t
+                    t.id === activeTabId ? { ...t, url: webviewUrl, canGoForward: webview.canGoForward() } : t
                 ));
+                // Sync with main process
+                window.electron?.tabs.update(activeTabId, { url: webviewUrl });
             }
         } else if (webview && webview.canGoForward()) {
             webview.goForward();
         }
-    }, [activeTabId, tabs]);
+    }, [activeTabId, tabs, lastWebUrls]);
 
     const handleReload = useCallback(() => {
         if (activeTabId) {
@@ -367,6 +396,13 @@ function App() {
             }
         }
     }, [activeTabId]);
+
+    // Swipe gesture handlers (called by WebviewController via ipc-message from webview-preload)
+    const swipeNavigatorRef = useRef<SwipeNavigatorHandle | null>(null);
+
+    const handleSwipeWheel = useCallback((deltaX: number) => {
+        swipeNavigatorRef.current?.onWheel(deltaX);
+    }, []);
 
     // Listen for Cmd+R reload from main process menu
     useEffect(() => {
@@ -471,13 +507,25 @@ function App() {
                                     lastWebUrl={lastWebUrls.get(tab.id)}
                                     onUpdate={handleTabUpdate}
                                     onMount={handleWebviewMount}
+                                    onSwipeWheel={handleSwipeWheel}
                                     preloadPath={preloadPath}
+                                    webviewPreloadPath={webviewPreloadPath}
                                 />
                             );
                         })}
                     </div>
                 )}
             </main>
+
+            {/* Swipe Navigation */}
+            <SwipeNavigator
+                ref={swipeNavigatorRef}
+                onBack={handleBack}
+                onForward={handleForward}
+                canGoBack={activeTab?.canGoBack || (!!activeTabId && !isHomePage && tabsWithWebview.has(activeTabId))}
+                canGoForward={activeTab?.canGoForward || (isHomePage && !!activeTabId && tabsWithWebview.has(activeTabId))}
+                isInternalPage={isInternalPage || false}
+            />
 
             {/* Realm Search Modal */}
             <RealmSearch
