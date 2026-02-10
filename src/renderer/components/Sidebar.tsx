@@ -349,6 +349,13 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             return;
         }
 
+        // Don't close if cursor moved to the left of the sidebar (into the gap between
+        // the window edge and the sidebar). This prevents flicker when the cursor hits
+        // the left wall of the window.
+        if (e.clientX <= 16) {
+            return;
+        }
+
         setIsVisible(false);
     }, [isPinned, activeId, tabContextMenu.contextMenu.position, dockContextMenu.contextMenu.position, realmContextMenu.contextMenu.position]);
 
@@ -964,7 +971,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             <>
                 {/* Hover Trigger Zone */}
                 <div
-                    className="fixed left-0 top-0 w-4 h-full z-[100]"
+                    className="fixed left-0 top-0 w-4 h-full z-[250]"
                     onMouseEnter={handleMouseEnter}
                 />
 

@@ -464,19 +464,9 @@ function sendActiveTabUpdate(): void {
 // Ad Blocker
 // ============================================
 
-// Helper to safely enable blocking (shims removed Electron APIs)
+// Enable ghostery ad blocking on a session (network filters + cosmetic filters)
 function safeEnableBlocking(sess: Electron.Session) {
     if (!sess || !blocker) return
-
-    // Shim registerPreloadScript if missing (Electron 20+)
-    // @ts-ignore
-    if (!sess.registerPreloadScript) {
-        // @ts-ignore
-        sess.registerPreloadScript = (_: any) => {
-            return () => { }
-        }
-    }
-
     blocker.enableBlockingInSession(sess)
 }
 
@@ -531,12 +521,14 @@ async function initAdBlocker(): Promise<void> {
             }
         })
 
-        // Enable on default session if enabled
+        // Enable on default session and webview partition if enabled
         if (adBlockEnabled) {
             safeEnableBlocking(session.defaultSession)
+            safeEnableBlocking(session.fromPartition('persist:poseidon'))
         }
 
-        // Always setup interceptor (handles HTTPS upgrade even if ad block is off)
+        // Setup HTTPS upgrade interceptor on defaultSession (BrowserView tabs)
+        // Note: webview partition is fully managed by ghostery — don't override its listeners
         setupRequestInterceptor(session.defaultSession)
 
     } catch (error) {
@@ -548,32 +540,31 @@ function toggleAdBlocker(enabled: boolean): void {
     adBlockEnabled = enabled
 
     if (blocker) {
-        const sess = session.defaultSession
+        // Toggle on both defaultSession (BrowserView) and webview partition
+        const sessions = [
+            session.defaultSession,
+            session.fromPartition('persist:poseidon'),
+        ]
 
-        if (enabled) {
-            if (!blocker.isBlockingEnabled(sess)) {
-                safeEnableBlocking(sess)
-            }
-        } else {
-            if (blocker.isBlockingEnabled(sess)) {
-                // Polyfill unregisterPreloadScript if missing (Electron 28+ removed it)
-                // @ts-ignore
-                if (typeof sess.unregisterPreloadScript !== 'function') {
-                    // @ts-ignore
-                    sess.unregisterPreloadScript = () => { }
+        for (const sess of sessions) {
+            if (enabled) {
+                if (!blocker.isBlockingEnabled(sess)) {
+                    safeEnableBlocking(sess)
                 }
-
-                try {
-                    blocker.disableBlockingInSession(sess)
-                } catch (e) {
-                    console.error('[AdBlock] Error disabling blocking:', e)
+            } else {
+                if (blocker.isBlockingEnabled(sess)) {
+                    try {
+                        blocker.disableBlockingInSession(sess)
+                    } catch (e) {
+                        console.error('[AdBlock] Error disabling blocking:', e)
+                    }
                 }
             }
         }
 
-        // Re-apply our interceptor to ensure HTTPS upgrade persists or AdBlock is hooked up
-        // (disableBlockingInSession removes the listener, so we MUST re-add ours)
-        setupRequestInterceptor(sess)
+        // Re-apply HTTPS upgrade interceptor on defaultSession
+        // (disableBlockingInSession removes listeners, so we must re-add ours)
+        setupRequestInterceptor(session.defaultSession)
     }
 }
 
@@ -1290,7 +1281,9 @@ function createWindow(): void {
 
     // Enable ad-blocking on webview tags when they are attached
     win.webContents.on('did-attach-webview', (_, webContents) => {
-        // Enable ad-blocker on this webview's session
+        // Enable ghostery ad-blocker on this webview's session (network + cosmetic filters)
+        // Do NOT call setupRequestInterceptor here — it would override ghostery's onBeforeRequest
+        // and disable cosmetic filtering (hiding ad elements in the DOM)
         if (blocker && adBlockEnabled && !blocker.isBlockingEnabled(webContents.session)) {
             try {
                 safeEnableBlocking(webContents.session)
@@ -1298,10 +1291,6 @@ function createWindow(): void {
                 console.error('Failed to enable ad-blocker for webview session:', err)
             }
         }
-
-        // HTTPS Upgrade + Ad Blocking — use unified interceptor
-        // (must be a single listener since Electron allows only one onBeforeRequest per session)
-        setupRequestInterceptor(webContents.session)
 
         // Cookie listener removed to prevent MaxListenersExceededWarning on shared session
 
