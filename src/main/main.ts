@@ -876,8 +876,23 @@ function setupIPC(): void {
 
     ipcMain.handle('create-realm', (_, name: string, icon?: IconName, color?: ThemeColor, template?: any) => {
         const realm = createRealmFromParams(name, icon, color, template)
+
         if (win && !win.isDestroyed()) {
             win.webContents.send('realm-created', realm)
+
+            // If template was used, docks were created in the store but no events were emitted.
+            // We need to fetch them and notify the renderer.
+            if (template?.docks) {
+                const allDocks = getDocks()
+                const newDocks = allDocks.filter(d => d.realmId === realm.id)
+                newDocks.forEach(dock => {
+                    win?.webContents.send('dock-created', dock)
+                })
+            }
+
+            // Auto-select the new realm
+            setActiveRealmId(realm.id)
+            win.webContents.send('active-realm-changed', { realmId: realm.id })
         }
         return realm
     })

@@ -292,7 +292,7 @@ export function createDock(
         icon,
         color,
         realmId,
-        isCollapsed: false,
+        isCollapsed: true, // Default to collapsed for cleanly UI
         order,
         createdAt: Date.now(),
         updatedAt: Date.now(),

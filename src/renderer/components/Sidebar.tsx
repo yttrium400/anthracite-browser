@@ -195,39 +195,40 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
     }, []);
 
     // Load initial state
-    useEffect(() => {
-        if (typeof window === 'undefined' || !window.electron) return;
+    // Load initial state and subscribe to changes
+    const loadState = useCallback(async () => {
+        try {
+            // Get full sidebar state
+            const state = await window.electron.sidebarState.get();
+            setRealms(state.realms);
+            setDocks(state.docks);
+            setActiveRealmId(state.activeRealmId);
 
-        const loadState = async () => {
-            try {
-                // Get full sidebar state
-                const state = await window.electron.sidebarState.get();
-                setRealms(state.realms);
-                setDocks(state.docks);
-                setActiveRealmId(state.activeRealmId);
-
-                // Build organization map from tabs
-                const orgs: Record<string, TabOrganization> = {};
-                state.tabs.forEach((tab: Tab) => {
-                    // Include all tabs - use active realm as fallback for tabs without organization
-                    orgs[tab.id] = {
-                        realmId: tab.realmId || state.activeRealmId,
-                        dockId: tab.dockId || null,
-                        order: tab.order || 0,
-                        isPinned: tab.isPinned || false,
-                    };
-                });
-                setTabOrganizations(orgs);
-            } catch (err) {
-                console.error('Failed to load sidebar state:', err);
-            }
+            // Build organization map from tabs
+            const orgs: Record<string, TabOrganization> = {};
+            state.tabs.forEach((tab: Tab) => {
+                // Include all tabs - use active realm as fallback for tabs without organization
+                orgs[tab.id] = {
+                    realmId: tab.realmId || state.activeRealmId,
+                    dockId: tab.dockId || null,
+                    order: tab.order || 0,
+                    isPinned: tab.isPinned || false,
+                };
+            });
+            setTabOrganizations(orgs);
 
             // Ad-block status
             const status = await window.electron.adBlock.getStatus();
             setAdBlockEnabled(status.enabled);
             setBlockedCount(status.blockedCount);
             setHttpsUpgradeCount(status.httpsUpgradeCount);
-        };
+        } catch (err) {
+            console.error('Failed to load sidebar state:', err);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.electron) return;
 
         loadState();
 
@@ -247,7 +248,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             });
             setTabOrganizations(prev => ({ ...prev, ...orgs }));
         });
-        // Active tab subscription handled by parent
 
         // Ad-block subscriptions
         const unsubscribeBlocked = window.electron.adBlock.onBlocked(data => setBlockedCount(data.count));
@@ -266,7 +266,8 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             setRealms(prev => prev.map(r => r.id === realm.id ? realm : r));
         });
         const unsubscribeRealmDeleted = window.electron.realms.onDeleted(({ realmId }) => {
-            setRealms(prev => prev.filter(r => r.id !== realmId));
+            // Reload full state to ensure docks and active realm are synced
+            loadState();
         });
         const unsubscribeActiveRealmChanged = window.electron.realms.onActiveChanged(({ realmId }) => {
             setActiveRealmId(realmId);
@@ -324,7 +325,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             unsubscribeDockReordered();
             unsubscribeTabOrg();
         };
-    }, []);
+    }, [loadState]);
 
     // Hover handlers
     const handleMouseEnter = () => setIsVisible(true);

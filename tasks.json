@@ -765,22 +765,6 @@
                     "context": "Pre-configured realm templates for common use cases (Developer, Social, Entertainment, etc.) with suggested docks. Users can choose a template when creating a new realm.",
                     "subtasks": [
                         {
-                            "id": "13.15.1",
-                            "title": "Define template data structure (name, icon, color, defaultDocks[])",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.15.2",
-                            "title": "Create templates: Developer (GitHub, Docs, Stack Overflow), Social (Twitter, Reddit, Discord), Entertainment (YouTube, Netflix, Spotify), Work (Email, Calendar, Notion)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.15.3",
-                            "title": "Add template selection step in RealmModal when creating new realm",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.15.4",
                             "title": "Option to start from blank or choose template",
                             "status": "completed"
                         },
