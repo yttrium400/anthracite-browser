@@ -14,64 +14,15 @@
             "status": "completed",
             "priority": "high",
             "context": "Implemented webview-based architecture for full CSS z-index layering support. Sidebar floats over web content with blur effect.",
-            "created_at": "2024-05-22T10:00:30.000000",
-            "subtasks": [
-                {
-                    "id": "2.1",
-                    "title": "Add BrowserView/webview component for web content",
-                    "status": "completed"
-                },
-                {
-                    "id": "2.2",
-                    "title": "Create URL/address bar with navigation",
-                    "status": "completed"
-                },
-                {
-                    "id": "2.3",
-                    "title": "Add navigation controls (back, forward, refresh)",
-                    "status": "completed"
-                },
-                {
-                    "id": "2.4",
-                    "title": "Implement tab management (create, close, switch)",
-                    "status": "completed"
-                },
-                {
-                    "id": "2.5",
-                    "title": "Add loading states and progress indicator",
-                    "status": "completed"
-                },
-                {
-                    "id": "2.6",
-                    "title": "Handle page title and favicon updates",
-                    "status": "completed"
-                }
-            ]
+            "created_at": "2024-05-22T10:00:30.000000"
         },
         {
             "id": "3",
             "title": "Brave-level Native Ad Blocker",
             "status": "completed",
             "priority": "high",
-            "context": "Use @ghostery/adblocker-electron. Fixed Electron 20+ compatibility issues by shimming registerPreloadScript. Enabled on both main process and renderer <webview> sessions.",
-            "created_at": "2024-05-22T10:01:00.000000",
-            "subtasks": [
-                {
-                    "id": "3.1",
-                    "title": "Install and configure electron-ad-blocker",
-                    "status": "completed"
-                },
-                {
-                    "id": "3.2",
-                    "title": "Load EasyList and other filter lists",
-                    "status": "completed"
-                },
-                {
-                    "id": "3.3",
-                    "title": "Fix registerPreloadScript compatibility issue",
-                    "status": "completed"
-                }
-            ]
+            "context": "Use @ghostery/adblocker-electron. Fixed Electron 20+ compatibility issues. Enabled on both main process and renderer sessions.",
+            "created_at": "2024-05-22T10:01:00.000000"
         },
         {
             "id": "4",
@@ -79,29 +30,7 @@
             "status": "completed",
             "priority": "high",
             "context": "Python FastAPI backend using browser-use library for webpage automation. Agent can click, type, scroll, navigate.",
-            "created_at": "2024-05-22T10:02:00.000000",
-            "subtasks": [
-                {
-                    "id": "4.1",
-                    "title": "Set up Python backend with FastAPI",
-                    "status": "completed"
-                },
-                {
-                    "id": "4.2",
-                    "title": "Integrate browser-use library",
-                    "status": "completed"
-                },
-                {
-                    "id": "4.3",
-                    "title": "Create /agent/run endpoint",
-                    "status": "completed"
-                },
-                {
-                    "id": "4.4",
-                    "title": "Connect frontend Command Bar to backend",
-                    "status": "completed"
-                }
-            ]
+            "created_at": "2024-05-22T10:02:00.000000"
         },
         {
             "id": "5",
@@ -109,36 +38,14 @@
             "status": "completed",
             "priority": "medium",
             "context": "Custom internal page with Command Bar, quick links, and recent sites. Handles anthracite://newtab URLs.",
-            "created_at": "2024-05-22T10:03:00.000000",
-            "subtasks": [
-                {
-                    "id": "5.1",
-                    "title": "Create HomePage component with gradient background",
-                    "status": "completed"
-                },
-                {
-                    "id": "5.2",
-                    "title": "Implement anthracite:// URL scheme",
-                    "status": "completed"
-                },
-                {
-                    "id": "5.3",
-                    "title": "Add quick links grid with favicons",
-                    "status": "completed"
-                },
-                {
-                    "id": "5.4",
-                    "title": "Integrate Command Bar for search/AI",
-                    "status": "completed"
-                }
-            ]
+            "created_at": "2024-05-22T10:03:00.000000"
         },
         {
             "id": "6",
             "title": "Smart Settings (anthracite://settings)",
             "status": "completed",
             "priority": "low",
-            "context": "Full settings page with 5 sections: Browser (search engine, ad blocker, HTTPS), Appearance (theme, sidebar, compact mode), Privacy (history, cookies, DNT), Tabs (behavior), Developer (devtools). Persistent storage via JSON file.",
+            "context": "Full settings page with 5 sections. Persistent storage via JSON file.",
             "created_at": "2024-05-22T10:04:00.000000"
         },
         {
@@ -147,71 +54,21 @@
             "status": "completed",
             "priority": "high",
             "context": "JSON-based history storage with browser history and Google search suggestions. IPC handlers for search.",
-            "created_at": "2024-05-22T10:05:00.000000",
-            "subtasks": [
-                {
-                    "id": "7.1",
-                    "title": "Implement JSON history storage (temporary)",
-                    "status": "completed"
-                },
-                {
-                    "id": "7.2",
-                    "title": "Store visited URLs with title, favicon, visit count, timestamp",
-                    "status": "completed"
-                },
-                {
-                    "id": "7.3",
-                    "title": "Create IPC handlers for history search/autocomplete",
-                    "status": "completed"
-                },
-                {
-                    "id": "7.4",
-                    "title": "Add autocomplete dropdown to CommandBar and TopBar",
-                    "status": "completed"
-                },
-                {
-                    "id": "7.5",
-                    "title": "Add Google search suggestions via IPC (CORS bypass)",
-                    "status": "completed"
-                }
-            ]
+            "created_at": "2024-05-22T10:05:00.000000"
         },
         {
             "id": "8",
             "title": "Upgrade History to SQLite Database",
             "status": "completed",
             "priority": "low",
-            "context": "Migrated from JSON to better-sqlite3. Added WAL mode, prepared statements, 4 indexes for fast lookups/search. Auto-migration from old JSON file. Unlimited history storage with retention settings.",
-            "created_at": "2024-05-22T10:06:00.000000",
-            "subtasks": [
-                {
-                    "id": "8.1",
-                    "title": "Configure electron-rebuild for native modules",
-                    "status": "completed"
-                },
-                {
-                    "id": "8.2",
-                    "title": "Mark better-sqlite3 as external and copy .node binary",
-                    "status": "completed"
-                },
-                {
-                    "id": "8.3",
-                    "title": "Migrate history storage from JSON to SQLite",
-                    "status": "completed"
-                },
-                {
-                    "id": "8.4",
-                    "title": "Add database indexes for fast search",
-                    "status": "completed"
-                }
-            ]
+            "context": "Migrated from JSON to better-sqlite3. WAL mode, prepared statements, 4 indexes. Auto-migration from old JSON file.",
+            "created_at": "2024-05-22T10:06:00.000000"
         },
         {
             "id": "9",
             "title": "Fix URL Bar Not Updating on Navigation",
             "status": "completed",
             "priority": "high",
-            "context": "URL bar shows old URL (e.g., google.com) after clicking links to navigate to new pages. Fixed by syncing renderer <webview> state to main process via IPC.",
             "created_at": "2024-05-22T10:07:00.000000"
         },
         {
@@ -219,7 +76,6 @@
             "title": "Fix Suggestion Dropdown Persisting After Navigation",
             "status": "completed",
             "priority": "medium",
-            "context": "Suggestions remained open when manually typing a URL/search and pressing Enter, due to late-arriving async fetch results. Fixed by checking input focus before showing results.",
             "created_at": "2024-05-22T12:00:00.000000"
         },
         {
@@ -227,7 +83,6 @@
             "title": "Implement Aggressive Ad & Popup Blocking for Streaming Sites",
             "status": "completed",
             "priority": "high",
-            "context": "Block popups and new tabs on streaming sites (football matches) using ad blocker engine logic. Similar to Brave's aggressive blocking. Intercepts window.open via setWindowOpenHandler.",
             "created_at": "2024-05-22T14:00:00.000000"
         },
         {
@@ -235,7 +90,6 @@
             "title": "Fix YouTube Reload Loop & Stabilize Ad Blocker",
             "status": "completed",
             "priority": "high",
-            "context": "Video reload loop caused by duplicate IPC handler registration crashing the app when opening tabs/switching focus. Fixed by sharing webview session (partition) and checking initialization status. Restricted ad blocker to single session to prevent global IPC conflicts.",
             "created_at": "2024-05-22T15:00:00.000000"
         },
         {
@@ -243,612 +97,14 @@
             "title": "Implement Arc-style Sidebar with Realms & Docks",
             "status": "completed",
             "priority": "high",
-            "context": "All core features complete: Realms, Docks, tab organization, drag-and-drop with visual indicators, context menus, pinning, realm search (Cmd+Shift+K), TopBar indicator. Nice-to-have deferred: Templates (13.15), Tab Splitting (13.16).",
-            "created_at": "2025-02-05T12:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "13.1",
-                    "title": "Design & Create Data Models",
-                    "status": "completed",
-                    "context": "Define TypeScript interfaces for Realm, Dock, and enhanced Tab structures. Realms contain Docks and loose tabs. Docks contain tabs and have collapsed state. Each entity needs unique IDs, names, colors/icons, ordering, and timestamps.",
-                    "subtasks": [
-                        {
-                            "id": "13.1.1",
-                            "title": "Create Realm interface (id, name, icon, color, dockIds[], looseTabIds[], order, createdAt)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.1.2",
-                            "title": "Create Dock interface (id, name, icon, color, tabIds[], isCollapsed, realmId, order)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.1.3",
-                            "title": "Extend Tab interface to include dockId (optional), realmId, and order fields",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.1.4",
-                            "title": "Create SidebarState interface (activeRealmId, realms[], docks[], expandedDockIds[])",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.2",
-                    "title": "Implement Persistent Storage Layer",
-                    "status": "completed",
-                    "context": "Create a storage module for Realms and Docks using JSON file storage (similar to history.ts). Handle CRUD operations with debounced saves. Store in userData directory. Consider future SQLite migration.",
-                    "subtasks": [
-                        {
-                            "id": "13.2.1",
-                            "title": "Create src/main/store.ts with RealmStore class",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.2.2",
-                            "title": "Implement CRUD operations for Realms (create, read, update, delete, reorder)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.2.3",
-                            "title": "Implement CRUD operations for Docks (create, read, update, delete, reorder, collapse/expand)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.2.4",
-                            "title": "Implement tab-to-dock/realm assignment operations (move tab to dock, move to loose, move between docks)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.2.5",
-                            "title": "Add debounced file persistence with atomic writes",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.2.6",
-                            "title": "Create default realm on first launch (e.g., 'General' realm)",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.3",
-                    "title": "Create IPC Handlers for Realm/Dock Management",
-                    "status": "completed",
-                    "context": "Expose storage operations to renderer via IPC. Follow existing patterns in main.ts and preload.ts.",
-                    "subtasks": [
-                        {
-                            "id": "13.3.1",
-                            "title": "Add IPC handlers in main.ts for realm operations (get-realms, create-realm, update-realm, delete-realm, switch-realm, reorder-realms)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.3.2",
-                            "title": "Add IPC handlers for dock operations (get-docks, create-dock, update-dock, delete-dock, toggle-dock-collapse, reorder-docks)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.3.3",
-                            "title": "Add IPC handlers for tab organization (move-tab-to-dock, move-tab-to-loose, move-tab-to-realm, reorder-tabs-in-dock)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.3.4",
-                            "title": "Update preload.ts to expose realms and docks APIs to renderer",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.3.5",
-                            "title": "Add IPC events for state change notifications (realm-updated, dock-updated, tab-organization-changed)",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.4",
-                    "title": "Modify Tab Creation to Support Realms/Docks",
-                    "status": "completed",
-                    "context": "Update createTab() in main.ts to assign tabs to active realm. Handle tab assignment when realm/dock context is provided.",
-                    "subtasks": [
-                        {
-                            "id": "13.4.1",
-                            "title": "Update createTab() to accept optional realmId and dockId parameters",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.4.2",
-                            "title": "Auto-assign new tabs to active realm as loose tabs by default",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.4.3",
-                            "title": "Update Tab interface in main.ts to include realmId and dockId",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.4.4",
-                            "title": "Handle tab close to remove from dock/realm associations",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.5",
-                    "title": "Build Realm Switcher UI Component",
-                    "status": "completed",
-                    "context": "Create the realm navigation at top/bottom of sidebar. Support visual switching, keyboard shortcuts, and swipe gestures.",
-                    "subtasks": [
-                        {
-                            "id": "13.5.1",
-                            "title": "Create RealmSwitcher.tsx component with horizontal realm indicators",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.5.2",
-                            "title": "Display realm icons/colors with active state indicator",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.5.3",
-                            "title": "Add click-to-switch realm functionality",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.5.4",
-                            "title": "Implement swipe left/right gesture detection for realm switching",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.5.5",
-                            "title": "Add keyboard shortcuts for realm switching (Ctrl/Cmd + 1-9 or arrow keys)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.5.6",
-                            "title": "Add '+' button to create new realm with name/icon picker modal",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.5.7",
-                            "title": "Add context menu for realm (rename, change icon/color, delete)",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.6",
-                    "title": "Build Dock Component with Collapse/Expand",
-                    "status": "completed",
-                    "context": "Create the collapsible dock UI that contains grouped tabs. Show dock header with collapse toggle, tab count, and nested tabs.",
-                    "subtasks": [
-                        {
-                            "id": "13.6.1",
-                            "title": "Create Dock.tsx component with header (name, icon, collapse toggle, tab count)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.6.2",
-                            "title": "Implement collapse/expand animation for dock contents",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.6.3",
-                            "title": "Render nested tab list inside dock (indented styling)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.6.4",
-                            "title": "Add context menu for dock (rename, change color/icon, delete, move to realm)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.6.5",
-                            "title": "Show dock badge with tab count when collapsed",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.6.6",
-                            "title": "Add '+' button on dock header to create new tab inside dock",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.7",
-                    "title": "Refactor Sidebar.tsx for Hierarchical Structure",
-                    "status": "completed",
-                    "context": "Transform Sidebar.tsx from flat tab list to realm-aware hierarchical view showing docks and loose tabs for the active realm.",
-                    "subtasks": [
-                        {
-                            "id": "13.7.1",
-                            "title": "Add state management for activeRealmId and subscribe to realm changes",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.7.2",
-                            "title": "Replace flat tabs list with: Docks section + Loose Tabs section",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.7.3",
-                            "title": "Integrate RealmSwitcher component at sidebar bottom",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.7.4",
-                            "title": "Filter displayed tabs to only show active realm's tabs",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.7.5",
-                            "title": "Add 'Create Dock' button in sidebar for grouping tabs",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.7.6",
-                            "title": "Update 'New Tab' button to create tab in active realm",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.8",
-                    "title": "Implement Drag-and-Drop for Tab Organization",
-                    "status": "completed",
-                    "context": "Tab drag-and-drop fully implemented using @dnd-kit. Dock reordering via drag also implemented.",
-                    "subtasks": [
-                        {
-                            "id": "13.8.1",
-                            "title": "Add drag handles to tab items in sidebar",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.8.2",
-                            "title": "Implement drag-to-reorder tabs within same dock",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.8.3",
-                            "title": "Implement drag tab from dock to loose section",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.8.4",
-                            "title": "Implement drag tab from loose to dock",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.8.5",
-                            "title": "Implement drag tab between different docks",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.8.6",
-                            "title": "Implement drag dock to reorder within realm",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.8.7",
-                            "title": "Add visual drop indicators and hover states during drag",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.8.8",
-                            "title": "Persist order changes after drop",
-                            "status": "completed"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.9",
-                    "title": "Create Realm/Dock Management Modals",
-                    "status": "completed",
-                    "context": "Build modal dialogs for creating and editing realms and docks with name, icon, and color selection.",
-                    "subtasks": [
-                        {
-                            "id": "13.9.1",
-                            "title": "Create RealmModal.tsx for create/edit realm (name input, icon picker, color picker)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.9.2",
-                            "title": "Create DockModal.tsx for create/edit dock (name input, icon picker, color picker)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.9.3",
-                            "title": "Create IconPicker.tsx component with curated icon set",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.9.4",
-                            "title": "Create ColorPicker.tsx component with preset color palette",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.9.5",
-                            "title": "Add confirmation dialog for delete operations",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.10",
-                    "title": "Implement Context Menus",
-                    "status": "completed",
-                    "context": "Full context menu system with ContextMenu.tsx component, useContextMenu hook, and submenu support.",
-                    "subtasks": [
-                        {
-                            "id": "13.10.1",
-                            "title": "Create ContextMenu.tsx reusable component",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.10.2",
-                            "title": "Add tab context menu (Close, Move to Dock submenu, Move to Realm submenu, Pin/Unpin)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.10.3",
-                            "title": "Add dock context menu (Rename, Change Icon, Change Color, Collapse/Expand, Delete)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.10.4",
-                            "title": "Add realm context menu (Rename, Change Icon, Change Color, Delete)",
-                            "status": "completed"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.11",
-                    "title": "Handle Edge Cases & UX Polish",
-                    "status": "completed",
-                    "context": "Edge cases handled in store.ts (deleteRealm moves tabs to default, deleteDock moves tabs to loose, last realm protected).",
-                    "subtasks": [
-                        {
-                            "id": "13.11.1",
-                            "title": "Handle empty realm state (show 'Create your first dock' prompt)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.11.2",
-                            "title": "Handle realm deletion (move tabs to default realm or prompt user)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.11.3",
-                            "title": "Handle dock deletion (move tabs to loose section of same realm)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.11.4",
-                            "title": "Prevent deletion of last realm (always keep at least one)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.11.5",
-                            "title": "Add smooth animations for realm transitions",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.11.6",
-                            "title": "Add keyboard navigation within sidebar (arrow keys, enter, escape)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.11.7",
-                            "title": "Remember collapsed/expanded state of docks across sessions",
-                            "status": "completed"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.12",
-                    "title": "Testing & Stability",
-                    "status": "pending",
-                    "context": "Thoroughly test all interactions, persistence, and edge cases. Ensure no data loss on crashes.",
-                    "subtasks": [
-                        {
-                            "id": "13.12.1",
-                            "title": "Test realm CRUD operations (create, rename, reorder, delete)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.12.2",
-                            "title": "Test dock CRUD operations (create, rename, collapse, reorder, delete)",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.12.3",
-                            "title": "Test tab movement between docks and realms",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.12.4",
-                            "title": "Test persistence across app restarts",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.12.5",
-                            "title": "Test drag-and-drop across all scenarios",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.12.6",
-                            "title": "Test keyboard shortcuts and accessibility",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.13",
-                    "title": "Tab Pinning Feature",
-                    "status": "completed",
-                    "context": "Pinned tabs section at top of sidebar, pin/unpin in context menu, persisted in store, IPC handlers in main.ts.",
-                    "subtasks": [
-                        {
-                            "id": "13.13.1",
-                            "title": "Add isPinned field to Tab interface",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.13.2",
-                            "title": "Create PinnedTabs section at top of sidebar (above docks)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.13.3",
-                            "title": "Add pin/unpin toggle in tab context menu and as icon button",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.13.4",
-                            "title": "Style pinned tabs distinctly (compact, icon-only option, or full)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.13.5",
-                            "title": "Persist pinned state in storage",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.13.6",
-                            "title": "Add IPC handlers for pin/unpin operations",
-                            "status": "completed"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.14",
-                    "title": "Quick Realm Search (Cmd+Shift+K)",
-                    "status": "completed",
-                    "context": "RealmSearch.tsx modal with fuzzy search across all tabs, realm/dock breadcrumbs, keyboard navigation.",
-                    "subtasks": [
-                        {
-                            "id": "13.14.1",
-                            "title": "Create RealmSearch.tsx modal component with search input",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.14.2",
-                            "title": "Implement search across all tabs in all realms (fuzzy match on title/URL)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.14.3",
-                            "title": "Display results with realm/dock breadcrumb (e.g., 'Gaming > COD > Tab Name')",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.14.4",
-                            "title": "Add keyboard navigation (arrow keys, enter to select, escape to close)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.14.5",
-                            "title": "Register Cmd+Shift+K global shortcut to open search",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.14.6",
-                            "title": "On selection: switch to tab's realm and activate the tab",
-                            "status": "completed"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.15",
-                    "title": "Realm Templates",
-                    "status": "completed",
-                    "context": "Pre-configured realm templates for common use cases (Developer, Social, Entertainment, etc.) with suggested docks. Users can choose a template when creating a new realm.",
-                    "subtasks": [
-                        {
-                            "title": "Option to start from blank or choose template",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.15.5",
-                            "title": "Auto-create docks from template on realm creation",
-                            "status": "completed"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.16",
-                    "title": "Tab Splitting (Drag to Create Dock)",
-                    "status": "completed",
-                    "context": "When dragging a tab to an empty area or special drop zone, automatically create a new dock containing that tab. Quick way to organize without manual dock creation.",
-                    "subtasks": [
-                        {
-                            "id": "13.16.1",
-                            "title": "Add 'New Dock' drop zone that appears during tab drag",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.16.2",
-                            "title": "Detect drop on 'New Dock' zone and trigger dock creation flow",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.16.3",
-                            "title": "Auto-name new dock based on tab title or domain",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.16.4",
-                            "title": "Move the dragged tab into the newly created dock",
-                            "status": "pending"
-                        },
-                        {
-                            "id": "13.16.5",
-                            "title": "Add visual feedback during drag showing dock creation preview",
-                            "status": "pending"
-                        }
-                    ]
-                },
-                {
-                    "id": "13.17",
-                    "title": "Realm Indicator in TopBar",
-                    "status": "completed",
-                    "context": "Realm indicator with dropdown in TopBar. Shows current realm icon, name, color. Click to switch realms.",
-                    "subtasks": [
-                        {
-                            "id": "13.17.1",
-                            "title": "Add RealmIndicator component to TopBar (left of URL bar)",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.17.2",
-                            "title": "Display current realm icon and name with color accent",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.17.3",
-                            "title": "Click to open realm dropdown/switcher inline",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.17.4",
-                            "title": "Subscribe to realm changes to keep indicator in sync",
-                            "status": "completed"
-                        },
-                        {
-                            "id": "13.17.5",
-                            "title": "Subtle color bar or border showing realm color",
-                            "status": "completed"
-                        }
-                    ]
-                }
-            ]
+            "context": "All core features complete: Realms, Docks, tab organization, drag-and-drop, context menus, pinning, realm search (Cmd+Shift+K), TopBar indicator, templates.",
+            "created_at": "2025-02-05T12:00:00.000000"
         },
         {
             "id": "14",
             "title": "Fix Sidebar Pinning Behavior",
             "status": "completed",
             "priority": "high",
-            "context": "Currently, pinning the sidebar makes it float over content, obscuring the left side of web pages. When pinned, it should shift the web view content area to the right so that no content is hidden, effectively resizing the browser view area.",
             "created_at": "2024-06-15T10:00:00.000000"
         },
         {
@@ -856,7 +112,6 @@
             "title": "Instant Tab Name Updates",
             "status": "completed",
             "priority": "medium",
-            "context": "Tab names currently only update on new tab creation or reload. They should update instantly when navigation occurs (e.g. visiting YouTube or searching Google) to reflect the new page title.",
             "created_at": "2024-06-15T10:05:00.000000"
         },
         {
@@ -864,7 +119,6 @@
             "title": "Fix Reload Behavior",
             "status": "completed",
             "priority": "medium",
-            "context": "Reloading a page currently creates a new tab instead of refreshing the current one. Fixed by: (1) Adding custom Electron Menu that intercepts Cmd+R/Cmd+Shift+R to reload the active webview via IPC instead of reloading the main window, (2) Guarding did-finish-load handler to only create initial tab when no tabs exist, preventing duplicate tab creation on renderer reload.",
             "created_at": "2024-06-15T10:10:00.000000"
         },
         {
@@ -872,7 +126,6 @@
             "title": "Fix Navigation Controls (Back/Forward/Swipe)",
             "status": "completed",
             "priority": "high",
-            "context": "Fixed: (1) Removed duplicate nav buttons from outside URL bar (kept inline ones). (2) tabsWithWebview now populated from all web navigations (not just URL bar), ensuring canGoBack fallback works for link-navigated tabs. (3) Added two-finger trackpad swipe gesture support (horizontal wheel events) for back/forward navigation. (4) Cleaned up verbose console.logs from TopBar, App, and main process.",
             "created_at": "2024-06-15T10:15:00.000000"
         },
         {
@@ -880,118 +133,724 @@
             "title": "Phase 1: Agent Runs Inside Anthracite (CDP Integration)",
             "status": "completed",
             "priority": "high",
-            "context": "Agent runs inside Anthracite tabs via CDP (--remote-debugging-port=9222). BrowserViews attached off-screen for rendering surface. Screenshots optimized with JPEG+optimizeForSpeed. Navigation guards preserve anthracite:// URLs. Off-screen BrowserView audio muted. Agent prompted to call done action on completion.",
-            "created_at": "2026-02-09T10:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "18.1",
-                    "title": "Enable CDP remote debugging on Electron",
-                    "status": "completed",
-                    "context": "--remote-debugging-port=9222 in main.ts app launch args."
-                },
-                {
-                    "id": "18.2",
-                    "title": "Add IPC handler to create an agent tab and return its target info",
-                    "status": "completed",
-                    "context": "IPC 'create-agent-tab' with before/after CDP /json target diffing to identify exact new target ID."
-                },
-                {
-                    "id": "18.3",
-                    "title": "Add backend endpoint to accept CDP URL + target info",
-                    "status": "completed",
-                    "context": "/agent/run accepts cdp_url and target_id. BrowserSession(cdp_url=..., keep_alive=True)."
-                },
-                {
-                    "id": "18.4",
-                    "title": "Update frontend agent flow: create tab first, then call backend with CDP info",
-                    "status": "completed",
-                    "context": "TopBar handleRunAgent: create-agent-tab IPC → POST /agent/run with cdp_url + target_id."
-                },
-                {
-                    "id": "18.5",
-                    "title": "Keep tab alive after agent completes (keep_alive=True)",
-                    "status": "completed",
-                    "context": "BrowserSession keep_alive=True. Tab persists for continued browsing."
-                },
-                {
-                    "id": "18.6",
-                    "title": "Test end-to-end: agent task runs visibly inside Anthracite tab",
-                    "status": "completed",
-                    "context": "Verified: agent opens YouTube, searches, clicks video, plays it — all inside Anthracite tab. Home tab preserved. Audio muted on off-screen BrowserView."
-                },
-                {
-                    "id": "18.7",
-                    "title": "Fix CDP rendering surface for DOM extraction and screenshots",
-                    "status": "completed",
-                    "context": "BrowserViews attached to window off-screen (y:-10000) via addBrowserView(). This gives CDP a rendering surface for DOM extraction, screenshots, and AX tree on JS-heavy sites. Audio muted on off-screen views. Screenshots patched to JPEG quality=40 optimizeForSpeed."
-                }
-            ]
+            "context": "Agent runs inside Anthracite tabs via CDP. BrowserViews attached off-screen for rendering surface. Screenshots optimized with JPEG+optimizeForSpeed.",
+            "created_at": "2026-02-09T10:00:00.000000"
         },
         {
             "id": "19",
             "title": "Phase 2: Fast Path for Simple Agent Actions",
             "status": "completed",
             "priority": "medium",
-            "context": "Bypass browser-use's full pipeline for simple commands (navigate, click) by sending CDP commands directly to the Anthracite tab. Only use full browser-use for complex multi-step tasks. Implemented: cdp_fast.py (direct WebSocket CDP), classifier.py (regex + LLM intent routing), SSE streaming endpoint, frontend EventSource consumer.",
-            "created_at": "2026-02-09T10:01:00.000000",
+            "context": "Bypass browser-use for simple commands via direct CDP. Classifier (regex + LLM), SSE streaming, stop/pause/resume controls.",
+            "created_at": "2026-02-09T10:01:00.000000"
+        },
+        {
+            "id": "20",
+            "title": "Coming Soon Website (anthracitebrowser.com)",
+            "status": "completed",
+            "priority": "high",
+            "context": "Standalone Vite+React+TS+Tailwind site in website/ folder. Minimal dark aesthetic matching browser theme. Landing page with 'Get early access' button → signup form page. Deployed to Vercel.",
+            "created_at": "2026-02-12T10:00:00.000000"
+        },
+        {
+            "id": "21",
+            "title": "Security Hardening — Pre-Release Critical",
+            "status": "pending",
+            "priority": "critical",
+            "context": "MUST be done before any public release or open-sourcing. The .env file currently contains an exposed OpenAI API key committed to git history. The Python backend has no auth or rate limiting.",
+            "created_at": "2026-02-12T12:00:00.000000",
             "subtasks": [
                 {
-                    "id": "19.1",
-                    "title": "Build lightweight CDP command layer in Python",
-                    "status": "completed",
-                    "context": "backend/cdp_fast.py — Direct CDP via aiohttp WebSocket. Functions: navigate, click, type, type_and_submit, scroll, get_url, wait_for, get_page_info. Connects to ws://127.0.0.1:9222/devtools/page/{targetId}."
+                    "id": "21.1",
+                    "title": "Remove .env from git history (contains exposed OpenAI API key)",
+                    "status": "pending",
+                    "context": "Use BFG Repo-Cleaner or git filter-repo. Then rotate the compromised key on OpenAI dashboard immediately."
                 },
                 {
-                    "id": "19.2",
-                    "title": "Add intent classifier to route simple vs complex tasks",
-                    "status": "completed",
-                    "context": "backend/classifier.py — Regex-first for obvious patterns (go to X, open X, search X), falls back to gpt-4o-mini LLM call. Returns ClassifiedIntent with action (fast_navigate, fast_search, complex) and params."
+                    "id": "21.2",
+                    "title": "Ensure .env is in .gitignore",
+                    "status": "pending"
                 },
                 {
-                    "id": "19.3",
-                    "title": "Implement streaming progress updates via WebSocket/SSE",
-                    "status": "completed",
-                    "context": "POST /agent/stream SSE endpoint in server.py. Events: classifying, classified, fast_action, agent_starting, step (with next_goal + actions), done, stopped, error. Frontend uses ReadableStream reader to parse SSE events. Agent step callback via register_new_step_callback in browser-use Agent."
+                    "id": "21.3",
+                    "title": "Rotate the exposed OpenAI API key",
+                    "status": "pending"
                 },
                 {
-                    "id": "19.4",
-                    "title": "Add agent stop/pause/resume controls",
-                    "status": "completed",
-                    "context": "AgentControl class in server.py with asyncio.Event for pause blocking. Endpoints: POST /agent/stop, POST /agent/pause, POST /agent/resume, GET /agent/status. Uses browser-use register_should_stop_callback for graceful stop. Frontend: Pause/Play + Stop buttons in TopBar next to AI button, only visible during agent execution. AbortController cancels SSE fetch on stop."
+                    "id": "21.4",
+                    "title": "Validate API key in Python backend — reject empty/invalid keys gracefully",
+                    "status": "pending",
+                    "context": "backend/server.py and backend/agent.py currently just read from .env with no validation."
+                },
+                {
+                    "id": "21.5",
+                    "title": "Verify Python FastAPI server is bound to 127.0.0.1 only (not 0.0.0.0)",
+                    "status": "pending",
+                    "context": "Check backend/server.py uvicorn host binding. Must not be accessible from network."
+                },
+                {
+                    "id": "21.6",
+                    "title": "Audit preload.ts contextBridge — minimize exposed APIs to renderer",
+                    "status": "pending",
+                    "context": "src/main/preload.ts exposes 40+ IPC channels. Review for unnecessary surface area."
+                },
+                {
+                    "id": "21.7",
+                    "title": "Add Content-Security-Policy headers for the Electron renderer",
+                    "status": "pending"
                 }
             ]
         },
         {
-            "id": "20",
-            "title": "Phase 3: Custom Agent Loop & browser-use Fork",
+            "id": "22",
+            "title": "Production Desktop Builds (Mac + Windows + Linux)",
             "status": "pending",
-            "priority": "low",
-            "context": "Fork browser-use and optimize for Anthracite: skip screenshots when not needed, two-tier agent (quick/deep), custom DOM extraction, tighter Electron integration.",
-            "created_at": "2026-02-09T10:02:00.000000",
+            "priority": "critical",
+            "context": "electron-builder is installed (^24.9.1) and the build command exists in package.json, but there is NO platform-specific configuration. No code signing, no installer config, no auto-updater. Build resources exist at build/icon.png (512x512).",
+            "created_at": "2026-02-12T12:01:00.000000",
             "subtasks": [
                 {
-                    "id": "20.1",
-                    "title": "Fork browser-use into anthracite-agent package",
+                    "id": "22.1",
+                    "title": "Create electron-builder.json with platform targets",
                     "status": "pending",
-                    "context": "Vendor browser-use source into project. Remove unused features, add Anthracite-specific optimizations."
+                    "context": "Mac: DMG + universal binary (Intel + Apple Silicon). Windows: NSIS installer. Linux: AppImage (optional, lower priority). Configure app metadata, file associations, protocol handler (anthracite://)."
                 },
                 {
-                    "id": "20.2",
-                    "title": "Make screenshots optional per step",
-                    "status": "completed",
-                    "context": "DONE via use_vision='auto' in Agent config. Agent only requests screenshots when it explicitly needs visual info (via screenshot action). Combined with monkey-patched screenshot handler that has 5s timeout + graceful fallback to None. Full fix requires task 18.7 (rendering surface) so screenshots actually work when requested."
+                    "id": "22.2",
+                    "title": "macOS code signing + notarization",
+                    "status": "pending",
+                    "context": "Requires Apple Developer account ($99/yr). Sign with Developer ID Application certificate. Notarize via notarytool. Without this, macOS will block the app with Gatekeeper."
                 },
                 {
-                    "id": "20.3",
-                    "title": "Build two-tier agent: quick mode (minimal DOM) vs deep mode (full pipeline)",
+                    "id": "22.3",
+                    "title": "Windows Distribution: Publish to Microsoft Store",
                     "status": "pending",
-                    "context": "Quick mode: small DOM snapshot, no screenshot, fast LLM call. Deep mode: full browser-use pipeline with vision."
+                    "context": "Microsoft Store handles signing for free/cheap (~$19 once), avoiding the expensive EV cert ($400/yr). Requires packaging as MSIX. Users install via Store link or appinstaller."
                 },
                 {
-                    "id": "20.4",
-                    "title": "Integrate agent tab management with Anthracite's tab system",
+                    "id": "22.4",
+                    "title": "Configure electron-updater for auto-updates",
                     "status": "pending",
-                    "context": "Agent's new-tab/close-tab actions create/close real Anthracite tabs via IPC instead of CDP-level targets."
+                    "context": "Use GitHub Releases as update server (free). electron-updater checks for new versions on app launch. Show update available notification in-app."
+                },
+                {
+                    "id": "22.5",
+                    "title": "Handle native module bundling (better-sqlite3)",
+                    "status": "pending",
+                    "context": "better-sqlite3 requires platform-specific .node binary. electron-rebuild is already configured (postinstall script). Verify it works in packaged builds on all platforms."
+                },
+                {
+                    "id": "22.6",
+                    "title": "Bundle Python backend with the Electron app",
+                    "status": "pending",
+                    "context": "Currently the Python backend (backend/) runs separately. For production: either bundle a Python runtime (PyInstaller/cx_Freeze the FastAPI server into a single binary) or require users to have Python installed. Bundling is strongly preferred for non-technical users. Alternative: rewrite backend in Node.js to eliminate Python dependency entirely."
+                },
+                {
+                    "id": "22.7",
+                    "title": "Test full install → launch → use → auto-update flow on Mac and Windows",
+                    "status": "pending"
+                }
+            ]
+        },
+        {
+            "id": "23",
+            "title": "CI/CD Pipeline — Automated Builds & Releases",
+            "status": "pending",
+            "priority": "high",
+            "context": "No GitHub Actions workflows exist for desktop builds. Website deploys via Vercel (already configured). Need automated multi-platform builds triggered on git tags.",
+            "created_at": "2026-02-12T12:02:00.000000",
+            "subtasks": [
+                {
+                    "id": "23.1",
+                    "title": "Create .github/workflows/build.yml",
+                    "status": "pending",
+                    "context": "Matrix build: macos-latest (DMG), windows-latest (NSIS), ubuntu-latest (AppImage). Trigger on push to tags matching v*. Steps: checkout, setup Node, npm install, electron-rebuild, npm run build, upload artifacts."
+                },
+                {
+                    "id": "23.2",
+                    "title": "Store code signing secrets in GitHub Secrets",
+                    "status": "pending",
+                    "context": "Mac: APPLE_ID, APPLE_TEAM_ID, CSC_LINK (base64 .p12), CSC_KEY_PASSWORD. Windows: WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD."
+                },
+                {
+                    "id": "23.3",
+                    "title": "Auto-publish to GitHub Releases on tag push",
+                    "status": "pending",
+                    "context": "Use electron-builder --publish always. Creates GitHub Release with platform artifacts attached."
+                },
+                {
+                    "id": "23.4",
+                    "title": "Add type-check and lint step before build",
+                    "status": "pending"
+                },
+                {
+                    "id": "23.5",
+                    "title": "Cache node_modules and Electron binaries",
+                    "status": "pending",
+                    "context": "Use actions/cache for node_modules and ~/.cache/electron. Saves 2-3 min per build."
+                }
+            ]
+        },
+        {
+            "id": "24",
+            "title": "Website Waitlist Backend — Actually Save Signups",
+            "status": "pending",
+            "priority": "high",
+            "context": "The signup form on anthracitebrowser.com (website/src/components/Signup.tsx) is purely cosmetic. It shows 'You're on the list' but saves nothing — no API call, no database, no email service. Need a real backend to collect and manage waitlist signups.",
+            "created_at": "2026-02-12T12:03:00.000000",
+            "subtasks": [
+                {
+                    "id": "24.1",
+                    "title": "Choose and set up waitlist backend",
+                    "status": "pending",
+                    "context": "Options ranked by simplicity: (1) Vercel serverless function + Supabase table — free tier covers early stage, (2) Resend audience API — email-native, good for later sending launch emails, (3) Google Sheets API — quick and dirty. Recommended: Supabase for the table + Resend for confirmation emails."
+                },
+                {
+                    "id": "24.2",
+                    "title": "Create API endpoint for signup submission",
+                    "status": "pending",
+                    "context": "POST /api/signup accepting { name, email, role }. Validate email format. Check for duplicates. Return success/error."
+                },
+                {
+                    "id": "24.3",
+                    "title": "Connect Signup.tsx to the real API",
+                    "status": "pending",
+                    "context": "Replace the cosmetic setSubmitted(true) in handleSubmit with an actual fetch() to the API. Handle loading state, errors, duplicate emails gracefully."
+                },
+                {
+                    "id": "24.4",
+                    "title": "Send confirmation email on signup (optional)",
+                    "status": "pending",
+                    "context": "Use Resend or similar. Simple email: 'Thanks for signing up for Anthracite. We'll notify you when it's ready.'"
+                },
+                {
+                    "id": "24.5",
+                    "title": "Create admin view or export for signups",
+                    "status": "pending",
+                    "context": "At minimum: ability to export CSV of all signups. Supabase dashboard gives this for free."
+                }
+            ]
+        },
+        {
+            "id": "25",
+            "title": "Fork & Customize browser-use for Anthracite",
+            "status": "pending",
+            "priority": "critical",
+            "context": "Currently using vanilla browser-use as a pip dependency (backend/requirements.txt). The agent works but is not significantly better than what anyone could build with browser-use + ChatGPT. To justify a paid tier and differentiate from open-source alternatives, the agent needs to be substantially more reliable, faster, and capable. This is THE core differentiator.",
+            "created_at": "2026-02-12T12:04:00.000000",
+            "subtasks": [
+                {
+                    "id": "25.1",
+                    "title": "Fork browser-use repo",
+                    "status": "pending",
+                    "context": "Fork to your own repo (e.g. anthracite-agent). Update backend/requirements.txt to install from the fork. Keep ability to pull upstream improvements."
+                },
+                {
+                    "id": "25.2",
+                    "title": "Study browser-use internals deeply",
+                    "status": "pending",
+                    "context": "Understand: how it takes screenshots, parses DOM, builds the accessibility tree, decides actions, handles errors, manages state between steps. Read the Agent class, BrowserSession, and all action handlers."
+                },
+                {
+                    "id": "25.3",
+                    "title": "Identify and fix reliability bottlenecks",
+                    "status": "pending",
+                    "context": "Common failures: clicking wrong element, getting stuck in loops, failing on dynamic content (SPAs), struggling with dropdowns/date pickers, losing context in multi-step tasks. Log and categorize agent failures to prioritize fixes."
+                },
+                {
+                    "id": "25.4",
+                    "title": "Improve DOM element targeting",
+                    "status": "pending",
+                    "context": "Combine: accessibility tree (primary) + CSS selectors + visual coordinates from screenshots. Current browser-use relies heavily on one method. Fallback chain makes targeting much more robust."
+                },
+                {
+                    "id": "25.5",
+                    "title": "Add task memory to prevent loops",
+                    "status": "pending",
+                    "context": "Agent should track what it's already tried in the current task. If it's clicking the same element 3 times with no state change, try a different approach. Implement a simple action history with 'already tried' detection."
+                },
+                {
+                    "id": "25.6",
+                    "title": "Optimize token usage / cost per task",
+                    "status": "pending",
+                    "context": "Current agent sends full screenshots + full DOM on every step. Optimize: use accessibility tree as primary input (much smaller), only send screenshots when visual context is needed (use_vision='auto' is a start but can be smarter). Reduce cost per task to make paid tier margins viable."
+                },
+                {
+                    "id": "25.7",
+                    "title": "Build two-tier agent: quick mode vs deep mode",
+                    "status": "pending",
+                    "context": "Quick mode: minimal DOM snapshot, no screenshot, fast LLM call — for simple actions. Deep mode: full browser-use pipeline with vision — for complex multi-step tasks. Classifier (backend/classifier.py) already routes simple vs complex; extend this to control agent depth."
+                }
+            ]
+        },
+        {
+            "id": "26",
+            "title": "Google/OAuth Account Linking — Agent Auth",
+            "status": "pending",
+            "priority": "critical",
+            "context": "Users need to link accounts (Google, Microsoft, etc.) so the AI agent can act as them — log into Gmail, book flights on their airline account, manage their calendar. Currently the agent has NO auth context and cannot access any logged-in services. This is NOT traditional OAuth (we don't need API tokens) — the agent needs actual browser session cookies so it can navigate sites as the user.",
+            "created_at": "2026-02-12T12:05:00.000000",
+            "subtasks": [
+                {
+                    "id": "26.1",
+                    "title": "Design the auth persistence architecture",
+                    "status": "pending",
+                    "context": "When user logs into Google in a normal Anthracite tab, capture and persist the session cookies for google.com. Store them so they survive app restarts. Electron's session.defaultSession.cookies API can get/set cookies. The agent's CDP-connected BrowserView needs to share these cookies."
+                },
+                {
+                    "id": "26.2",
+                    "title": "Implement persistent cookie/session storage",
+                    "status": "pending",
+                    "context": "Electron sessions are ephemeral by default (persist: prefix helps but needs explicit setup). Use session.defaultSession.cookies.get/set to save critical auth cookies. Encrypt stored cookies at rest using Electron's safeStorage API."
+                },
+                {
+                    "id": "26.3",
+                    "title": "Share session state between user browsing and agent BrowserView",
+                    "status": "pending",
+                    "context": "Currently the agent uses a separate BrowserView (off-screen, connected via CDP). It needs the same session cookies as the user's normal browsing session. Either use the same Electron session partition, or copy cookies before agent task starts."
+                },
+                {
+                    "id": "26.4",
+                    "title": "Add 'Connected Accounts' section in Settings",
+                    "status": "pending",
+                    "context": "Show which services the agent has access to (based on stored sessions). E.g., 'Google — signed in as user@gmail.com', 'GitHub — signed in'. Allow user to disconnect (clear cookies for that domain)."
+                },
+                {
+                    "id": "26.5",
+                    "title": "Handle session expiry detection and re-auth prompts",
+                    "status": "pending",
+                    "context": "Sessions expire. When the agent tries to act on a site and gets redirected to login, detect this and prompt the user: 'Your Google session has expired. Please sign in again.' Pause agent, let user sign in, then resume."
+                },
+                {
+                    "id": "26.6",
+                    "title": "Security: encrypt stored session data, never send externally",
+                    "status": "pending",
+                    "context": "Session cookies are extremely sensitive (they ARE the user's identity). Encrypt at rest using Electron safeStorage. Never transmit to any server. Never include in error reports. Clear on 'Sign Out' of Anthracite account."
+                }
+            ]
+        },
+        {
+            "id": "27",
+            "title": "Multi-Model Support & API Key Management UI",
+            "status": "pending",
+            "priority": "high",
+            "context": "Currently hardcoded to OpenAI GPT-4o with API key in .env file. No way for users to configure this. Users need to: (1) bring their own API keys, (2) choose which model to use, (3) store keys securely. The CommandBar already shows 'GPT-4o' as static text (line 303) — this should be a working model selector.",
+            "created_at": "2026-02-12T12:06:00.000000",
+            "subtasks": [
+                {
+                    "id": "27.1",
+                    "title": "Add API Key settings page",
+                    "status": "pending",
+                    "context": "New section in SettingsPage.tsx (src/renderer/components/SettingsPage.tsx). Input fields for: OpenAI key, Anthropic key, Google AI key. Validate on save (make a lightweight test call). Store securely using Electron's safeStorage API (NOT in a plain JSON file)."
+                },
+                {
+                    "id": "27.2",
+                    "title": "Support multiple LLM providers in the backend",
+                    "status": "pending",
+                    "context": "Update backend/agent.py to accept provider + model + key as parameters instead of reading .env. Support: OpenAI (GPT-4o, GPT-4o-mini, o1), Anthropic (Claude 3.5 Sonnet, Claude 4), Google (Gemini). Use langchain's provider abstractions — already using langchain-openai."
+                },
+                {
+                    "id": "27.3",
+                    "title": "Make CommandBar model selector functional",
+                    "status": "pending",
+                    "context": "The 'GPT-4o' + ChevronDown button in CommandBar.tsx (line 299-305) is currently static. Make it a working dropdown showing available models (based on which API keys the user has configured). Persist last-used model choice."
+                },
+                {
+                    "id": "27.4",
+                    "title": "Support local models via Ollama",
+                    "status": "pending",
+                    "context": "For privacy-conscious users: detect if Ollama is running locally, list available models, route agent calls through Ollama. No API key needed. Lower quality but free and private."
+                }
+            ]
+        },
+        {
+            "id": "28",
+            "title": "User Authentication System",
+            "status": "pending",
+            "priority": "high",
+            "context": "Currently zero auth exists in the desktop app. Everything is local. Need user accounts for: cloud sync, subscription management, cross-device continuity. This is a prerequisite for tasks 29 (sync) and 30 (payments).",
+            "created_at": "2026-02-12T12:07:00.000000",
+            "subtasks": [
+                {
+                    "id": "28.1",
+                    "title": "Choose auth provider",
+                    "status": "pending",
+                    "context": "Options: Clerk (best DX, generous free tier, handles OAuth flows), Supabase Auth (if already using Supabase for waitlist), Firebase Auth, or custom. Clerk recommended for speed and Electron compatibility."
+                },
+                {
+                    "id": "28.2",
+                    "title": "Implement sign-up / sign-in flow in Electron",
+                    "status": "pending",
+                    "context": "OAuth popup window (BrowserWindow) for Google/GitHub sign-in. Store auth tokens securely via Electron safeStorage. Show auth state in sidebar footer or settings."
+                },
+                {
+                    "id": "28.3",
+                    "title": "Support: email/password, Google OAuth, GitHub OAuth, Apple Sign-In",
+                    "status": "pending"
+                },
+                {
+                    "id": "28.4",
+                    "title": "Add user profile section in Settings",
+                    "status": "pending",
+                    "context": "Show: avatar, name, email, plan tier, sign-out button. Link to subscription management."
+                },
+                {
+                    "id": "28.5",
+                    "title": "Handle offline mode gracefully",
+                    "status": "pending",
+                    "context": "App must work fully without auth — just without sync/cloud/subscription features. Never block the browser because of auth issues."
+                }
+            ]
+        },
+        {
+            "id": "29",
+            "title": "Cloud Sync — Realms, Docks, History, Settings",
+            "status": "pending",
+            "priority": "medium",
+            "context": "All user data is currently local only. Realms/Docks in anthracite-realms.json, history in SQLite (history.db), settings in settings.json. Authenticated users should be able to sync across devices. Depends on task 28 (user auth).",
+            "created_at": "2026-02-12T12:08:00.000000",
+            "subtasks": [
+                {
+                    "id": "29.1",
+                    "title": "Design sync architecture",
+                    "status": "pending",
+                    "context": "Options: (1) CRDTs for conflict-free merging (complex but robust), (2) Last-write-wins per entity (simpler, occasional data loss), (3) Manual merge on conflict (user decides). Start with last-write-wins for settings, CRDTs for realms/docks. Backend: Supabase Postgres + realtime subscriptions."
+                },
+                {
+                    "id": "29.2",
+                    "title": "Implement settings sync (simplest — start here)",
+                    "status": "pending",
+                    "context": "Settings are a single JSON blob. On change: upload to cloud. On login from new device: merge with local (cloud wins for most fields). Files: src/main/settings.ts."
+                },
+                {
+                    "id": "29.3",
+                    "title": "Implement realms & docks sync",
+                    "status": "pending",
+                    "context": "More complex — realms contain docks which contain tabs. Need entity-level sync, not whole-file replacement. Files: src/main/store.ts."
+                },
+                {
+                    "id": "29.4",
+                    "title": "Implement history sync",
+                    "status": "pending",
+                    "context": "SQLite history.db. Sync recent entries (last 30 days). Don't sync entire history — too large. Files: src/main/history.ts."
+                },
+                {
+                    "id": "29.5",
+                    "title": "Handle offline → online reconciliation",
+                    "status": "pending",
+                    "context": "Queue changes made while offline. Sync when connection restored. Handle conflicts."
+                }
+            ]
+        },
+        {
+            "id": "30",
+            "title": "Subscription & Payment System",
+            "status": "pending",
+            "priority": "high",
+            "context": "Monetization layer. Business model: Free tier (bring your own API key, full browser features) + Pro tier (monthly subscription with agent credits — no API key needed, Anthracite proxies LLM calls). The agent must be significantly better than open-source alternatives for people to pay. Depends on tasks 25 (agent improvements) and 28 (user auth).",
+            "created_at": "2026-02-12T12:09:00.000000",
+            "subtasks": [
+                {
+                    "id": "30.1",
+                    "title": "Integrate payment provider",
+                    "status": "pending",
+                    "context": "Options: Stripe (industry standard, complex tax handling), Paddle (handles international tax/VAT automatically, simpler for solo dev). Paddle recommended for simpler setup. LemonSqueezy is another option."
+                },
+                {
+                    "id": "30.2",
+                    "title": "Design pricing tiers",
+                    "status": "pending",
+                    "context": "Free: BYOK (bring your own API key), all browser features, local agent. Pro ($X/month): N agent credits (each credit = 1 agent task), Anthracite's API proxy (no key needed), priority support, cloud sync. Team: future (shared realms, admin controls)."
+                },
+                {
+                    "id": "30.3",
+                    "title": "Build API proxy server for paid users",
+                    "status": "pending",
+                    "context": "Paid users' agent calls route through Anthracite's backend using our API keys. This backend meters usage, enforces rate limits, and bills per credit. Tech: serverless functions or a lightweight API on Railway/Fly.io. Keys stored server-side, never sent to client."
+                },
+                {
+                    "id": "30.4",
+                    "title": "Implement credit/usage tracking",
+                    "status": "pending",
+                    "context": "Track: number of agent tasks run, tokens consumed, cost per task. Show usage in Settings: 'You've used 47 of 200 credits this month.' Warn at 80% and 100% usage."
+                },
+                {
+                    "id": "30.5",
+                    "title": "Add subscription management in Settings",
+                    "status": "pending",
+                    "context": "Show: current plan, usage bar, billing cycle, upgrade/downgrade button (opens Stripe/Paddle portal), payment history."
+                },
+                {
+                    "id": "30.6",
+                    "title": "Handle edge cases: payment failures, grace periods, downgrades",
+                    "status": "pending",
+                    "context": "On payment failure: 3-day grace period, then downgrade to free. On downgrade: keep all data, just disable proxy access. Never delete user data because of billing."
+                },
+                {
+                    "id": "30.7",
+                    "title": "In-app upgrade prompts (tasteful, not aggressive)",
+                    "status": "pending",
+                    "context": "When free user without API key tries to run agent: show a subtle prompt explaining they need either their own key or a Pro subscription. Never block normal browsing. Never nag."
+                }
+            ]
+        },
+        {
+            "id": "31",
+            "title": "Agent Task History & Saved Workflows",
+            "status": "pending",
+            "priority": "medium",
+            "context": "The agent has no memory between tasks. It should remember past interactions, learn user preferences, and allow saving repeatable workflows. This makes the agent feel intelligent rather than stateless.",
+            "created_at": "2026-02-12T12:10:00.000000",
+            "subtasks": [
+                {
+                    "id": "31.1",
+                    "title": "Store agent task history",
+                    "status": "pending",
+                    "context": "For each agent run, save: user instruction, classified intent, steps taken (actions + screenshots), success/failure, duration, model used, tokens consumed. Store in SQLite alongside browsing history."
+                },
+                {
+                    "id": "31.2",
+                    "title": "Add 'Task History' view in the UI",
+                    "status": "pending",
+                    "context": "New section accessible from sidebar or settings. Show past agent runs with step-by-step replay. Click a past task to see what the agent did. Option to re-run a task."
+                },
+                {
+                    "id": "31.3",
+                    "title": "Implement agent context memory",
+                    "status": "pending",
+                    "context": "Agent should know: user's name, frequently visited sites, preferred services (Gmail vs Outlook, Google Flights vs Kayak), past task patterns. Build a lightweight user profile the agent references on each run."
+                },
+                {
+                    "id": "31.4",
+                    "title": "Saved workflows — repeatable multi-step agent tasks",
+                    "status": "pending",
+                    "context": "Allow users to save an agent task as a 'workflow' (e.g., 'Check my email and summarize unread', 'Search for flights to X on Y date'). Show saved workflows in CommandBar or sidebar for one-click re-run."
+                }
+            ]
+        },
+        {
+            "id": "32",
+            "title": "Agent Reliability — Edge Cases & Failure Handling",
+            "status": "pending",
+            "priority": "high",
+            "context": "Common scenarios where the agent breaks or gets stuck. Fixing these is critical for user trust and the paid tier value proposition.",
+            "created_at": "2026-02-12T12:11:00.000000",
+            "subtasks": [
+                {
+                    "id": "32.1",
+                    "title": "CAPTCHA handling — detect and defer to user",
+                    "status": "pending",
+                    "context": "When agent encounters a CAPTCHA: pause agent, show the page to the user, prompt them to solve it, then resume agent automatically after CAPTCHA is cleared."
+                },
+                {
+                    "id": "32.2",
+                    "title": "Handle popups, cookie banners, overlay modals",
+                    "status": "pending",
+                    "context": "These block element interaction. Agent should detect common patterns (cookie consent, newsletter popups, paywall modals) and dismiss them before attempting the actual task."
+                },
+                {
+                    "id": "32.3",
+                    "title": "Handle iframes and shadow DOM",
+                    "status": "pending",
+                    "context": "Many sites use iframes (e.g., payment forms, embedded content) and shadow DOM (web components). The agent's DOM parser needs to traverse into these."
+                },
+                {
+                    "id": "32.4",
+                    "title": "Handle file downloads and uploads",
+                    "status": "pending",
+                    "context": "Agent may trigger downloads (PDFs, CSVs) or need to upload files (forms, attachments). Integrate with Electron's download manager and file dialog."
+                },
+                {
+                    "id": "32.5",
+                    "title": "Improve form filling — dropdowns, date pickers, multi-step forms",
+                    "status": "pending",
+                    "context": "These are the most common agent failures. Custom dropdown components (not native <select>) are especially hard. Date pickers vary wildly across sites."
+                },
+                {
+                    "id": "32.6",
+                    "title": "Timeout handling — don't spin forever",
+                    "status": "pending",
+                    "context": "Add per-step timeouts (30s default) and per-task timeouts (5min default). If stuck, try alternative approach or ask user for help. Never leave agent running silently."
+                },
+                {
+                    "id": "32.7",
+                    "title": "Handle new tab/window creation during agent tasks",
+                    "status": "pending",
+                    "context": "Some sites open links in new tabs. Agent needs to follow into the new tab, complete the action, and return. Currently handled partially in main.ts setWindowOpenHandler but not integrated with agent flow."
+                }
+            ]
+        },
+        {
+            "id": "33",
+            "title": "Error Reporting & Crash Recovery",
+            "status": "pending",
+            "priority": "medium",
+            "context": "No error reporting or crash recovery exists. No visibility into what breaks for users in the wild.",
+            "created_at": "2026-02-12T12:12:00.000000",
+            "subtasks": [
+                {
+                    "id": "33.1",
+                    "title": "Integrate Sentry for Electron main + renderer crashes",
+                    "status": "pending"
+                },
+                {
+                    "id": "33.2",
+                    "title": "Add Python backend error reporting",
+                    "status": "pending",
+                    "context": "Catch uncaught exceptions in agent runs. Report to Sentry with task context (instruction, model, step count)."
+                },
+                {
+                    "id": "33.3",
+                    "title": "Implement crash recovery — restore tabs/realms on restart",
+                    "status": "pending",
+                    "context": "On app crash, save current state. On next launch, detect crash and offer to restore previous session."
+                },
+                {
+                    "id": "33.4",
+                    "title": "Add 'Report a Problem' in help menu / settings",
+                    "status": "pending"
+                }
+            ]
+        },
+        {
+            "id": "34",
+            "title": "Chrome Data Import & First-Run Experience",
+            "status": "pending",
+            "priority": "medium",
+            "context": "Users switching from Chrome/Brave/Edge need to import data. Critical for reducing switching friction. No import functionality exists.",
+            "created_at": "2026-02-12T12:13:00.000000",
+            "subtasks": [
+                {
+                    "id": "34.1",
+                    "title": "Import bookmarks → map to Anthracite Realms/Docks",
+                    "status": "pending",
+                    "context": "Chrome bookmarks are folders. Map top-level folders to Realms, sub-folders to Docks, bookmarks to pinned tabs or dock items."
+                },
+                {
+                    "id": "34.2",
+                    "title": "Import browsing history into SQLite",
+                    "status": "pending"
+                },
+                {
+                    "id": "34.3",
+                    "title": "Import saved passwords (optional, offer to skip)",
+                    "status": "pending",
+                    "context": "Sensitive. Store in OS keychain if imported. Many users may prefer to skip and use a password manager."
+                },
+                {
+                    "id": "34.4",
+                    "title": "First-run import wizard on initial launch",
+                    "status": "pending",
+                    "context": "Detect installed browsers, offer to import. Clean, minimal UI matching Anthracite aesthetic. Steps: Welcome → Import → API Key Setup → Done."
+                },
+                {
+                    "id": "34.5",
+                    "title": "Support Chrome, Brave, Edge, Firefox, Safari",
+                    "status": "pending"
+                }
+            ]
+        },
+        {
+            "id": "35",
+            "title": "Keyboard Shortcuts & Command Palette",
+            "status": "pending",
+            "priority": "medium",
+            "context": "Some shortcuts exist (Cmd+R, Cmd+Shift+K for realm search) but there's no command palette and no customization.",
+            "created_at": "2026-02-12T12:14:00.000000",
+            "subtasks": [
+                {
+                    "id": "35.1",
+                    "title": "Add Cmd+K / Ctrl+K command palette for all browser actions",
+                    "status": "pending"
+                },
+                {
+                    "id": "35.2",
+                    "title": "Add tab quick-switch with fuzzy search",
+                    "status": "pending"
+                },
+                {
+                    "id": "35.3",
+                    "title": "Document and audit all existing shortcuts",
+                    "status": "pending"
+                },
+                {
+                    "id": "35.4",
+                    "title": "Add customizable keybindings in settings",
+                    "status": "pending"
+                }
+            ]
+        },
+        {
+            "id": "36",
+            "title": "Testing Infrastructure",
+            "status": "pending",
+            "priority": "medium",
+            "context": "Zero tests exist in the project. No test framework configured. Need at minimum unit tests for core logic and E2E tests for critical user flows.",
+            "created_at": "2026-02-12T12:15:00.000000",
+            "subtasks": [
+                {
+                    "id": "36.1",
+                    "title": "Set up Vitest for unit tests",
+                    "status": "pending"
+                },
+                {
+                    "id": "36.2",
+                    "title": "Write unit tests for core modules: history.ts, store.ts, settings.ts, classifier.py",
+                    "status": "pending"
+                },
+                {
+                    "id": "36.3",
+                    "title": "Set up Playwright for Electron E2E tests",
+                    "status": "pending"
+                },
+                {
+                    "id": "36.4",
+                    "title": "Write E2E tests: app launch, tab management, navigation, agent task execution",
+                    "status": "pending"
+                },
+                {
+                    "id": "36.5",
+                    "title": "Run tests in CI (GitHub Actions)",
+                    "status": "pending"
+                }
+            ]
+        },
+        {
+            "id": "37",
+            "title": "Mobile Browser (Later Stage — iOS & Android)",
+            "status": "pending",
+            "priority": "low",
+            "context": "Separate project from the Electron desktop app. Do NOT start until desktop is stable and monetized. Major architectural decisions needed — mobile can't run Python locally, so agent tasks must go through a cloud backend. iOS requires WebKit (Apple policy). Android allows custom engines.",
+            "created_at": "2026-02-12T12:16:00.000000",
+            "subtasks": [
+                {
+                    "id": "37.1",
+                    "title": "Research & architecture planning",
+                    "status": "pending",
+                    "context": "Options: React Native + WebView, native Swift (iOS) + Kotlin (Android), or a hybrid. Determine which features carry over. Design mobile-specific UI (bottom nav, gesture-based tab switching). Plan cloud-based agent infrastructure."
+                },
+                {
+                    "id": "37.2",
+                    "title": "Build iOS app",
+                    "status": "pending",
+                    "context": "Must use WKWebView (Apple policy). Swift recommended for best performance and App Store compliance."
+                },
+                {
+                    "id": "37.3",
+                    "title": "Build Android app",
+                    "status": "pending",
+                    "context": "Can use custom Chromium or standard WebView. Kotlin recommended."
+                },
+                {
+                    "id": "37.4",
+                    "title": "Cloud-based agent backend for mobile",
+                    "status": "pending",
+                    "context": "Mobile devices can't run the Python agent locally. Build a cloud API that runs browser-use tasks on server-side browsers. This is also the infrastructure needed for the paid proxy tier (task 30)."
+                },
+                {
+                    "id": "37.5",
+                    "title": "App Store & Play Store submission",
+                    "status": "pending"
                 }
             ]
         }
