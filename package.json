@@ -84,10 +84,8 @@
           ]
         }
       ],
-      "verifyUpdateCodeSignature": false,
-      "signingHashAlgorithms": [
-        "sha256"
-      ]
+      "certificateFile": null,
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
