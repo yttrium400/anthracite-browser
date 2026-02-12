@@ -19,7 +19,10 @@
     "browser",
     "ai"
   ],
-  "author": "Anthracite",
+  "author": {
+    "name": "Anthracite",
+    "email": "contact@anthracitebrowser.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
