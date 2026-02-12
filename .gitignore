@@ -7,7 +7,7 @@ __pycache__/
 # Build outputs
 dist/
 dist-electron/
-build/
+# build/   # Re-enabled to include icon files for electron-builder
 *.egg-info/
 
 # Environment & secrets
