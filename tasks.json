@@ -853,6 +853,46 @@
                     "status": "pending"
                 }
             ]
+        },
+        {
+            "id": "38",
+            "title": "Upgrade Application Menu & Native Features",
+            "status": "pending",
+            "priority": "medium",
+            "context": "Expand the native Electron menu to include standard browser features (File, Edit, View, History, Window, Help). Add keyboard shortcuts for common actions.",
+            "created_at": "2026-02-13T08:10:00.000000",
+            "subtasks": [
+                {
+                    "id": "38.1",
+                    "title": "Implement 'File' menu (New Tab, New Window, Save Page As, Print)",
+                    "status": "pending"
+                },
+                {
+                    "id": "38.2",
+                    "title": "Implement 'Edit' menu (Undo, Redo, Cut, Copy, Paste, Select All, Find in Page)",
+                    "status": "pending"
+                },
+                {
+                    "id": "38.3",
+                    "title": "Implement 'View' menu (Reload, Force Reload, Toggle DevTools, Actual Size, Zoom In, Zoom Out, Toggle Full Screen)",
+                    "status": "pending"
+                },
+                {
+                    "id": "38.4",
+                    "title": "Implement 'History' menu (Back, Forward, Home, Show Full History, Clear Browsing Data)",
+                    "status": "pending"
+                },
+                {
+                    "id": "38.5",
+                    "title": "Implement 'Window' menu (Minimize, Zoom, Tile Window to Left/Right, Bring All to Front)",
+                    "status": "pending"
+                },
+                {
+                    "id": "38.6",
+                    "title": "Implement 'Help' menu (Report Issue, Keyboard Shortcuts, About Anthracite)",
+                    "status": "pending"
+                }
+            ]
         }
     ]
 }
