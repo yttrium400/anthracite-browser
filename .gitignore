@@ -36,3 +36,4 @@ coverage/
 # Misc
 *.tsbuildinfo
 .eslintcache
+release/

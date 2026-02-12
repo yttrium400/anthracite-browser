@@ -29,12 +29,18 @@
     "productName": "Anthracite",
     "appId": "com.anthracite.browser",
     "directories": {
-      "output": "dist",
+      "output": "release",
       "buildResources": "build"
     },
     "files": [
       "dist-electron/**/*",
       "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist/anthracite-server",
+        "to": "backend/anthracite-server"
+      }
     ],
     "mac": {
       "icon": "build/icon.png",
