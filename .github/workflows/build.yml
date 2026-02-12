@@ -81,6 +81,12 @@ jobs:
           echo "=== Backend dist ==="
           ls -la backend/dist/ || echo "backend/dist/ not found"
       
+      - name: Build Electron app (Mac/Linux)
+        if: runner.os != 'Windows'
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Electron app (Windows)
         if: runner.os == 'Windows'
         run: |
