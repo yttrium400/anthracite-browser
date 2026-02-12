@@ -37,3 +37,8 @@ coverage/
 *.tsbuildinfo
 .eslintcache
 release/
+
+# Backend build artifacts
+backend/build/
+backend/dist/
+backend/*.spec
