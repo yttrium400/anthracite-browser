@@ -81,6 +81,7 @@ jobs:
       - name: Build Electron app
         run: npm run build
         env:
+          DEBUG: electron-builder
           # Code signing secrets (optional - builds work without them)
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

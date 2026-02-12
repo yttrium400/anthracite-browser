@@ -60,8 +60,9 @@
           ]
         }
       ],
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
     },
     "win": {
       "icon": "build/icon.png",
