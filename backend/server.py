@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from backend.agent import run_agent_task_logic, run_agent_task_streaming
-from backend.classifier import classify
-from backend.cdp_fast import cdp_navigate
+# Lazy imports to speed up startup
+# from backend.agent import run_agent_task_logic, run_agent_task_streaming
+# from backend.classifier import classify
+# from backend.cdp_fast import cdp_navigate
+import importlib
 import os
 import json
 import asyncio
@@ -86,6 +88,24 @@ class TaskRequest(BaseModel):
 class TestApiKeyRequest(BaseModel):
     api_key: str
 
+@app.on_event("startup")
+async def startup_event():
+    # Run warmup in background to avoid blocking startup
+    asyncio.create_task(warmup())
+
+async def warmup():
+    """Import heavy modules in background after server starts."""
+    logger.info("Warming up backend...")
+    await asyncio.sleep(2)  # Short delay to prioritize UI responsiveness
+    try:
+        # Trigger lazy imports
+        import backend.agent
+        import backend.classifier
+        import backend.cdp_fast
+        logger.info("Backend warmup complete: Heavy modules loaded")
+    except Exception as e:
+        logger.error(f"Warmup failed: {e}")
+
 @app.get("/")
 def read_root():
     return {"status": "Anthracite Backend Running"}
@@ -104,6 +124,7 @@ async def run_agent(task: TaskRequest):
         os.environ["OPENAI_API_KEY"] = task.api_key
 
     try:
+        from backend.agent import run_agent_task_logic
         result = await run_agent_task_logic(task.instruction, task.cdp_url, task.target_id)
         return {"status": "success", "result": result}
     except Exception as e:
@@ -190,6 +211,7 @@ async def stream_agent(task: TaskRequest):
             # Step 1: Classify the intent
             yield _sse_event({"type": "classifying", "instruction": task.instruction})
 
+            from backend.classifier import classify
             intent = await classify(task.instruction)
             
             yield _sse_event({
@@ -203,6 +225,7 @@ async def stream_agent(task: TaskRequest):
                 url = intent.params.get("url", "")
                 yield _sse_event({"type": "fast_action", "action": "navigate", "url": url})
 
+                from backend.cdp_fast import cdp_navigate
                 await cdp_navigate(task.target_id, url)
 
                 yield _sse_event({"type": "done", "result": f"Navigated to {url}"})
@@ -242,6 +265,7 @@ async def stream_agent(task: TaskRequest):
                 # Run agent in background task
                 async def run_agent():
                     try:
+                        from backend.agent import run_agent_task_streaming
                         result = await run_agent_task_streaming(
                             task.instruction,
                             task.cdp_url,
