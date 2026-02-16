@@ -1,4 +1,4 @@
-import { app, BrowserWindow, BrowserView, ipcMain, session, Menu } from 'electron'
+import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents } from 'electron'
 import path from 'node:path'
 
 import { autoUpdater } from 'electron-updater'
@@ -158,6 +158,10 @@ const UI_TRIGGER_WIDTH = 16 // Always visible trigger zone for sidebar hover
 
 // Sidebar state
 let sidebarOpen = false
+
+// Track tabs currently controlled by the AI agent.
+// BrowserView navigations on these tabs are forwarded to the renderer <webview>.
+const agentControlledTabs = new Set<string>()
 
 // ============================================
 // Utility Functions
@@ -339,12 +343,13 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
         // console.error(`[Perf] [${id}] did-fail-load: ${errorCode} ${errorDescription} (${validatedURL})`)
     })
 
-    // In-page navigation (hash changes, pushState)
+    // In-page navigation (hash changes, pushState) — used by SPAs like YouTube
     view.webContents.on('did-navigate-in-page', (_, url) => {
         if (!(tab as any)._isInternalPage || !url.startsWith('about:')) {
             tab.url = url
             sendTabUpdate(tab)
             addHistoryEntry(url, tab.title, tab.favicon)
+
         }
     })
 
@@ -453,6 +458,9 @@ function switchToTab(tabId: string): void {
 function closeTab(tabId: string): void {
     const tab = tabs.get(tabId)
     if (!tab) return
+
+    // Clean up agent tracking
+    agentControlledTabs.delete(tabId)
 
     // Remove tab organization
     removeTabOrganization(tabId)
@@ -738,41 +746,77 @@ function setupIPC(): void {
     // AdBlock Preload Debugging
 
 
-    // Agent tab: create a tab and return CDP connection info including target ID
-    ipcMain.handle('create-agent-tab', async () => {
-        // Snapshot existing targets before creating the tab
-        let existingTargetIds = new Set<string>()
+    // Start agent on the CURRENT tab's webview — no new tab, no BrowserView overlay.
+    // The agent controls the exact same webview the user is looking at, so all
+    // actions (clicks, scrolls, navigation) are immediately visible. The sidebar,
+    // top bar, and all browser chrome remain fully interactive.
+    ipcMain.handle('start-agent-on-tab', async (_, tabId: string, webContentsId: number) => {
+        const tab = tabs.get(tabId)
+        if (!tab) {
+            console.error(`[Agent] Tab ${tabId} not found`)
+            return { tabId, cdpUrl: `http://127.0.0.1:${CDP_PORT}`, targetId: null }
+        }
+
+        agentControlledTabs.add(tabId)
+        console.log(`[Agent] Starting on tab ${tabId}, webview webContents.id=${webContentsId}`)
+
+        // Find the CDP target ID for this webview's webContents
+        let targetId: string | null = null
         try {
-            const beforeRes = await fetch(`http://127.0.0.1:${CDP_PORT}/json`)
-            const before = await beforeRes.json() as Array<{ id: string }>
-            existingTargetIds = new Set(before.map((t: any) => t.id))
-        } catch { /* ignore */ }
-
-        const tab = createTab('anthracite://newtab')
-        switchToTab(tab.id)
-
-        // Find the new CDP target by diffing before/after
-        try {
-            // Small delay to let the target register
-            await new Promise(r => setTimeout(r, 200))
-            const afterRes = await fetch(`http://127.0.0.1:${CDP_PORT}/json`)
-            const after = await afterRes.json() as Array<{ id: string; type: string; url: string }>
-            const newTarget = after.find((t: any) => t.type === 'page' && !existingTargetIds.has(t.id))
-
-            console.log('[Agent] New agent tab target:', newTarget?.id, newTarget?.url)
-
-            return {
-                tabId: tab.id,
-                cdpUrl: `http://127.0.0.1:${CDP_PORT}`,
-                targetId: newTarget?.id || null,
+            const wvContents = webContents.fromId(webContentsId)
+            if (wvContents) {
+                wvContents.debugger.attach('1.3')
+                const targetInfo = await wvContents.debugger.sendCommand('Target.getTargetInfo')
+                targetId = targetInfo?.targetInfo?.targetId || null
+                wvContents.debugger.detach()
+                console.log(`[Agent] Webview CDP target ID: ${targetId}`)
+            } else {
+                console.error(`[Agent] webContents.fromId(${webContentsId}) returned null`)
             }
-        } catch (err) {
-            console.error('[Agent] Failed to query CDP endpoint:', err)
-            return {
-                tabId: tab.id,
-                cdpUrl: `http://127.0.0.1:${CDP_PORT}`,
-                targetId: null,
+        } catch (debugErr) {
+            console.log(`[Agent] Debugger method failed: ${debugErr}, trying /json fallback`)
+            // Fallback: match by URL from CDP /json
+            try {
+                const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json`)
+                const targets = await res.json() as Array<{ id: string; type: string; url: string }>
+                const tabUrl = tab.url
+                const match = targets.find((t: any) => t.type === 'page' && t.url === tabUrl)
+                targetId = match?.id || null
+                console.log(`[Agent] Fallback CDP target (by URL ${tabUrl}): ${targetId}`)
+            } catch (fetchErr) {
+                console.error(`[Agent] /json fallback also failed: ${fetchErr}`)
             }
+        }
+
+        return {
+            tabId,
+            cdpUrl: `http://127.0.0.1:${CDP_PORT}`,
+            targetId,
+        }
+    })
+
+    // Called when an agent task completes. The agent was controlling the webview
+    // directly, so there's nothing to sync — just clean up tracking state.
+    ipcMain.handle('end-agent-task', (_, tabId: string) => {
+        agentControlledTabs.delete(tabId)
+        console.log(`[Agent] Tab ${tabId} agent task ended`)
+        return { success: true }
+    })
+
+    // Update tab URL from renderer (used when agent navigates the webview via CDP).
+    // The main process normally tracks URLs from BrowserView events, but when the
+    // agent controls the webview directly, those events don't fire on the BrowserView.
+    ipcMain.handle('agent-update-tab', (_, tabId: string, url: string, title?: string) => {
+        const tab = tabs.get(tabId)
+        if (!tab) return
+        if (url && !url.startsWith('about:')) {
+            tab.url = url
+        }
+        if (title) tab.title = title
+        sendTabUpdate(tab)
+        // Add to history
+        if (url && !url.startsWith('about:') && !url.startsWith('anthracite://')) {
+            addHistoryEntry(url, tab.title, tab.favicon)
         }
     })
 
@@ -1008,8 +1052,6 @@ function setupIPC(): void {
     // Sidebar state tracking (no bounds adjustment - sidebar floats over)
     ipcMain.handle('sidebar-set-open', (_, isOpen: boolean) => {
         sidebarOpen = isOpen
-        // Note: We don't resize BrowserView - the sidebar floats over the content
-        // The 16px trigger zone is always visible for hover detection
     })
 
     // History

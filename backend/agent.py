@@ -8,20 +8,75 @@ os.environ["TIMEOUT_BrowserStateRequestEvent"] = "30"
 
 from browser_use import Agent, BrowserSession
 from browser_use import ChatOpenAI
+from browser_use.agent.views import ActionResult
 import asyncio
+
+from backend.action_interceptor import try_fast_execute
 
 logger = logging.getLogger(__name__)
 
 # Persistent browser session connected to Anthracite's Electron via CDP
 _browser_session: BrowserSession | None = None
 
+# -- Agent configuration: be smart about cost, never compromise capability --
+AGENT_MAX_STEPS = 100  # full capability — let the agent finish complex tasks
+AGENT_MAX_ACTIONS_PER_STEP = 5  # default — don't restrict multi-action steps
+AGENT_STEP_TIMEOUT = 180  # seconds per step — some pages are slow
+AGENT_MAX_FAILURES = 3   # standard retries
+# Only include DOM attributes the LLM actually needs (smart cost saving — no capability loss)
+AGENT_INCLUDE_ATTRIBUTES = [
+    "title", "aria-label", "placeholder", "alt", "name", "type", "href", "value",
+    "role", "for", "action", "method", "target", "src",
+]
+
+# Extended system prompt for Anthracite-specific reliability
+AGENT_SYSTEM_EXTENSION = """
+## Anthracite Agent Rules
+- Call the `done` action immediately when the task is complete. Do not continue browsing.
+- If a cookie consent banner or popup appears, dismiss it first (click "Accept", "Close", or "X").
+- If you are stuck or the page doesn't change after your action, try a different approach.
+- Never repeat the same action more than twice. If it didn't work, try something else.
+- Prefer clicking interactive elements by their visible text or aria-label.
+- For search tasks: type the query and press Enter. Don't look for a search button.
+- Be concise in your reasoning. Focus on the next action, not lengthy analysis.
+"""
+
+
+class AnthraciteAgent(Agent):
+    """Agent subclass that intercepts simple actions for fast CDP execution."""
+
+    def __init__(self, *args, target_id: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._anthracite_target_id = target_id
+
+    async def _execute_actions(self) -> None:
+        """Override to try fast CDP path for simple actions before falling back to normal."""
+        if self.state.last_model_output is None:
+            raise ValueError('No model output to execute actions from')
+
+        actions = self.state.last_model_output.action
+
+        # Try fast CDP execution for simple actions
+        fast_result = await try_fast_execute(actions, self._anthracite_target_id)
+        if fast_result is not None:
+            self.state.last_result = fast_result
+            # Invalidate browser-use's cached state so next step gets fresh DOM
+            if self.browser_session:
+                self.browser_session._cached_browser_state_summary = None
+                self.browser_session._cached_selector_map.clear()
+            return
+
+        # Fall through to normal browser-use multi_act
+        result = await self.multi_act(actions)
+        self.state.last_result = result
+
 
 def _patch_screenshot_for_electron():
     """Optimize browser-use screenshots for Electron.
 
     Replaces PNG with JPEG + optimizeForSpeed for faster CDP capture.
-    BrowserViews are attached off-screen to the window (in main.ts) so they
-    have a rendering surface and Page.captureScreenshot works via CDP.
+    Gracefully handles failures (e.g. webview targets where screenshots
+    may not work) — returns None so the agent continues with DOM-only mode.
     """
     try:
         from browser_use.browser.watchdogs import screenshot_watchdog
@@ -30,32 +85,36 @@ def _patch_screenshot_for_electron():
         _original = screenshot_watchdog.ScreenshotWatchdog.on_ScreenshotEvent
 
         async def on_ScreenshotEvent(self, event):
-            focused_target = self.browser_session.get_focused_target()
-            if focused_target and focused_target.target_type == 'page':
-                target_id = focused_target.target_id
-            else:
-                page_targets = self.browser_session.get_page_targets()
-                if not page_targets:
-                    return None
-                target_id = page_targets[-1].target_id
+            try:
+                focused_target = self.browser_session.get_focused_target()
+                if focused_target and focused_target.target_type == 'page':
+                    target_id = focused_target.target_id
+                else:
+                    page_targets = self.browser_session.get_page_targets()
+                    if not page_targets:
+                        return None
+                    target_id = page_targets[-1].target_id
 
-            cdp_session = await self.browser_session.get_or_create_cdp_session(target_id, focus=True)
-            params = CaptureScreenshotParameters(
-                format='jpeg',
-                quality=40,
-                optimizeForSpeed=True,
-                captureBeyondViewport=False,
-            )
+                cdp_session = await self.browser_session.get_or_create_cdp_session(target_id, focus=True)
+                params = CaptureScreenshotParameters(
+                    format='jpeg',
+                    quality=40,
+                    optimizeForSpeed=True,
+                    captureBeyondViewport=False,
+                )
 
-            result = await cdp_session.cdp_client.send.Page.captureScreenshot(
-                params=params, session_id=cdp_session.session_id
-            )
-            if result and 'data' in result:
-                return result['data']
-            return None
+                result = await cdp_session.cdp_client.send.Page.captureScreenshot(
+                    params=params, session_id=cdp_session.session_id
+                )
+                if result and 'data' in result:
+                    return result['data']
+                return None
+            except Exception as e:
+                logger.warning(f"Screenshot capture failed (continuing without vision): {e}")
+                return None
 
         screenshot_watchdog.ScreenshotWatchdog.on_ScreenshotEvent = on_ScreenshotEvent
-        logger.info("Patched screenshot handler: JPEG + optimizeForSpeed")
+        logger.info("Patched screenshot handler: JPEG + optimizeForSpeed + graceful fallback")
     except Exception as e:
         logger.warning(f"Failed to patch screenshot handler: {e}")
 
@@ -106,15 +165,24 @@ async def run_agent_task_logic(instruction: str, cdp_url: str = "http://127.0.0.
 
     await _switch_to_agent_tab(browser_session, target_id)
 
-    agent = Agent(
-        task=instruction + "\n\nIMPORTANT: As soon as the task is complete, immediately call the done action with a summary. Do not continue browsing or repeat actions.",
-        llm=ChatOpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY")),
+    api_key = os.getenv("OPENAI_API_KEY")
+    agent = AnthraciteAgent(
+        task=instruction,
+        llm=ChatOpenAI(model="gpt-4o", api_key=api_key),
+        planner_llm=ChatOpenAI(model="gpt-4o-mini", api_key=api_key),
         browser_session=browser_session,
         use_vision='auto',
+        max_actions_per_step=AGENT_MAX_ACTIONS_PER_STEP,
+        max_failures=AGENT_MAX_FAILURES,
+        step_timeout=AGENT_STEP_TIMEOUT,
+        include_attributes=AGENT_INCLUDE_ATTRIBUTES,
+        enable_planning=True,
+        extend_system_message=AGENT_SYSTEM_EXTENSION,
+        target_id=target_id,
     )
 
-    result = await agent.run()
-    return result.final_result or "Task Completed"
+    result = await agent.run(max_steps=AGENT_MAX_STEPS)
+    return result.final_result() or "Task Completed"
 
 
 async def run_agent_task_streaming(
@@ -132,17 +200,26 @@ async def run_agent_task_streaming(
 
     await _switch_to_agent_tab(browser_session, target_id)
 
-    agent = Agent(
-        task=instruction + "\n\nIMPORTANT: As soon as the task is complete, immediately call the done action with a summary. Do not continue browsing or repeat actions.",
-        llm=ChatOpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY")),
+    api_key = os.getenv("OPENAI_API_KEY")
+    agent = AnthraciteAgent(
+        task=instruction,
+        llm=ChatOpenAI(model="gpt-4o", api_key=api_key),
+        planner_llm=ChatOpenAI(model="gpt-4o-mini", api_key=api_key),
         browser_session=browser_session,
         use_vision='auto',
+        max_actions_per_step=AGENT_MAX_ACTIONS_PER_STEP,
+        max_failures=AGENT_MAX_FAILURES,
+        step_timeout=AGENT_STEP_TIMEOUT,
+        include_attributes=AGENT_INCLUDE_ATTRIBUTES,
+        enable_planning=True,
+        extend_system_message=AGENT_SYSTEM_EXTENSION,
         register_new_step_callback=step_callback,
         register_should_stop_callback=should_stop,
+        target_id=target_id,
     )
 
-    result = await agent.run()
-    return result.final_result or "Task Completed"
+    result = await agent.run(max_steps=AGENT_MAX_STEPS)
+    return result.final_result() or "Task Completed"
 
 
 if __name__ == "__main__":

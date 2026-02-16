@@ -29,7 +29,9 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Agent
     agent: {
-        createAgentTab: () => ipcRenderer.invoke('create-agent-tab'),
+        startOnCurrentTab: (tabId: string, webContentsId: number) => ipcRenderer.invoke('start-agent-on-tab', tabId, webContentsId),
+        endAgentTask: (tabId: string) => ipcRenderer.invoke('end-agent-task', tabId),
+        updateTab: (tabId: string, url: string, title?: string) => ipcRenderer.invoke('agent-update-tab', tabId, url, title),
     },
 
     // Tab Management

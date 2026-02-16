@@ -51,13 +51,24 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
 
         const handleNavigate = (e: any) => {
             onUpdate(tab.id, { url: e.url });
+            // Notify main process so URL bar + history update
+            // (essential when agent controls webview directly via CDP)
+            (window as any).electron?.agent?.updateTab?.(tab.id, e.url);
             checkNavigationState();
         };
         const handleNavigateInPage = (e: any) => {
             onUpdate(tab.id, { url: e.url });
+            (window as any).electron?.agent?.updateTab?.(tab.id, e.url);
             checkNavigationState();
         };
-        const handleTitleUpdated = (e: any) => onUpdate(tab.id, { title: e.title });
+        const handleTitleUpdated = (e: any) => {
+            onUpdate(tab.id, { title: e.title });
+            // Also update title in main process
+            const currentUrl = element?.getURL?.() || '';
+            if (currentUrl) {
+                (window as any).electron?.agent?.updateTab?.(tab.id, currentUrl, e.title);
+            }
+        };
         const handleFaviconUpdated = (e: any) => {
             if (e.favicons && e.favicons.length > 0) {
                 onUpdate(tab.id, { favicon: e.favicons[0] });
@@ -447,7 +458,11 @@ function App() {
                 });
                 const webview = webviewRefs.current.get(tabId);
                 if (webview) {
-                    webview.src = url;
+                    // Skip if webview is already at this URL (prevents ERR_ABORTED from double-nav)
+                    const currentSrc = webview.getURL?.() || webview.src;
+                    if (currentSrc !== url) {
+                        webview.src = url;
+                    }
                 } else {
                     // Webview doesn't exist yet (e.g., transitioning from home page)
                     // Queue navigation for when WebviewController mounts
@@ -469,6 +484,12 @@ function App() {
                 canGoBack={activeTab?.canGoBack || (!!activeTabId && !isHomePage && tabsWithWebview.has(activeTabId))}
                 canGoForward={activeTab?.canGoForward || (isHomePage && !!activeTabId && tabsWithWebview.has(activeTabId))}
                 isLoading={activeTab?.isLoading}
+                activeTabId={activeTabId}
+                getActiveWebviewId={() => {
+                    if (!activeTabId) return null;
+                    const wv = webviewRefs.current.get(activeTabId);
+                    return (wv as any)?.getWebContentsId?.() ?? null;
+                }}
                 onNavigate={(url) => {
                     // Optimistically set loading state
                     if (activeTabId) {

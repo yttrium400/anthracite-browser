@@ -1100,29 +1100,31 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 
 		# Planner logic
 		if self.planner_llm:
-			self.logger.debug(f'🚀 Step {self.state.n_steps}: Trying planner LLM ({self.planner_llm.model})...')
+			self.logger.info(f'🚀 Step {self.state.n_steps}: Trying planner LLM ({self.planner_llm.model})...')
 			try:
 				# Use condensed messages for the planner LLM (no screenshots, truncated content)
 				condensed_messages = self._message_manager.get_condensed_messages()
-				self.logger.debug(f'📦 Condensed {len(input_messages)} messages to {len(condensed_messages)} for planner')
+				self.logger.info(f'📦 Condensed {len(input_messages)} messages to {len(condensed_messages)} for planner')
 				model_output = await asyncio.wait_for(
 					self.get_model_output(condensed_messages, llm=self.planner_llm), 
 					timeout=self.settings.llm_timeout
 				)
 				self.state.last_model_output = model_output
-				
+
+				self.logger.info(f'✅ Step {self.state.n_steps}: Planner LLM succeeded (saved gpt-4o call)')
+
 				# Check again for paused/stopped state after getting model output
 				await self._check_stop_or_pause()
-				
+
 				# Handle callbacks and conversation saving
 				await self._handle_post_llm_processing(browser_state_summary, input_messages)
-				
+
 				# check again if Ctrl+C was pressed before we commit the output to history
 				await self._check_stop_or_pause()
-				return 
-				
+				return
+
 			except Exception as e:
-				self.logger.warning(f'⚠️ Planner LLM failed: {e}. Falling back to main LLM...')
+				self.logger.info(f'⚠️ Step {self.state.n_steps}: Planner LLM failed: {e}. Falling back to main LLM...')
 		
 		# Regular logic
 		try:
@@ -1168,26 +1170,33 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		# Check for new downloads after executing actions
 		await self._check_and_update_downloads('after executing actions')
 
-		# Loop Detection Logic
+		# Loop Detection Logic — tracks per-STEP signatures (not per-action).
+		# Multiple identical actions within a single step (e.g. "scroll 3 times")
+		# are intentional batching, not a loop. A loop is when the same step-level
+		# pattern repeats across 3+ consecutive steps.
 		if self.state.last_model_output and self.state.last_model_output.action:
-			current_url = self.browser_session.browser_state.url
+			cached_state = self.browser_session._cached_browser_state_summary
+			current_url = cached_state.url if cached_state and hasattr(cached_state, 'url') else ''
+
+			# Build a single signature for the entire step (all actions combined)
+			action_parts = []
 			for action in self.state.last_model_output.action:
 				action_data = action.model_dump(exclude_unset=True)
 				action_name = next(iter(action_data.keys()))
 				action_params = action_data[action_name]
-
-				# Create a signature for the action
 				selector = str(action_params.get('index', '')) + str(action_params.get('text', '')) + str(action_params.get('coordinate', ''))
-				signature = (current_url, action_name, selector)
+				action_parts.append(f"{action_name}:{selector}")
 
-				self.state.history_registry.append(signature)
+			step_signature = (current_url, '|'.join(action_parts))
+			self.state.history_registry.append(step_signature)
 
-				# Check for loops (e.g. last 3 actions are identical)
-				if len(self.state.history_registry) >= 3:
-					last_three = self.state.history_registry[-3:]
-					if all(x == signature for x in last_three):
-						self.logger.warning(f"Loop detected: {signature} repeated 3 times. Forcing stop.")
-						raise ValueError(f"Loop detected: The agent is repeating the action '{action_name}' on selector '{selector}' at URL '{current_url}'. Stopping to prevent infinite loop.")
+			# Check for loops: same step signature repeated 3+ times in a row
+			if len(self.state.history_registry) >= 3:
+				last_three = self.state.history_registry[-3:]
+				if all(x == step_signature for x in last_three):
+					action_summary = '|'.join(action_parts)
+					self.logger.warning(f"Loop detected: step '{action_summary}' at '{current_url}' repeated 3 times. Forcing stop.")
+					raise ValueError(f"Loop detected: The agent is repeating the step '{action_summary}' at URL '{current_url}'. Stopping to prevent infinite loop.")
 
 		# Update plan state from model output
 		if self.state.last_model_output is not None:

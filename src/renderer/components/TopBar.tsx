@@ -26,6 +26,8 @@ interface TopBarProps {
     canGoBack?: boolean;
     canGoForward?: boolean;
     isLoading?: boolean;
+    activeTabId?: string | null;
+    getActiveWebviewId?: () => number | null;
     onNavigate?: (url: string) => void;
 }
 
@@ -60,6 +62,8 @@ export function TopBar({
     canGoBack,
     canGoForward,
     isLoading,
+    activeTabId: activeTabIdProp,
+    getActiveWebviewId,
     onNavigate
 }: TopBarProps) {
     const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
@@ -287,6 +291,26 @@ export function TopBar({
 
     const handleRunAgent = async () => {
         if (!inputValue.trim()) return;
+        if (!activeTabIdProp) return;
+
+        // Get the webview's webContentsId for the current tab.
+        // If on an internal page (home/settings), there's no webview yet —
+        // navigate to about:blank first so one gets created, then retry.
+        let webContentsId = getActiveWebviewId?.();
+        if (!webContentsId) {
+            // Navigate away from internal page to create a webview
+            onNavigate?.('about:blank');
+            // Wait for webview to be created
+            for (let i = 0; i < 15; i++) {
+                await new Promise(r => setTimeout(r, 200));
+                webContentsId = getActiveWebviewId?.();
+                if (webContentsId) break;
+            }
+            if (!webContentsId) {
+                console.error('[Agent] No webview found after navigation');
+                return;
+            }
+        }
 
         const controller = new AbortController();
         abortControllerRef.current = controller;
@@ -294,9 +318,10 @@ export function TopBar({
         setIsAIProcessing(true);
         setAgentStatus('Starting...');
         setIsAgentPaused(false);
+        let agentTabId: string | null = activeTabIdProp;
         try {
-            // 1. Create a new agent tab inside Anthracite and get CDP info
-            const agentTab = await (window as any).electron.agent.createAgentTab();
+            // 1. Start agent on the current tab's webview (no new tab)
+            const agentInfo = await (window as any).electron.agent.startOnCurrentTab(activeTabIdProp, webContentsId);
 
             // Get API key from settings
             const settings = await window.electron?.settings.getAll();
@@ -308,8 +333,8 @@ export function TopBar({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     instruction: inputValue.trim(),
-                    cdp_url: agentTab.cdpUrl || 'http://127.0.0.1:9222',
-                    target_id: agentTab.targetId || null,
+                    cdp_url: agentInfo.cdpUrl || 'http://127.0.0.1:9222',
+                    target_id: agentInfo.targetId || null,
                     api_key: apiKey,
                 }),
                 signal: controller.signal,
@@ -368,6 +393,10 @@ export function TopBar({
                 console.error('Failed to run agent:', error);
             }
         } finally {
+            // Clean up agent state
+            if (agentTabId) {
+                (window as any).electron.agent.endAgentTask(agentTabId).catch(() => {});
+            }
             setIsAIProcessing(false);
             setAgentStatus('');
             setIsAgentPaused(false);

@@ -535,6 +535,57 @@ class Tools(Generic[Context]):
 				error_msg = f'Failed to click at coordinates ({params.coordinate_x}, {params.coordinate_y}).'
 				return ActionResult(error=error_msg)
 
+		async def _try_coordinate_fallback(
+			index: int, browser_session: BrowserSession
+		) -> ActionResult | None:
+			"""Fall back to clicking cached viewport coordinates when element index is gone.
+
+			When click_element(index=N) fails because the element was re-rendered,
+			we try to click at the last-known viewport coordinates from the DOM snapshot.
+			This avoids burning a full LLM step just to retry.
+			"""
+			try:
+				cached_map = browser_session._cached_selector_map
+				if not cached_map or index not in cached_map:
+					return None
+
+				node = cached_map[index]
+				if not node.snapshot_node or not node.snapshot_node.clientRects:
+					return None
+
+				rect = node.snapshot_node.clientRects
+				# Sanity checks: bounds must be positive and within reasonable viewport
+				if rect.width <= 0 or rect.height <= 0:
+					return None
+				center_x = int(rect.x + rect.width / 2)
+				center_y = int(rect.y + rect.height / 2)
+				if center_x < 0 or center_y < 0 or center_x > 10000 or center_y > 10000:
+					return None
+
+				logger.info(
+					f'🎯 Coordinate fallback for index {index}: clicking ({center_x}, {center_y})'
+				)
+
+				# Dispatch ClickCoordinateEvent with force=False (safety checks still apply)
+				event = browser_session.event_bus.dispatch(
+					ClickCoordinateEvent(coordinate_x=center_x, coordinate_y=center_y, force=False)
+				)
+				await event
+				click_metadata = await event.event_result(raise_if_any=True, raise_if_none=False)
+
+				# If safety checks blocked the click, return None to use normal error path
+				if isinstance(click_metadata, dict) and 'validation_error' in click_metadata:
+					logger.warning(f'⚠️ Coordinate fallback blocked by safety: {click_metadata["validation_error"]}')
+					return None
+
+				return ActionResult(
+					extracted_content=f'Clicked at cached coordinates ({center_x}, {center_y}) for element {index} [coordinate-fallback]',
+					metadata={'click_x': center_x, 'click_y': center_y, 'fallback': True},
+				)
+			except Exception as e:
+				logger.debug(f'Coordinate fallback failed for index {index}: {e}')
+				return None
+
 		async def _click_by_index(
 			params: ClickElementAction | ClickElementActionIndexOnly, browser_session: BrowserSession
 		) -> ActionResult:
@@ -547,6 +598,10 @@ class Tools(Generic[Context]):
 				# Look up the node from the selector map
 				node = await browser_session.get_element_by_index(params.index)
 				if node is None:
+					# Try coordinate fallback before returning error
+					fallback_result = await _try_coordinate_fallback(params.index, browser_session)
+					if fallback_result is not None:
+						return fallback_result
 					msg = f'Element index {params.index} not available - page may have changed. Try refreshing browser state.'
 					logger.warning(f'⚠️ {msg}')
 					return ActionResult(extracted_content=msg)

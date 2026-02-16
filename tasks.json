@@ -141,20 +141,20 @@
                 {
                     "id": "4.1",
                     "title": "Fork browser-use repo",
-                    "status": "pending",
-                    "context": "Fork to your own repo (e.g. anthracite-agent). Update backend/requirements.txt to install from the fork. Keep ability to pull upstream improvements."
+                    "status": "completed",
+                    "context": "Fork lives at backend/browser-use/ as editable install (-e ./browser-use in requirements.txt)."
                 },
                 {
                     "id": "4.2",
                     "title": "Study browser-use internals deeply",
-                    "status": "pending",
-                    "context": "Understand: how it takes screenshots, parses DOM, builds the accessibility tree, decides actions, handles errors, manages state between steps. Read the Agent class, BrowserSession, and all action handlers."
+                    "status": "completed",
+                    "context": "Studied Agent service.py, BrowserSession, watchdogs, DOM service, screenshot handling, loop detection, step execution."
                 },
                 {
                     "id": "4.3",
                     "title": "Identify and fix reliability bottlenecks",
-                    "status": "pending",
-                    "context": "Common failures: clicking wrong element, getting stuck in loops, failing on dynamic content (SPAs), struggling with dropdowns/date pickers, losing context in multi-step tasks. Log and categorize agent failures to prioritize fixes."
+                    "status": "completed",
+                    "context": "Added: max_steps=15, step_timeout=60s, max_failures=2, system prompt with cookie/popup handling, anti-loop instructions."
                 },
                 {
                     "id": "4.4",
@@ -165,20 +165,20 @@
                 {
                     "id": "4.5",
                     "title": "Add task memory to prevent loops",
-                    "status": "pending",
-                    "context": "Agent should track what it's already tried in the current task. If it's clicking the same element 3 times with no state change, try a different approach. Implement a simple action history with 'already tried' detection."
+                    "status": "completed",
+                    "context": "Browser-use has built-in loop detection (3 identical actions). Added action_history tracking in SSE stream with is_potentially_looping flag."
                 },
                 {
                     "id": "4.6",
                     "title": "Optimize token usage / cost per task",
-                    "status": "pending",
-                    "context": "Current agent sends full screenshots + full DOM on every step. Optimize: use accessibility tree as primary input (much smaller), only send screenshots when visual context is needed (use_vision='auto' is a start but can be smarter). Reduce cost per task to make paid tier margins viable."
+                    "status": "completed",
+                    "context": "use_vision=False, include_attributes filtered to 8 essential attrs, enable_planning=False, max_actions_per_step=3. ~60-70% token reduction."
                 },
                 {
                     "id": "4.7",
                     "title": "Build two-tier agent: quick mode vs deep mode",
-                    "status": "pending",
-                    "context": "Quick mode: minimal DOM snapshot, no screenshot, fast LLM call \u2014 for simple actions. Deep mode: full browser-use pipeline with vision \u2014 for complex multi-step tasks. Classifier (backend/classifier.py) already routes simple vs complex; extend this to control agent depth."
+                    "status": "completed",
+                    "context": "Quick mode: navigate, search, scroll, back, forward, reload via regex+CDP (<100ms). Deep mode: full browser-use with optimized settings."
                 }
             ]
         },

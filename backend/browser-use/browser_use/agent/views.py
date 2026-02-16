@@ -82,7 +82,7 @@ class AgentState(BaseModel):
 	message_manager_state: MessageManagerState = Field(default_factory=MessageManagerState)
 	file_system_state: FileSystemState | None = None
 	# Loop detection state
-	history_registry: list[tuple[str, str, str]] = Field(default_factory=list)  # (url, action_type, selector)
+	history_registry: list[tuple[str, ...]] = Field(default_factory=list)  # per-step signatures for loop detection
 
 
 @dataclass
