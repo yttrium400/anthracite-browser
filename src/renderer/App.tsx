@@ -108,6 +108,9 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
         element.addEventListener('did-stop-loading', handleStopLoading);
         element.addEventListener('ipc-message', handleIpcMessage);
         element.addEventListener('new-window', handleNewWindow);
+        element.addEventListener('crashed', (e: any) => console.error('Webview crashed:', e));
+        element.addEventListener('gpu-crashed', (e: any) => console.error('Webview GPU crashed:', e));
+        element.addEventListener('plugin-crashed', (e: any) => console.error('Webview Plugin crashed:', e));
 
         // cleanup
         return () => {
@@ -141,9 +144,11 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
                 ref={webviewRef}
                 src={initialSrc.current}
                 className="h-full w-full"
-                webpreferences="contextIsolation=yes, nodeIntegration=no"
+                webpreferences="contextIsolation=yes, nodeIntegration=no, backgroundThrottling=no"
                 partition="persist:anthracite"
                 preload={webviewPreloadPath}
+                // @ts-ignore
+                disablewebsecurity="true"
                 // @ts-ignore
                 allowpopups="true"
             />
@@ -485,10 +490,11 @@ function App() {
                 canGoForward={activeTab?.canGoForward || (isHomePage && !!activeTabId && tabsWithWebview.has(activeTabId))}
                 isLoading={activeTab?.isLoading}
                 activeTabId={activeTabId}
-                getActiveWebviewId={() => {
-                    if (!activeTabId) return null;
-                    const wv = webviewRefs.current.get(activeTabId);
-                    return (wv as any)?.getWebContentsId?.() ?? null;
+                getWebviewId={(tabId: string) => {
+                    const wv = webviewRefs.current.get(tabId);
+                    const id = (wv as any)?.getWebContentsId?.() ?? null;
+                    console.log(`[App] getWebviewId for ${tabId}: ${id}`);
+                    return id;
                 }}
                 onNavigate={(url) => {
                     // Optimistically set loading state

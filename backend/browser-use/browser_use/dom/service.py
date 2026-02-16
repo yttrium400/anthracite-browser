@@ -409,12 +409,14 @@ class DomService:
 		start_cdp_calls = time.time()
 
 		# Create initial tasks
+		self.logger.info(f'🔍 DEBUG: Starting CDP tasks for target {target_id}')
 		tasks = {
 			'snapshot': create_task_with_error_handling(create_snapshot_request(), name='get_snapshot'),
 			'dom_tree': create_task_with_error_handling(create_dom_tree_request(), name='get_dom_tree'),
 			'ax_tree': create_task_with_error_handling(self._get_ax_tree_for_all_frames(target_id), name='get_ax_tree'),
 			'device_pixel_ratio': create_task_with_error_handling(self._get_viewport_ratio(target_id), name='get_viewport_ratio'),
 		}
+		self.logger.info(f'🔍 DEBUG: CDP tasks dispatched: {list(tasks.keys())}')
 
 		# Wait for all tasks with timeout
 		done, pending = await asyncio.wait(tasks.values(), timeout=10.0)

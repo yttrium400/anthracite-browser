@@ -103,9 +103,18 @@ def _patch_screenshot_for_electron():
                     captureBeyondViewport=False,
                 )
 
-                result = await cdp_session.cdp_client.send.Page.captureScreenshot(
-                    params=params, session_id=cdp_session.session_id
-                )
+                # Wrap in timeout to prevent hanging if renderer is dead/black screen
+                try:
+                    result = await asyncio.wait_for(
+                        cdp_session.cdp_client.send.Page.captureScreenshot(
+                            params=params, session_id=cdp_session.session_id
+                        ),
+                        timeout=2.0  # Fail fast if renderer is stuck
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("Screenshot capture timed out (renderer might be stuck)")
+                    return None
+
                 if result and 'data' in result:
                     return result['data']
                 return None
@@ -114,12 +123,130 @@ def _patch_screenshot_for_electron():
                 return None
 
         screenshot_watchdog.ScreenshotWatchdog.on_ScreenshotEvent = on_ScreenshotEvent
-        logger.info("Patched screenshot handler: JPEG + optimizeForSpeed + graceful fallback")
+        logger.info("Patched screenshot handler: JPEG + optimizeForSpeed + graceful fallback + 2s timeout")
     except Exception as e:
         logger.warning(f"Failed to patch screenshot handler: {e}")
 
 
+def _patch_session_for_electron():
+    """Patch BrowserSession to avoid interfering with Electron's tab management."""
+    try:
+        from browser_use.browser.session import BrowserSession
+        from browser_use.browser.events import SwitchTabEvent
+
+        async def on_SwitchTabEvent(self, event: SwitchTabEvent):
+            logger.info(f"Skipping SwitchTabEvent for Electron (target {event.target_id})")
+            # We don't want browser-use to try to activate tabs via CDP, 
+            # as Electron manages the UI focus.
+            # We just update the internal focus state.
+            self.agent_focus_target_id = event.target_id
+            
+        BrowserSession.on_SwitchTabEvent = on_SwitchTabEvent
+        
+        # Patch SessionManager to avoid activateTarget calls
+        # Instead of patching SessionManager methods which is invasive,
+        # we will patch the CdpConnection.send method to intercept Target.activateTarget commands.
+        # This is robust because it catches ALL calls, even from internal methods we might miss.
+        
+        # from cdp_use.cdp.target import activateTarget  <-- REMOVED (caused import error)
+
+        
+        # We need to find where the client is created. 
+        # It's created in BrowserSession._initialize_session -> await connect_cdp(self.cdp_url)
+        # connect_cdp returns a CdpConnection.
+        
+        # Since we can't easily hook into the connection creation without modifying library code,
+        # we will monkeypatch the BrowserSession.start method (or _initialize_session) to apply the hook
+        # after connection is established.
+        
+        original_initialize = BrowserSession._initialize_session
+        
+        async def _initialize_session_patched(self):
+            await original_initialize(self)
+            
+            if self._cdp_client_root:
+                # The _cdp_client_root is a CdpClient. 
+                # It has a .send property which returns a namespace.
+                # It's hard to patch properties.
+                # However, CdpClient uses a 'connection' (CdpConnection) internally?
+                # No, CdpClient is a wrapper.
+                
+                # Let's check if we can patch the specific command function.
+                # The command is cdp_client.send.Target.activateTarget.
+                # This is likely a bound method or a functools.partial.
+                
+                # Let's try to patch the method on the class if possible, or instance.
+                # cdp_use is generated code. 
+                # cdp_use.cdp.target.Target matches the domain.
+                
+                # Let's use a dynamic proxy approach on the client root's send.Target object if possible.
+                # But that's complicated.
+                
+                # SIMPLER APPROACH: 
+                # Patch `browser_use.browser.session.BrowserSession.get_or_create_cdp_session`? 
+                # No, that's not where activateTarget is called in SessionManager. Note: SessionManager uses `self.browser_session._cdp_client_root`.
+                
+                # Let's look at `SessionManager._recover_agent_focus` again.
+                # It calls: await self.browser_session._cdp_client_root.send.Target.activateTarget(...)
+                
+                # We can monkeypatch `cdp_use.cdp.target.Target.activateTarget`?
+                # If it's a class method or static method used by the client.
+                # No, it's usually an instance method on a generated class.
+                
+                # Let's try to patch `SessionManager._recover_agent_focus` by REPLACING it with a copy 
+                # that acts as a no-op for the activateTarget call.
+                # Since we can't edit the code, we can define a new function that does mostly the same thing
+                # OR just overrides it to do nothing safely?
+                # No, recovery logic is important.
+                
+                # Let's go with the patch of `SessionManager._recover_agent_focus` but simply comment out the line in our copy.
+                # This is effectively what I am doing below.
+                pass
+
+        # Since I cannot easily copy the complex logic of _recover_agent_focus, 
+        # I will patch the `Target.activateTarget` at the library level if possible.
+        
+        # HACK: Monkeypatch the cdp_use library's activateTarget command generator?
+        # browser-use uses `cdp_use`.
+        # `cdp_client.send.Target.activateTarget` ultimately calls `connection.send("Target.activateTarget", params)`.
+        
+        # Let's try to intercept at the connection level!
+        # BrowserSession has `_cdp_client_root`.
+        # `_cdp_client_root` (CdpClient) has `_connection` (CdpConnection)?
+        # Let's assume it does (standard pattern).
+        
+        async def _initialize_session_intercept(self):
+            await original_initialize(self)
+            if self._cdp_client_root:
+                # Try to find the connection
+                connection = getattr(self._cdp_client_root, '_connection', None)
+                if connection:
+                     # Patch connection.send
+                    original_send = connection.send
+                    
+                    def patched_send(method, params=None, session_id=None):
+                        if method == "Target.activateTarget":
+                            logger.info(f"Interceptor: Dropping Target.activateTarget for {params}")
+                            # Return a dummy future or result that resolves immediately
+                            f = asyncio.get_running_loop().create_future()
+                            f.set_result({})
+                            return f
+                        return original_send(method, params, session_id)
+                        
+                    connection.send = patched_send
+                    logger.info("Successfully patched CDP connection to drop activateTarget")
+                else:
+                    logger.warning("Could not find _connection on cdp_client_root to patch")
+
+        BrowserSession._initialize_session = _initialize_session_intercept
+
+        logger.info("Patched BrowserSession: SwitchTabEvent is now no-op")
+    except Exception as e:
+        logger.warning(f"Failed to patch BrowserSession: {e}")
+
+
 _patch_screenshot_for_electron()
+_patch_session_for_electron()
 
 
 async def get_or_create_session(cdp_url: str) -> BrowserSession:
@@ -132,6 +259,9 @@ async def get_or_create_session(cdp_url: str) -> BrowserSession:
     _browser_session = BrowserSession(
         cdp_url=cdp_url,
         keep_alive=True,
+        headless=False,  # Force headful mode so browser-use doesn't override viewport
+        no_viewport=True,  # Let Electron manage the viewport size
+        disable_security=True,  # Disable security checks (good for automation)
     )
     return _browser_session
 

@@ -6,6 +6,12 @@ import { autoUpdater } from 'electron-updater'
 // Enable CDP remote debugging so the AI agent can connect to Anthracite's browser
 const CDP_PORT = 9222
 app.commandLine.appendSwitch('remote-debugging-port', String(CDP_PORT))
+app.commandLine.appendSwitch('disable-site-isolation-trials')
+// Stability switches for automation/CDP to prevent black screens/throttling
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 import { spawn, ChildProcess } from 'node:child_process'
 import { ElectronBlocker, Request } from '@ghostery/adblocker-electron'
 import fetch from 'cross-fetch'
@@ -189,18 +195,6 @@ function applyUiScale(scale: string): void {
         try {
             tab.view.webContents.setZoomLevel(zoomLevel)
         } catch { }
-    }
-}
-
-function getBrowserViewBounds(): Electron.Rectangle {
-    if (!win) return { x: 0, y: 0, width: 800, height: 600 }
-    const { width, height } = win.getContentBounds()
-    // Always leave 16px trigger zone on left for sidebar hover
-    return {
-        x: UI_TRIGGER_WIDTH,
-        y: UI_TOP_HEIGHT,
-        width: width - UI_TRIGGER_WIDTH,
-        height: height - UI_TOP_HEIGHT
     }
 }
 
@@ -418,8 +412,8 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
     // to work properly. The view is positioned off-screen; the <webview> in React
     // handles the user-visible display.
     if (win && !win.isDestroyed()) {
-        win.addBrowserView(view)
-        view.setBounds({ x: 0, y: -10000, width: 1280, height: 720 })
+        // win.addBrowserView(view) // Disabled: The shadow view causes conflicts with webview
+        // view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
         view.webContents.setAudioMuted(true)
     }
 
@@ -467,7 +461,7 @@ function closeTab(tabId: string): void {
 
     // Remove BrowserView from window and destroy
     if (win && !win.isDestroyed()) {
-        win.removeBrowserView(tab.view)
+        // win.removeBrowserView(tab.view) // BrowserView is not attached
     }
     ; (tab.view.webContents as any).destroy()
     tabs.delete(tabId)
@@ -679,10 +673,6 @@ async function initAdBlocker(): Promise<void> {
             // Internal pages don't need ad blocking anyway.
         }
 
-        // Setup HTTPS upgrade interceptor on defaultSession (BrowserView tabs)
-        // Note: webview partition is fully managed by ghostery — don't override its listeners
-        // setupRequestInterceptor(session.defaultSession) -> REMOVED: Redundant with safeEnableBlocking
-
     } catch (error) {
         console.error('Failed to initialize ad blocker:', error)
     }
@@ -719,16 +709,11 @@ function toggleAdBlocker(enabled: boolean): void {
                 }
             }
         }
-
-        // Re-apply HTTPS upgrade interceptor on defaultSession
-        // (disableBlockingInSession removes listeners, so we must re-add ours)
-        setupRequestInterceptor(session.defaultSession)
     }
 }
 
 function toggleHttpsUpgrade(enabled: boolean): void {
     httpsUpgradeEnabled = enabled
-    setupRequestInterceptor(session.defaultSession)
 }
 
 // ============================================
@@ -765,6 +750,7 @@ function setupIPC(): void {
         try {
             const wvContents = webContents.fromId(webContentsId)
             if (wvContents) {
+                console.log(`[Agent] Found webContents for ID ${webContentsId}. Type: ${wvContents.getType()}. URL: ${wvContents.getURL()}`)
                 wvContents.debugger.attach('1.3')
                 const targetInfo = await wvContents.debugger.sendCommand('Target.getTargetInfo')
                 targetId = targetInfo?.targetInfo?.targetId || null
@@ -795,11 +781,9 @@ function setupIPC(): void {
         }
     })
 
-    // Called when an agent task completes. The agent was controlling the webview
-    // directly, so there's nothing to sync — just clean up tracking state.
-    ipcMain.handle('end-agent-task', (_, tabId: string) => {
+    ipcMain.handle('stop-agent-on-tab', (_, tabId: string) => {
         agentControlledTabs.delete(tabId)
-        console.log(`[Agent] Tab ${tabId} agent task ended`)
+        console.log(`[Agent] Stopped tab ${tabId}`)
         return { success: true }
     })
 
@@ -1049,7 +1033,7 @@ function setupIPC(): void {
         return settings
     })
 
-    // Sidebar state tracking (no bounds adjustment - sidebar floats over)
+    // Sidebar state tracking
     ipcMain.handle('sidebar-set-open', (_, isOpen: boolean) => {
         sidebarOpen = isOpen
     })

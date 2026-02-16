@@ -27,7 +27,7 @@ interface TopBarProps {
     canGoForward?: boolean;
     isLoading?: boolean;
     activeTabId?: string | null;
-    getActiveWebviewId?: () => number | null;
+    getWebviewId?: (tabId: string) => number | null;
     onNavigate?: (url: string) => void;
 }
 
@@ -63,7 +63,7 @@ export function TopBar({
     canGoForward,
     isLoading,
     activeTabId: activeTabIdProp,
-    getActiveWebviewId,
+    getWebviewId,
     onNavigate
 }: TopBarProps) {
     const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
@@ -291,26 +291,6 @@ export function TopBar({
 
     const handleRunAgent = async () => {
         if (!inputValue.trim()) return;
-        if (!activeTabIdProp) return;
-
-        // Get the webview's webContentsId for the current tab.
-        // If on an internal page (home/settings), there's no webview yet —
-        // navigate to about:blank first so one gets created, then retry.
-        let webContentsId = getActiveWebviewId?.();
-        if (!webContentsId) {
-            // Navigate away from internal page to create a webview
-            onNavigate?.('about:blank');
-            // Wait for webview to be created
-            for (let i = 0; i < 15; i++) {
-                await new Promise(r => setTimeout(r, 200));
-                webContentsId = getActiveWebviewId?.();
-                if (webContentsId) break;
-            }
-            if (!webContentsId) {
-                console.error('[Agent] No webview found after navigation');
-                return;
-            }
-        }
 
         const controller = new AbortController();
         abortControllerRef.current = controller;
@@ -318,16 +298,41 @@ export function TopBar({
         setIsAIProcessing(true);
         setAgentStatus('Starting...');
         setIsAgentPaused(false);
-        let agentTabId: string | null = activeTabIdProp;
+        let agentTabId: string | null = null;
+
         try {
-            // 1. Start agent on the current tab's webview (no new tab)
-            const agentInfo = await (window as any).electron.agent.startOnCurrentTab(activeTabIdProp, webContentsId);
+            // 1. Create a NEW tab for the agent
+            const newTabParams = await window.electron.tabs.create('about:blank');
+            agentTabId = newTabParams.id;
+
+            // Wait for tab to be active and webview to mount
+            // We need to wait for the UI to update and create the <webview> ref
+            let webContentsId: number | null = null;
+            for (let i = 0; i < 50; i++) { // Wait up to 5 seconds
+                await new Promise(r => setTimeout(r, 100));
+                // We need to access getActiveWebviewId from prop, but it returns current active tab's wv
+                // Since we just switched to the new tab (createTab switches automatically), 
+                // getActiveWebviewId should return the new tab's webview ID once mounted.
+                webContentsId = getWebviewId?.(agentTabId) || null;
+                if (webContentsId) break;
+            }
+
+            if (!webContentsId) {
+                console.error('[Agent] Failed to initialize new tab webview');
+                setAgentStatus('Error: Tab Init Failed');
+                setIsAIProcessing(false);
+                return;
+            }
+
+            // 2. Start agent on the NEW tab's webview
+            // This connects the backend agent to the visible renderer webview
+            const agentInfo = await (window as any).electron.agent.startOnCurrentTab(agentTabId, webContentsId);
 
             // Get API key from settings
             const settings = await window.electron?.settings.getAll();
             const apiKey = settings?.openaiApiKey;
 
-            // 2. Stream agent task via SSE
+            // 3. Stream agent task via SSE
             const response = await fetch('http://127.0.0.1:8000/agent/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -395,7 +400,7 @@ export function TopBar({
         } finally {
             // Clean up agent state
             if (agentTabId) {
-                (window as any).electron.agent.endAgentTask(agentTabId).catch(() => {});
+                (window as any).electron.agent.endAgentTask(agentTabId).catch(() => { });
             }
             setIsAIProcessing(false);
             setAgentStatus('');
