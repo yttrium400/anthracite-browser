@@ -1,4 +1,4 @@
-import { app, BrowserWindow, BrowserView, ipcMain, session, Menu } from 'electron'
+import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents } from 'electron'
 import path from 'node:path'
 
 import { autoUpdater } from 'electron-updater'
@@ -321,8 +321,9 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
     view.webContents.on('did-navigate', (event, url) => {
         const currentTab = tabs.get(id)
         if (currentTab) {
-            // Don't overwrite URL for internal pages (which load about:blank)
-            if ((currentTab as any)._isInternalPage && url === 'about:blank') return
+            // BrowserView only loads about:blank?browserview=1 marker — never real URLs.
+            // Skip all about: navigations; real URL updates come from the webview in renderer.
+            if (url.startsWith('about:')) return
 
             currentTab.url = url
             sendActiveTabUpdate()
@@ -351,8 +352,10 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
     // Frame navigation - catches navigations in sub-frames
     view.webContents.on('did-frame-navigate', (_, url, httpResponseCode, httpStatusText, isMainFrame) => {
         if (isMainFrame) {
-            // Don't overwrite anthracite:// URL when BrowserView loads about:blank for CDP
-            if (!(tab as any)._isInternalPage || !url.startsWith('about:')) {
+            // BrowserView only ever loads about:blank?browserview=1 (marker URL for CDP target
+            // identification). Never update tab URL from about: navigations — they're always
+            // the BrowserView marker, not real page navigations.
+            if (!url.startsWith('about:')) {
                 ; (tab as any)._isInternalPage = false
                 tab.url = url
                 sendTabUpdate(tab)
@@ -364,8 +367,8 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
     // Also update URL after page finishes loading (fallback)
     view.webContents.on('did-finish-load', () => {
         const currentUrl = view.webContents.getURL()
-        // Don't overwrite anthracite:// URL when BrowserView loads about:blank for CDP
-        if (currentUrl && currentUrl !== tab.url && !((tab as any)._isInternalPage && currentUrl.startsWith('about:'))) {
+        // BrowserView only loads the about:blank?browserview=1 marker — skip about: URLs always
+        if (currentUrl && !currentUrl.startsWith('about:') && currentUrl !== tab.url) {
             tab.url = currentUrl
             sendTabUpdate(tab)
         }
@@ -420,17 +423,17 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
 
     // Navigate to URL
     // Internal pages (anthracite://) are rendered by the React webview, not the BrowserView.
-    // But we still load about:blank into the BrowserView so it has a JS runtime
-    // (required for CDP's Runtime.runIfWaitingForDebugger to not hang).
+    // BrowserView gets a marker URL so it can be identified (and excluded) in CDP /json targets.
     if (url === 'anthracite://newtab' || url === 'anthracite://settings') {
         // Mark as internal so nav events don't overwrite the anthracite:// URL
         ; (tab as any)._isInternalPage = true
-        view.webContents.loadURL('about:blank')
     } else {
         // Shadow View Disconnect: Only load about:blank to prevent double-loading
         tab.url = normalizeUrl(url)
-        view.webContents.loadURL('about:blank')
     }
+    // Load marker URL into BrowserView so it's identifiable in CDP /json target list.
+    // The webview (on-screen, persist:anthracite) starts at about:blank — distinct from this marker.
+    view.webContents.loadURL('about:blank?browserview=1')
 
     // Send tab created event
     sendTabsUpdate()
@@ -739,6 +742,47 @@ function setupIPC(): void {
 
 
     // Agent tab: create a tab and return CDP connection info including target ID
+    ipcMain.handle('get-active-webview-target', async () => {
+        // Query the CDP endpoint and filter to real page targets.
+        // BrowserViews load about:blank?browserview=1 — exclude those.
+        // The React renderer loads localhost:5173 (dev) or file:// (prod) — exclude those.
+        // Anything left is a webview showing a real page.
+        try {
+            const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json`)
+            const targets = await res.json() as Array<{ id: string; type: string; url: string }>
+
+            // <webview> elements in Electron appear as type "webview" in CDP /json
+            // BrowserViews appear as type "page" — exclude those
+            const realTargets = targets.filter(t =>
+                t.type === 'webview' &&
+                !t.url.startsWith('about:') &&
+                !t.url.startsWith('devtools://') &&
+                !t.url.startsWith('chrome://') &&
+                !t.url.startsWith('anthracite://') &&
+                !t.url.includes('localhost:') &&
+                !t.url.includes('127.0.0.1:') &&
+                !t.url.startsWith('file://')
+            )
+
+            if (realTargets.length === 0) {
+                console.log('[Agent] No real page targets found — user may be on new tab page')
+                return null
+            }
+
+            // Prefer the target matching the active tab's URL
+            const activeTab = activeTabId ? tabs.get(activeTabId) : null
+            const match = (activeTab
+                ? realTargets.find(t => t.url === activeTab.url)
+                : null) ?? realTargets[realTargets.length - 1]
+
+            console.log('[Agent] Active webview target:', match.id, match.url)
+            return { targetId: match.id, cdpUrl: `http://127.0.0.1:${CDP_PORT}` }
+        } catch (err) {
+            console.error('[Agent] get-active-webview-target failed:', err)
+            return null
+        }
+    })
+
     ipcMain.handle('create-agent-tab', async () => {
         // Snapshot existing targets before creating the tab
         let existingTargetIds = new Set<string>()
@@ -751,13 +795,40 @@ function setupIPC(): void {
         const tab = createTab('anthracite://newtab')
         switchToTab(tab.id)
 
-        // Find the new CDP target by diffing before/after
+        // Bootstrap the webview: override tab URL to a data URI so the renderer
+        // mounts the WebviewController (which only renders for non-anthracite:// URLs).
+        // The agent will navigate away to its actual target on the first step.
+        tab.url = 'data:text/html,'
+        ;(tab as any)._isInternalPage = false
+        sendTabsUpdate()
+
+        // Find the new CDP target by diffing before/after.
+        // Webviews appear as type "webview" in CDP /json; BrowserViews as type "page".
+        const findWebviewTarget = (targets: Array<{ id: string; type: string; url: string }>) => {
+            const newTargets = targets.filter(t => !existingTargetIds.has(t.id))
+            console.log('[Agent] All new targets after tab creation:', newTargets.map(t => `${t.type}:${t.url}`).join(' | '))
+            // <webview> elements appear as type "webview" in CDP /json
+            // BrowserViews appear as type "page" — look for webview type only
+            const eligible = newTargets.filter(t =>
+                t.type === 'webview' &&
+                !t.url.includes('127.0.0.1:') &&
+                !t.url.includes('localhost:') &&
+                !t.url.startsWith('file://')
+            )
+            // Return the first webview (most recently created = the new agent tab's webview)
+            return eligible[0]
+        }
+
         try {
-            // Small delay to let the target register
-            await new Promise(r => setTimeout(r, 200))
-            const afterRes = await fetch(`http://127.0.0.1:${CDP_PORT}/json`)
-            const after = await afterRes.json() as Array<{ id: string; type: string; url: string }>
-            const newTarget = after.find((t: any) => t.type === 'page' && !existingTargetIds.has(t.id))
+            // Poll for the new webview CDP target (webview process startup takes variable time)
+            let newTarget: { id: string; type: string; url: string } | undefined
+            const delays = [400, 600, 1000]  // cumulative: 400ms, 1s, 2s
+            for (const delay of delays) {
+                await new Promise(r => setTimeout(r, delay))
+                const after = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json`)).json() as Array<{ id: string; type: string; url: string }>
+                newTarget = findWebviewTarget(after)
+                if (newTarget) break
+            }
 
             console.log('[Agent] New agent tab target:', newTarget?.id, newTarget?.url)
 

@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electron', {
     // Agent
     agent: {
         createAgentTab: () => ipcRenderer.invoke('create-agent-tab'),
+        getActiveWebviewTarget: () => ipcRenderer.invoke('get-active-webview-target'),
     },
 
     // Tab Management
@@ -39,7 +40,7 @@ contextBridge.exposeInMainWorld('electron', {
         switch: (tabId: string) => ipcRenderer.invoke('switch-tab', tabId),
         getAll: () => ipcRenderer.invoke('get-tabs'),
         getActive: () => ipcRenderer.invoke('get-active-tab'),
-        update: (tabId: string, data: Partial<TabInfo>) => ipcRenderer.invoke('update-tab-state', tabId, data),
+        update: (tabId: string, data: Partial<TabInfo>) => ipcRenderer.invoke('update-tab-state', { tabId, state: data }),
 
         // Event listeners
         onTabsUpdated: (callback: (tabs: TabInfo[]) => void) => {

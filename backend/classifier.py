@@ -140,15 +140,13 @@ Respond with ONLY valid JSON."""
 async def classify(instruction: str) -> ClassifiedIntent:
     """Classify an instruction into a fast action or complex task.
 
-    Tries regex first (instant), falls back to LLM (200-500ms).
+    Regex-first. If no regex match, defaults to complex — never LLM.
+    Asymmetric risk: wrong fast = broken task; wrong complex = slower but correct.
     """
-    # 1. Try regex (free, instant)
     result = _try_regex_classify(instruction)
     if result:
         logger.info(f"Regex classified: {result.action} → {result.params}")
         return result
 
-    # 2. Fall back to LLM
-    result = await _llm_classify(instruction)
-    logger.info(f"LLM classified: {result.action} → {result.params}")
-    return result
+    logger.info(f"No regex match → complex: '{instruction}'")
+    return ClassifiedIntent(action="complex", params={})

@@ -1,18 +1,23 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-# Lazy imports to speed up startup
-# from backend.agent import run_agent_task_logic, run_agent_task_streaming
-# from backend.classifier import classify
-# from backend.cdp_fast import cdp_navigate
 import importlib
 import os
 import json
 import asyncio
 import logging
 
+from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 
+# Load .env from the project root (one level above backend/)
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
@@ -99,7 +104,7 @@ async def warmup():
     await asyncio.sleep(2)  # Short delay to prioritize UI responsiveness
     try:
         # Trigger lazy imports
-        import backend.agent
+        import backend.cdp_agent
         import backend.classifier
         import backend.cdp_fast
         logger.info("Backend warmup complete: Heavy modules loaded")
@@ -123,9 +128,11 @@ async def run_agent(task: TaskRequest):
     if task.api_key:
         os.environ["OPENAI_API_KEY"] = task.api_key
 
+    if not task.target_id:
+        return {"status": "error", "message": "No target_id provided."}
     try:
-        from backend.agent import run_agent_task_logic
-        result = await run_agent_task_logic(task.instruction, task.cdp_url, task.target_id)
+        from backend.cdp_agent import run_agent_task_streaming
+        result = await run_agent_task_streaming(task.instruction, task.target_id, api_key=api_key)
         return {"status": "success", "result": result}
     except Exception as e:
         logger.error(f"Agent task failed: {e}", exc_info=True)
@@ -221,56 +228,44 @@ async def stream_agent(task: TaskRequest):
             })
 
             # Step 2: Route to fast path or complex path
-            if intent.action == "fast_navigate" and task.target_id:
+            if intent.action == "fast_navigate":
                 url = intent.params.get("url", "")
+                # Tell the frontend the URL — it navigates via the proper IPC channel
+                # (updates URL bar, history, webview). No CDP needed here.
                 yield _sse_event({"type": "fast_action", "action": "navigate", "url": url})
-
-                from backend.cdp_fast import cdp_navigate
-                await cdp_navigate(task.target_id, url)
-
                 yield _sse_event({"type": "done", "result": f"Navigated to {url}"})
 
             else:
-                # Complex path: full browser-use with step streaming
+                # Complex path: custom CDP agent with AX-tree-first approach
+                if not task.target_id:
+                    yield _sse_event({"type": "error", "message": "No target_id provided for agent task."})
+                    return
+
                 agent_control.reset()
                 yield _sse_event({"type": "agent_starting"})
 
                 queue: asyncio.Queue = asyncio.Queue()
 
-                async def step_callback(browser_state, agent_output, step_num):
-                    """Push step info to the SSE queue."""
-                    actions_summary = []
-                    try:
-                        if agent_output and hasattr(agent_output, 'action'):
-                            for a in agent_output.action:
-                                # Extract just the action name and key params safely
-                                action_dict = a.model_dump(exclude_none=True, mode='json')
-                                actions_summary.append(action_dict)
-                    except Exception:
-                        # Fallback: just stringify action names
-                        try:
-                            if agent_output and hasattr(agent_output, 'action'):
-                                for a in agent_output.action:
-                                    actions_summary.append(str(type(a).__name__))
-                        except Exception:
-                            pass
-
+                async def step_callback(step_num, action, args, result):
+                    """Push step info to the SSE queue (new CDP agent signature)."""
+                    # Build a human-readable goal from the action and args
+                    goal = args.get("text") or args.get("url") or args.get("result") or action
                     await queue.put({
                         "type": "step",
                         "step": step_num,
-                        "next_goal": getattr(agent_output, 'next_goal', None) if agent_output else None,
-                        "actions": actions_summary,
+                        "next_goal": f"{action}: {goal}"[:120] if goal != action else action,
+                        "actions": [{"action": action, **args}],
                     })
 
                 # Run agent in background task
                 async def run_agent():
                     try:
-                        from backend.agent import run_agent_task_streaming
+                        from backend.cdp_agent import run_agent_task_streaming
                         result = await run_agent_task_streaming(
                             task.instruction,
-                            task.cdp_url,
                             task.target_id,
-                            step_callback,
+                            api_key=api_key,
+                            step_callback=step_callback,
                             should_stop=agent_control.should_stop,
                         )
                         await queue.put({"type": "done", "result": result})

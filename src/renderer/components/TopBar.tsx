@@ -295,8 +295,12 @@ export function TopBar({
         setAgentStatus('Starting...');
         setIsAgentPaused(false);
         try {
-            // 1. Create a new agent tab inside Anthracite and get CDP info
-            const agentTab = await (window as any).electron.agent.createAgentTab();
+            // 1. Get CDP target — prefer current page, fall back to new agent tab
+            let activeTarget = await (window as any).electron.agent.getActiveWebviewTarget();
+            if (!activeTarget) {
+                // On new tab page or internal page — open a fresh tab for the agent
+                activeTarget = await (window as any).electron.agent.createAgentTab();
+            }
 
             // Get API key from settings
             const settings = await window.electron?.settings.getAll();
@@ -308,8 +312,8 @@ export function TopBar({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     instruction: inputValue.trim(),
-                    cdp_url: agentTab.cdpUrl || 'http://127.0.0.1:9222',
-                    target_id: agentTab.targetId || null,
+                    cdp_url: activeTarget?.cdpUrl || 'http://127.0.0.1:9222',
+                    target_id: activeTarget?.targetId || null,
                     api_key: apiKey,
                 }),
                 signal: controller.signal,
@@ -341,6 +345,9 @@ export function TopBar({
                                     break;
                                 case 'fast_action':
                                     setAgentStatus(`Navigating to ${event.url}`);
+                                    if (event.url) {
+                                        window.electron.navigation.navigate(event.url);
+                                    }
                                     break;
                                 case 'agent_starting':
                                     setAgentStatus('Agent starting...');
@@ -355,8 +362,9 @@ export function TopBar({
                                     setAgentStatus('Stopped');
                                     break;
                                 case 'error':
-                                    setAgentStatus('');
+                                    setAgentStatus(`Error: ${event.message}`);
                                     console.error('Agent error:', event.message);
+                                    setTimeout(() => setAgentStatus(''), 4000);
                                     break;
                             }
                         } catch { /* skip malformed lines */ }
