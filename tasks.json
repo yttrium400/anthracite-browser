@@ -46,14 +46,14 @@
                 },
                 {
                     "id": "1.7",
-                    "title": "Test full install \u2192 launch \u2192 use \u2192 auto-update flow on Mac and Windows",
+                    "title": "Test full install → launch → use → auto-update flow on Mac and Windows",
                     "status": "completed"
                 }
             ]
         },
         {
             "id": "2",
-            "title": "CI/CD Pipeline \u2014 Automated Builds & Releases",
+            "title": "CI/CD Pipeline — Automated Builds & Releases",
             "status": "pending",
             "priority": "high",
             "context": "No GitHub Actions workflows exist for desktop builds. Website deploys via Vercel (already configured). Need automated multi-platform builds triggered on git tags.",
@@ -92,17 +92,17 @@
         },
         {
             "id": "3",
-            "title": "Website Waitlist Backend \u2014 Actually Save Signups",
+            "title": "Website Waitlist Backend — Actually Save Signups",
             "status": "pending",
             "priority": "high",
-            "context": "The signup form on anthracitebrowser.com (website/src/components/Signup.tsx) is purely cosmetic. It shows 'You're on the list' but saves nothing \u2014 no API call, no database, no email service. Need a real backend to collect and manage waitlist signups.",
+            "context": "The signup form on anthracitebrowser.com (website/src/components/Signup.tsx) is purely cosmetic. It shows 'You're on the list' but saves nothing — no API call, no database, no email service. Need a real backend to collect and manage waitlist signups.",
             "created_at": "2026-02-12T12:03:00.000000",
             "subtasks": [
                 {
                     "id": "3.1",
                     "title": "Choose and set up waitlist backend",
                     "status": "completed",
-                    "context": "Options ranked by simplicity: (1) Vercel serverless function + Supabase table \u2014 free tier covers early stage, (2) Resend audience API \u2014 email-native, good for later sending launch emails, (3) Google Sheets API \u2014 quick and dirty. Recommended: Supabase for the table + Resend for confirmation emails."
+                    "context": "Options ranked by simplicity: (1) Vercel serverless function + Supabase table — free tier covers early stage, (2) Resend audience API — email-native, good for later sending launch emails, (3) Google Sheets API — quick and dirty. Recommended: Supabase for the table + Resend for confirmation emails."
                 },
                 {
                     "id": "3.2",
@@ -132,62 +132,74 @@
         },
         {
             "id": "4",
-            "title": "Fork & Customize browser-use for Anthracite",
+            "title": "Replace Custom CDP Agent with browser-use + Claude Sonnet 4.6",
             "status": "pending",
             "priority": "critical",
-            "context": "Currently using vanilla browser-use as a pip dependency (backend/requirements.txt). The agent works but is not significantly better than what anyone could build with browser-use + ChatGPT. To justify a paid tier and differentiate from open-source alternatives, the agent needs to be substantially more reliable, faster, and capable. This is THE core differentiator.",
-            "created_at": "2026-02-12T12:04:00.000000",
+            "context": "BACKGROUND: Anthracite currently has a hand-rolled CDP agent (backend/cdp_agent.py) that was built to replace browser-use. It uses Accessibility.getFullAXTree only, has no reflection, no real memory, and hallucinates specific data (prices, names) it cannot see. We have tried patching it extensively — input float-to-top, autocomplete detection, done() guards, planner phase, model escalation — but it remains unreliable on real-world tasks like 'find cheapest hotel in Brisbane CBD 22 Feb' because it fundamentally cannot read prices from the page (prices are short static DOM text, not AX-interactive elements) and gpt-4o gives up and invents data.\n\nWHY BROWSER-USE NOW: browser-use has ABANDONED Playwright and migrated to raw CDP (their own cdp-use library, 2025). This makes it architecturally identical to our custom agent at the transport level. browser-use's agent is significantly more capable: it merges DOM + AX tree + Snapshot tree into EnhancedDOMTreeNode structures (preserving which price belongs to which hotel card — the exact structural context we are missing); it has explicit per-step memory (AgentOutput.memory field carries key facts between steps); it has a reflection/evaluation step (was the action effective?); an ActionLoopDetector that injects nudge messages on repeated patterns; and message compaction that summarises history instead of dropping it. All of this has been tuned on real web tasks for over a year.\n\nWHY CLAUDE SONNET 4.6: Claude Sonnet 4.6 scores 72.5% on computer use benchmarks, significantly better than GPT-4o on web interaction tasks. browser-use natively supports Anthropic via langchain_anthropic. Cost: $3/M input + $15/M output vs GPT-4o at $2.50/M + $10/M — Claude is ~30-40% more expensive per task but the accuracy gain justifies it. For a typical 10-step agent task (~20k input tokens, ~2k output tokens) the cost difference is ~$0.02/task.\n\nARCHITECTURE TO PRESERVE: The Electron app has two surfaces per tab — an off-screen BrowserView (y=-10000, default session) and an on-screen <webview> (persist:anthracite session). Agent tabs connect to the webview's CDP target, NOT the BrowserView. The webview CDP target is found by querying http://127.0.0.1:9222/json, filtering for type='webview', and excluding about: URLs (which are the BrowserView marker). This means the agent controls what the user actually sees. This architecture MUST be preserved — the browser-use agent must connect to the same webview CDP target.\n\nWHAT TO KEEP FROM CURRENT BACKEND: (1) backend/classifier.py — regex-first intent classifier that routes 'go to youtube.com' to fast_navigate (no agent needed) and everything else to the agent. Keep this entirely. (2) backend/server.py /agent/stream SSE endpoint — the streaming architecture (SSE queue, step_callback, agent_control stop/pause/resume) should be kept. Only the agent call inside changes. (3) The fast_navigate path in server.py — when classifier returns fast_navigate, we tell the frontend to navigate via IPC (no agent needed). Keep this.\n\nWHAT TO REPLACE: backend/cdp_agent.py — the entire file. Replace with a thin adapter that: (a) resolves the webview's WebSocket URL using the existing _get_ws_url logic, (b) creates a browser-use BrowserSession connected to that WebSocket URL, (c) creates a browser-use Agent with Claude Sonnet 4.6 as the LLM, (d) runs the agent with step callbacks wired to the SSE queue.",
+            "created_at": "2026-02-20T00:00:00.000000",
             "subtasks": [
                 {
                     "id": "4.1",
-                    "title": "Fork browser-use repo",
+                    "title": "Install browser-use and Anthropic SDK dependencies",
                     "status": "pending",
-                    "context": "Fork to your own repo (e.g. anthracite-agent). Update backend/requirements.txt to install from the fork. Keep ability to pull upstream improvements."
+                    "context": "Add to backend/requirements.txt: browser-use (latest, for raw CDP agent), langchain-anthropic (for Claude Sonnet 4.6 LLM). Remove or keep langchain-openai as fallback. Verify: pip install browser-use langchain-anthropic. Check that browser-use's version already uses cdp-use (not Playwright) — this happened in late 2025, confirm from browser-use changelog/releases. If browser-use still uses Playwright internally, use the latest version that includes the CDP migration."
                 },
                 {
                     "id": "4.2",
-                    "title": "Study browser-use internals deeply",
+                    "title": "Resolve webview CDP WebSocket URL for browser-use BrowserSession",
                     "status": "pending",
-                    "context": "Understand: how it takes screenshots, parses DOM, builds the accessibility tree, decides actions, handles errors, manages state between steps. Read the Agent class, BrowserSession, and all action handlers."
+                    "context": "Current logic in cdp_agent.py _get_ws_url(): fetch http://127.0.0.1:9222/json, find the target whose id matches target_id passed from the frontend. This target_id is the webview's CDP target ID, sent via IPC when an agent task starts (see src/main/main.ts and src/renderer/components/CommandBar.tsx). browser-use BrowserSession accepts a cdp_url or websocket_url parameter — pass the resolved WebSocket debugger URL directly. Do NOT pass just http://127.0.0.1:9222 as the cdp_url because that connects to the whole browser, not the specific tab. The webSocketDebuggerUrl from /json looks like: ws://127.0.0.1:9222/devtools/page/<target_id>."
                 },
                 {
                     "id": "4.3",
-                    "title": "Identify and fix reliability bottlenecks",
+                    "title": "Create backend/cdp_agent.py adapter wrapping browser-use Agent",
                     "status": "pending",
-                    "context": "Common failures: clicking wrong element, getting stuck in loops, failing on dynamic content (SPAs), struggling with dropdowns/date pickers, losing context in multi-step tasks. Log and categorize agent failures to prioritize fixes."
+                    "context": "Replace the current cdp_agent.py entirely. The public interface must remain compatible with server.py: async def run_agent_task_streaming(instruction, target_id, api_key=None, step_callback=None, should_stop=None) -> str. Internally: (1) resolve webview WebSocket URL via _get_ws_url(target_id), (2) create BrowserSession(websocket_url=ws_url) — do NOT let browser-use launch a new browser, only connect to the existing webview, (3) create ChatAnthropic(model='claude-sonnet-4-6', api_key=anthropic_key) as the LLM, (4) create Agent(task=instruction, llm=llm, browser_session=session), (5) run agent with on_step_end callback that calls step_callback and checks should_stop, (6) return agent history final_result(). The step_callback signature expected by server.py is: async def step_callback(step_num, action, args, result). Map browser-use's step data to this format."
                 },
                 {
                     "id": "4.4",
-                    "title": "Improve DOM element targeting",
+                    "title": "Wire browser-use step callbacks to SSE streaming in server.py",
                     "status": "pending",
-                    "context": "Combine: accessibility tree (primary) + CSS selectors + visual coordinates from screenshots. Current browser-use relies heavily on one method. Fallback chain makes targeting much more robust."
+                    "context": "server.py /agent/stream already has SSE infrastructure: an asyncio.Queue, a step_callback that pushes {type: 'step', step, next_goal, actions} events, and a run_agent() background task. The step_callback in server.py currently expects (step_num, action, args, result). browser-use Agent has on_step_end(agent_output, step_number) callback — extract the action name and args from agent_output.action and map to the expected format. Also wire the should_stop check: on each step, check agent_control.should_stop() and if true, raise InterruptedError inside the callback to abort the agent. The 'done' event should fire when agent.run() completes with the final result string."
                 },
                 {
                     "id": "4.5",
-                    "title": "Add task memory to prevent loops",
+                    "title": "Handle API key routing: Anthropic key for executor, OpenAI key for planner (optional)",
                     "status": "pending",
-                    "context": "Agent should track what it's already tried in the current task. If it's clicking the same element 3 times with no state change, try a different approach. Implement a simple action history with 'already tried' detection."
+                    "context": "The current system reads OPENAI_API_KEY from .env or from the frontend request (TaskRequest.api_key). We need to add ANTHROPIC_API_KEY support. server.py TaskRequest model has api_key field — extend to support anthropic_api_key or detect which key is provided. The frontend Settings page (src/renderer/components/SettingsPage.tsx) currently has an OpenAI key field — add an Anthropic key field. For users who only have an OpenAI key, fall back to gpt-4o as the executor (keep this as a graceful fallback, not an error). Priority: Anthropic key → Claude Sonnet 4.6. OpenAI key only → gpt-4o. Neither → error with clear message."
                 },
                 {
                     "id": "4.6",
-                    "title": "Optimize token usage / cost per task",
+                    "title": "Preserve classifier + fast_navigate path exactly as-is",
                     "status": "pending",
-                    "context": "Current agent sends full screenshots + full DOM on every step. Optimize: use accessibility tree as primary input (much smaller), only send screenshots when visual context is needed (use_vision='auto' is a start but can be smarter). Reduce cost per task to make paid tier margins viable."
+                    "context": "backend/classifier.py must not be changed. It is regex-first, defaults to 'complex' on no match (no LLM fallback — intentional asymmetric risk). The fast_navigate path in server.py /agent/stream must remain: when classifier returns fast_navigate, yield {type: 'fast_action', action: 'navigate', url: url} which tells the frontend to navigate via IPC (tab URL bar updates, history records). This path has zero LLM calls and is near-instant. The agent is only invoked when classifier returns 'complex'. This two-tier approach is the product's speed advantage — keep it intact."
                 },
                 {
                     "id": "4.7",
-                    "title": "Build two-tier agent: quick mode vs deep mode",
+                    "title": "Verify browser-use does not create a new browser session or overwrite webview cookies",
                     "status": "pending",
-                    "context": "Quick mode: minimal DOM snapshot, no screenshot, fast LLM call \u2014 for simple actions. Deep mode: full browser-use pipeline with vision \u2014 for complex multi-step tasks. Classifier (backend/classifier.py) already routes simple vs complex; extend this to control agent depth."
+                    "context": "Critical: the webview uses 'persist:anthracite' Electron session partition. This means the user's cookies, login sessions (Google, etc.) are in this partition. When browser-use connects via CDP to the webview's WebSocket URL, it must NOT reset the page, clear cookies, or navigate away before the task starts. Verify: BrowserSession in connect-to-existing-browser mode should not call Page.resetNavigationHistory, Storage.clearDataForOrigin, or similar. If browser-use does any of these on connect, we need to disable them. Test: user is logged into Google in a tab, run agent task on that tab, verify Google session is still active after agent finishes."
+                },
+                {
+                    "id": "4.8",
+                    "title": "Add Anthropic key field to Settings UI",
+                    "status": "pending",
+                    "context": "src/renderer/components/SettingsPage.tsx currently has one API key field (OpenAI). Add a second field for Anthropic API key. Same UX: password input, test button that hits a new /test-api-key-anthropic endpoint, stored via electron.settings.set('anthropicApiKey', ...) using safeStorage. The frontend CommandBar should send the Anthropic key alongside the instruction when starting an agent task. Update the TaskRequest model in server.py and the IPC message in preload.ts/main.ts accordingly."
+                },
+                {
+                    "id": "4.9",
+                    "title": "Integration test: real-world tasks that previously failed",
+                    "status": "pending",
+                    "context": "Test the following tasks that failed with the custom agent and must pass with browser-use + Claude: (1) 'find cheapest hotel in Brisbane CBD 22 Feb' — agent must go to booking.com, set the destination, set the date using the calendar picker, search, sort by price, and return the actual cheapest hotel name and price visible on the page. (2) 'find cheapest flight from Sydney to Brisbane' — agent must go to google.com/flights, fill origin/destination, handle autocomplete suggestions, set the date, and return flight options with prices. (3) 'play punjabi music on YouTube' — agent must navigate to youtube.com, search for punjabi music, and click a video to start playing it. (4) 'what is the weather in Tokyo' — fast_navigate path should handle this (google search), no agent needed. For each test, check terminal logs to verify: correct site visited, correct fields filled, no hallucinated data in final result."
                 }
             ]
         },
         {
             "id": "5",
-            "title": "Google/OAuth Account Linking \u2014 Agent Auth",
+            "title": "Google/OAuth Account Linking — Agent Auth",
             "status": "pending",
             "priority": "critical",
-            "context": "Users need to link accounts (Google, Microsoft, etc.) so the AI agent can act as them \u2014 log into Gmail, book flights on their airline account, manage their calendar. Currently the agent has NO auth context and cannot access any logged-in services. This is NOT traditional OAuth (we don't need API tokens) \u2014 the agent needs actual browser session cookies so it can navigate sites as the user.",
+            "context": "Users need to link accounts (Google, Microsoft, etc.) so the AI agent can act as them — log into Gmail, book flights on their airline account, manage their calendar. Currently the agent has NO auth context and cannot access any logged-in services. This is NOT traditional OAuth (we don't need API tokens) — the agent needs actual browser session cookies so it can navigate sites as the user.",
             "created_at": "2026-02-12T12:05:00.000000",
             "subtasks": [
                 {
@@ -212,7 +224,7 @@
                     "id": "5.4",
                     "title": "Add 'Connected Accounts' section in Settings",
                     "status": "pending",
-                    "context": "Show which services the agent has access to (based on stored sessions). E.g., 'Google \u2014 signed in as user@gmail.com', 'GitHub \u2014 signed in'. Allow user to disconnect (clear cookies for that domain)."
+                    "context": "Show which services the agent has access to (based on stored sessions). E.g., 'Google — signed in as user@gmail.com', 'GitHub — signed in'. Allow user to disconnect (clear cookies for that domain)."
                 },
                 {
                     "id": "5.5",
@@ -233,32 +245,26 @@
             "title": "Multi-Model Support & API Key Management UI",
             "status": "pending",
             "priority": "high",
-            "context": "Currently hardcoded to OpenAI GPT-4o with API key in .env file. No way for users to configure this. Users need to: (1) bring their own API keys, (2) choose which model to use, (3) store keys securely. The CommandBar already shows 'GPT-4o' as static text (line 303) \u2014 this should be a working model selector.",
+            "context": "After task 4, Anthracite uses Claude Sonnet 4.6 (Anthropic) as the primary executor model and optionally gpt-4o (OpenAI) as fallback. Users need to configure their own API keys. The Settings page currently has only an OpenAI key field — Anthropic key field is added as part of task 4.8. This task covers the full multi-model UX: model selector in CommandBar, secure key storage, and support for additional providers.",
             "created_at": "2026-02-12T12:06:00.000000",
             "subtasks": [
                 {
                     "id": "6.1",
-                    "title": "Add API Key settings page",
+                    "title": "Complete API Key settings page (Anthropic + OpenAI)",
                     "status": "pending",
-                    "context": "New section in SettingsPage.tsx (src/renderer/components/SettingsPage.tsx). Input fields for: OpenAI key, Anthropic key, Google AI key. Validate on save (make a lightweight test call). Store securely using Electron's safeStorage API (NOT in a plain JSON file)."
+                    "context": "Anthropic key field is added in task 4.8. This subtask: add Google AI (Gemini) key field as a third option. All keys: password input, inline test button, stored via safeStorage. Show which keys are currently active. Clear visual hierarchy: Anthropic (recommended, Claude Sonnet 4.6) > OpenAI (fallback, gpt-4o) > Google (future)."
                 },
                 {
                     "id": "6.2",
-                    "title": "Support multiple LLM providers in the backend",
+                    "title": "Make CommandBar model selector functional",
                     "status": "pending",
-                    "context": "Update backend/agent.py to accept provider + model + key as parameters instead of reading .env. Support: OpenAI (GPT-4o, GPT-4o-mini, o1), Anthropic (Claude 3.5 Sonnet, Claude 4), Google (Gemini). Use langchain's provider abstractions \u2014 already using langchain-openai."
+                    "context": "The model selector button in CommandBar.tsx currently shows static text. Make it a dropdown: available options depend on which keys the user has set. Default: Claude Sonnet 4.6 if Anthropic key is set, else gpt-4o if OpenAI key is set. Persist last-used model. Send chosen model to backend with each agent task request."
                 },
                 {
                     "id": "6.3",
-                    "title": "Make CommandBar model selector functional",
-                    "status": "pending",
-                    "context": "The 'GPT-4o' + ChevronDown button in CommandBar.tsx (line 299-305) is currently static. Make it a working dropdown showing available models (based on which API keys the user has configured). Persist last-used model choice."
-                },
-                {
-                    "id": "6.4",
                     "title": "Support local models via Ollama",
                     "status": "pending",
-                    "context": "For privacy-conscious users: detect if Ollama is running locally, list available models, route agent calls through Ollama. No API key needed. Lower quality but free and private."
+                    "context": "For privacy-conscious users: detect if Ollama is running locally (http://localhost:11434), list available models, route agent calls through Ollama. No API key needed. Lower quality but free and private. browser-use supports Ollama via langchain-community OllamaLLM."
                 }
             ]
         },
@@ -267,7 +273,7 @@
             "title": "User Authentication System",
             "status": "pending",
             "priority": "high",
-            "context": "Currently zero auth exists in the desktop app. Everything is local. Need user accounts for: cloud sync, subscription management, cross-device continuity. This is a prerequisite for tasks 29 (sync) and 30 (payments).",
+            "context": "Currently zero auth exists in the desktop app. Everything is local. Need user accounts for: cloud sync, subscription management, cross-device continuity. This is a prerequisite for tasks 8 (sync) and 9 (payments).",
             "created_at": "2026-02-12T12:07:00.000000",
             "subtasks": [
                 {
@@ -297,16 +303,16 @@
                     "id": "7.5",
                     "title": "Handle offline mode gracefully",
                     "status": "pending",
-                    "context": "App must work fully without auth \u2014 just without sync/cloud/subscription features. Never block the browser because of auth issues."
+                    "context": "App must work fully without auth — just without sync/cloud/subscription features. Never block the browser because of auth issues."
                 }
             ]
         },
         {
             "id": "8",
-            "title": "Cloud Sync \u2014 Realms, Docks, History, Settings",
+            "title": "Cloud Sync — Realms, Docks, History, Settings",
             "status": "pending",
             "priority": "medium",
-            "context": "All user data is currently local only. Realms/Docks in anthracite-realms.json, history in SQLite (history.db), settings in settings.json. Authenticated users should be able to sync across devices. Depends on task 28 (user auth).",
+            "context": "All user data is currently local only. Realms/Docks in anthracite-realms.json, history in SQLite (history.db), settings in settings.json. Authenticated users should be able to sync across devices. Depends on task 7 (user auth).",
             "created_at": "2026-02-12T12:08:00.000000",
             "subtasks": [
                 {
@@ -317,7 +323,7 @@
                 },
                 {
                     "id": "8.2",
-                    "title": "Implement settings sync (simplest \u2014 start here)",
+                    "title": "Implement settings sync (simplest — start here)",
                     "status": "pending",
                     "context": "Settings are a single JSON blob. On change: upload to cloud. On login from new device: merge with local (cloud wins for most fields). Files: src/main/settings.ts."
                 },
@@ -325,17 +331,17 @@
                     "id": "8.3",
                     "title": "Implement realms & docks sync",
                     "status": "pending",
-                    "context": "More complex \u2014 realms contain docks which contain tabs. Need entity-level sync, not whole-file replacement. Files: src/main/store.ts."
+                    "context": "More complex — realms contain docks which contain tabs. Need entity-level sync, not whole-file replacement. Files: src/main/store.ts."
                 },
                 {
                     "id": "8.4",
                     "title": "Implement history sync",
                     "status": "pending",
-                    "context": "SQLite history.db. Sync recent entries (last 30 days). Don't sync entire history \u2014 too large. Files: src/main/history.ts."
+                    "context": "SQLite history.db. Sync recent entries (last 30 days). Don't sync entire history — too large. Files: src/main/history.ts."
                 },
                 {
                     "id": "8.5",
-                    "title": "Handle offline \u2192 online reconciliation",
+                    "title": "Handle offline → online reconciliation",
                     "status": "pending",
                     "context": "Queue changes made while offline. Sync when connection restored. Handle conflicts."
                 }
@@ -346,7 +352,7 @@
             "title": "Subscription & Payment System",
             "status": "pending",
             "priority": "high",
-            "context": "Monetization layer. Business model: Free tier (bring your own API key, full browser features) + Pro tier (monthly subscription with agent credits \u2014 no API key needed, Anthracite proxies LLM calls). The agent must be significantly better than open-source alternatives for people to pay. Depends on tasks 25 (agent improvements) and 28 (user auth).",
+            "context": "Monetization layer. Business model: Free tier (bring your own API key, full browser features) + Pro tier (monthly subscription with agent credits — no API key needed, Anthracite proxies LLM calls). The agent must be significantly better than open-source alternatives for people to pay. Depends on tasks 4 (agent) and 7 (user auth).",
             "created_at": "2026-02-12T12:09:00.000000",
             "subtasks": [
                 {
@@ -421,7 +427,7 @@
                 },
                 {
                     "id": "10.4",
-                    "title": "Saved workflows \u2014 repeatable multi-step agent tasks",
+                    "title": "Saved workflows — repeatable multi-step agent tasks",
                     "status": "pending",
                     "context": "Allow users to save an agent task as a 'workflow' (e.g., 'Check my email and summarize unread', 'Search for flights to X on Y date'). Show saved workflows in CommandBar or sidebar for one-click re-run."
                 }
@@ -429,15 +435,15 @@
         },
         {
             "id": "11",
-            "title": "Agent Reliability \u2014 Edge Cases & Failure Handling",
+            "title": "Agent Reliability — Edge Cases & Failure Handling",
             "status": "pending",
             "priority": "high",
-            "context": "Common scenarios where the agent breaks or gets stuck. Fixing these is critical for user trust and the paid tier value proposition.",
+            "context": "Common scenarios where the agent breaks or gets stuck. browser-use handles many of these better than our custom agent, but some still need explicit handling. Fixing these is critical for user trust and the paid tier value proposition.",
             "created_at": "2026-02-12T12:11:00.000000",
             "subtasks": [
                 {
                     "id": "11.1",
-                    "title": "CAPTCHA handling \u2014 detect and defer to user",
+                    "title": "CAPTCHA handling — detect and defer to user",
                     "status": "pending",
                     "context": "When agent encounters a CAPTCHA: pause agent, show the page to the user, prompt them to solve it, then resume agent automatically after CAPTCHA is cleared."
                 },
@@ -451,7 +457,7 @@
                     "id": "11.3",
                     "title": "Handle iframes and shadow DOM",
                     "status": "pending",
-                    "context": "Many sites use iframes (e.g., payment forms, embedded content) and shadow DOM (web components). The agent's DOM parser needs to traverse into these."
+                    "context": "Many sites use iframes (e.g., payment forms, embedded content) and shadow DOM (web components). browser-use has cross-origin iframe support built in (added when they moved to raw CDP)."
                 },
                 {
                     "id": "11.4",
@@ -461,13 +467,13 @@
                 },
                 {
                     "id": "11.5",
-                    "title": "Improve form filling \u2014 dropdowns, date pickers, multi-step forms",
+                    "title": "Improve form filling — dropdowns, date pickers, multi-step forms",
                     "status": "pending",
-                    "context": "These are the most common agent failures. Custom dropdown components (not native <select>) are especially hard. Date pickers vary wildly across sites."
+                    "context": "browser-use's EnhancedDOMTreeNode gives structural context (which field belongs to which form) and screenshot fallback for visual elements. Date pickers and custom dropdowns should be handled better than with our flat AX tree approach."
                 },
                 {
                     "id": "11.6",
-                    "title": "Timeout handling \u2014 don't spin forever",
+                    "title": "Timeout handling — don't spin forever",
                     "status": "pending",
                     "context": "Add per-step timeouts (30s default) and per-task timeouts (5min default). If stuck, try alternative approach or ask user for help. Never leave agent running silently."
                 },
@@ -500,7 +506,7 @@
                 },
                 {
                     "id": "12.3",
-                    "title": "Implement crash recovery \u2014 restore tabs/realms on restart",
+                    "title": "Implement crash recovery — restore tabs/realms on restart",
                     "status": "pending",
                     "context": "On app crash, save current state. On next launch, detect crash and offer to restore previous session."
                 },
@@ -521,7 +527,7 @@
             "subtasks": [
                 {
                     "id": "13.1",
-                    "title": "Import bookmarks \u2192 map to Anthracite Realms/Docks",
+                    "title": "Import bookmarks → map to Anthracite Realms/Docks",
                     "status": "pending",
                     "context": "Chrome bookmarks are folders. Map top-level folders to Realms, sub-folders to Docks, bookmarks to pinned tabs or dock items."
                 },
@@ -540,7 +546,7 @@
                     "id": "13.4",
                     "title": "First-run import wizard on initial launch",
                     "status": "pending",
-                    "context": "Detect installed browsers, offer to import. Clean, minimal UI matching Anthracite aesthetic. Steps: Welcome \u2192 Import \u2192 API Key Setup \u2192 Done."
+                    "context": "Detect installed browsers, offer to import. Clean, minimal UI matching Anthracite aesthetic. Steps: Welcome → Import → API Key Setup → Done."
                 },
                 {
                     "id": "13.5",
@@ -616,10 +622,10 @@
         },
         {
             "id": "16",
-            "title": "Mobile Browser (Later Stage \u2014 iOS & Android)",
+            "title": "Mobile Browser (Later Stage — iOS & Android)",
             "status": "pending",
             "priority": "low",
-            "context": "Separate project from the Electron desktop app. Do NOT start until desktop is stable and monetized. Major architectural decisions needed \u2014 mobile can't run Python locally, so agent tasks must go through a cloud backend. iOS requires WebKit (Apple policy). Android allows custom engines.",
+            "context": "Separate project from the Electron desktop app. Do NOT start until desktop is stable and monetized. Major architectural decisions needed — mobile can't run Python locally, so agent tasks must go through a cloud backend. iOS requires WebKit (Apple policy). Android allows custom engines.",
             "created_at": "2026-02-12T12:16:00.000000",
             "subtasks": [
                 {
@@ -644,7 +650,7 @@
                     "id": "16.4",
                     "title": "Cloud-based agent backend for mobile",
                     "status": "pending",
-                    "context": "Mobile devices can't run the Python agent locally. Build a cloud API that runs browser-use tasks on server-side browsers. This is also the infrastructure needed for the paid proxy tier (task 30)."
+                    "context": "Mobile devices can't run the Python agent locally. Build a cloud API that runs browser-use tasks on server-side browsers. This is also the infrastructure needed for the paid proxy tier (task 9)."
                 },
                 {
                     "id": "16.5",
