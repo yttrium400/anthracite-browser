@@ -4,14 +4,51 @@
  * Forwards horizontal wheel events to the host page for swipe navigation.
  */
 
-// @ts-ignore
-// Side-effect import to inject cosmetic filters (requires sandbox: false or bundling)
-try {
-    require('@ghostery/adblocker-electron-preload')
-} catch (e) {
-    // Adblocker might be disabled or module missing
+import { ipcRenderer, webFrame } from 'electron';
+
+// Cosmetic CSS injection handled below. Native scriptlet injection 
+// is no longer used here; JSON payloads are now scrubbed natively via CDP Fetch domains.
+
+
+// CSS Cosmetic Filtering (runs when DOM is ready to parse classes/IDs)
+async function injectCosmeticCSS(url: string = window.location.href) {
+    try {
+        const classSet = new Set<string>();
+        const idSet = new Set<string>();
+        document.querySelectorAll('[class], [id]').forEach((el) => {
+            if (el.id) idSet.add(el.id);
+            if (el.classList.length) el.classList.forEach(c => classSet.add(c));
+        });
+
+        const { styles } = await ipcRenderer.invoke(
+            'get-cosmetic-rules',
+            window.location.href,
+            Array.from(classSet),
+            Array.from(idSet)
+        );
+
+        if (styles) {
+            const style = document.createElement('style');
+            style.textContent = styles;
+            (document.head || document.documentElement).appendChild(style);
+        }
+    } catch (e) {
+        // console.error('[AdBlock] Failed to inject cosmetic CSS:', e);
+    }
 }
-import { ipcRenderer } from 'electron'
+
+// Inject CSS immediately if document is ready, or on DOMContentLoaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => injectCosmeticCSS(window.location.href));
+} else {
+    injectCosmeticCSS(window.location.href);
+}
+
+// Handle SPA navigations (Single Page Applications like YouTube)
+ipcRenderer.on('spa-navigate', (_, url: string) => {
+    ipcRenderer.send('adblock-log', `SPA Navigation detected to ${url}, re-injecting...`);
+    injectCosmeticCSS(url);
+});
 
 let lastSendTime = 0
 

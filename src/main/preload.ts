@@ -114,7 +114,6 @@ contextBridge.exposeInMainWorld('electron', {
             ipcRenderer.on('ad-block-status', subscription)
             return () => ipcRenderer.removeListener('ad-block-status', subscription)
         },
-        getPreloadPath: () => ipcRenderer.invoke('get-adblock-preload-path'),
     },
 
     // Webview preload
@@ -331,7 +330,6 @@ declare global {
                 onBlocked: (callback: (data: { count: number; url?: string }) => void) => () => void
                 onHttpsUpgrade: (callback: (data: { count: number }) => void) => () => void
                 onStatusChange: (callback: (data: { enabled: boolean; blockedCount: number; httpsUpgradeCount: number }) => void) => () => void
-                getPreloadPath: () => Promise<string>
             }
             settings: {
                 getAll: () => Promise<AppSettings>

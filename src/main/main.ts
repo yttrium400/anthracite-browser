@@ -7,7 +7,7 @@ import { autoUpdater } from 'electron-updater'
 const CDP_PORT = 9222
 app.commandLine.appendSwitch('remote-debugging-port', String(CDP_PORT))
 import { spawn, ChildProcess } from 'node:child_process'
-import { ElectronBlocker, Request } from '@ghostery/adblocker-electron'
+
 import fetch from 'cross-fetch'
 
 
@@ -140,7 +140,7 @@ interface Tab {
 
 let win: BrowserWindow | null = null
 let pythonProcess: ChildProcess | null = null
-let blocker: ElectronBlocker | null = null
+
 let blockedCount = 0
 let httpsUpgradeCount = 0
 let adBlockEnabled = false // Temporarily disabled for performance testing
@@ -346,6 +346,9 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
             tab.url = url
             sendTabUpdate(tab)
             addHistoryEntry(url, tab.title, tab.favicon)
+
+            // Trigger SPA injection in preload script
+            view.webContents.send('spa-navigate', url)
         }
     })
 
@@ -556,174 +559,24 @@ function sendActiveTabUpdate(): void {
 // Ad Blocker
 // ============================================
 
-// Enable ghostery ad blocking on a session (network filters + cosmetic filters)
-// Enable ghostery ad blocking on a session (network filters + cosmetic filters)
-function safeEnableBlocking(sess: Electron.Session) {
-    if (!sess || !blocker) return
+import { AdBlockService } from './services/AdBlockService'
 
-    // Polyfill for Electron versions missing registerPreloadScript (e.g. Electron 28)
-    // The adblocker library expects this API to exist to inject its preload script.
-    // We strictly manage the preload script manually in createTab via 'webview-preload.js',
-    // so we can safely stub this out to prevent the library from crashing.
-    if (typeof (sess as any).registerPreloadScript !== 'function') {
-        (sess as any).registerPreloadScript = () => {
-            // No-op: We manually inject the cosmetic filtering script in createTab
-        }
-    }
+let adBlockService: AdBlockService | null = null;
 
-    blocker.enableBlockingInSession(sess)
-}
-
-const isLocal = (url: string) => {
-    return url.includes('localhost') || url.includes('127.0.0.1') || url.startsWith('file:') || url.startsWith('anthracite:')
-}
-
-function setupRequestInterceptor(sess: Electron.Session): void {
-    // We attach a single listener that handles both HTTPS Upgrade and Ad Blocking
-    // because Electron only allows one listener per event type.
-
-    // 1. Ad Blocking (Native Integration)
-    // The library's enableBlockingInSession method is highly optimized (C++) and async-friendly.
-    // It attaches its own high-performance listener to the session.
-    if (adBlockEnabled && blocker) {
-        safeEnableBlocking(sess)
-    }
-
-    // 2. HTTPS Upgrade (Native / Simplified)
-    // Electron/Chromium handles HSTS automatically. We remove our manual upgrader
-    // to prevent conflicts with site redirects and double-reloads.
-    if (httpsUpgradeEnabled) {
-        // If we really need custom upgrade logic, we should use a non-blocking approach on headers received,
-        // but for now, rely on browser native security.
-    }
-}
-
-
-import { promises as fs } from 'node:fs'
-
-const AD_BLOCK_ENGINE_CACHE = path.join(app.getPath('userData'), 'adblock-engine.bin')
-
-async function initAdBlocker(): Promise<void> {
-    try {
-        httpsUpgradeEnabled = settingsStore.get('httpsUpgradeEnabled')
-
-        // Try to load from cache first for instant startup
-        try {
-            const buffer = await fs.readFile(AD_BLOCK_ENGINE_CACHE)
-            blocker = await ElectronBlocker.deserialize(buffer)
-        } catch (e) {
-            // Cache missing or invalid, fall back to downloading
-        }
-
-        if (!blocker) {
-            // Use a comprehensive set of filter lists for production-grade blocking
-            // This includes EasyList (Ads), EasyPrivacy (Trackers), and uBlock Origin filters (Optimizations/Fixes)
-            blocker = await ElectronBlocker.fromLists(fetch, [
-                'https://easylist.to/easylist/easylist.txt',
-                'https://easylist.to/easylist/easyprivacy.txt',
-                'https://ublockorigin.pages.dev/thirdparties/easylist-cookie.txt',
-                'https://ublockorigin.pages.dev/thirdparties/ublock-filters.txt',
-                'https://ublockorigin.pages.dev/thirdparties/ublock-badware.txt',
-                'https://ublockorigin.pages.dev/thirdparties/ublock-privacy.txt',
-                'https://ublockorigin.pages.dev/thirdparties/ublock-quick-fixes.txt',
-                'https://ublockorigin.pages.dev/thirdparties/ublock-unbreak.txt',
-                'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt',
-                'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2024.txt',
-            ])
-
-            // Save to cache for next time
-            try {
-                await fs.writeFile(AD_BLOCK_ENGINE_CACHE, blocker.serialize())
-            } catch (e) {
-                console.error('Failed to save adblock engine cache:', e)
-            }
-        }
-
-        // Throttle ad-blocked events to prevent flooding the renderer and main process
-        let adBlockUpdateQueued = false
-        const sendAdBlockUpdate = () => {
-            if (adBlockUpdateQueued) return
-            adBlockUpdateQueued = true
-            setTimeout(() => {
-                if (win && !win.isDestroyed()) {
-                    win.webContents.send('ad-blocked', { count: blockedCount })
-                }
-                adBlockUpdateQueued = false
-            }, 1000) // Update at most once per second
-        }
-
-        blocker.on('request-blocked', (request) => {
-            blockedCount++
-            // Optimization: Don't send every single blocked URL to renderer, just the count
-            // if (win && !win.isDestroyed()) {
-            //    win.webContents.send('ad-blocked', { count: blockedCount, url: request.url })
-            // }
-            sendAdBlockUpdate()
-        })
-
-        blocker.on('request-redirected', () => {
-            blockedCount++
-            sendAdBlockUpdate()
-        })
-
-        // Enable on default session (BrowserView tabs)
-        if (adBlockEnabled) {
-            safeEnableBlocking(session.defaultSession)
-            // Note: We do NOT enable on 'persist:anthracite' (internal webviews) to avoid
-            // "Attempted to register a second handler" error from the library.
-            // Internal pages don't need ad blocking anyway.
-        }
-
-        // Setup HTTPS upgrade interceptor on defaultSession (BrowserView tabs)
-        // Note: webview partition is fully managed by ghostery — don't override its listeners
-        // setupRequestInterceptor(session.defaultSession) -> REMOVED: Redundant with safeEnableBlocking
-
-    } catch (error) {
-        console.error('Failed to initialize ad blocker:', error)
-    }
-
-    // Silence IPC errors if ad blocker is disabled but preload is still injected
-    // The preload script 'require's the adblocker library which tries to communicate immediately.
-    if (!adBlockEnabled) {
-        ipcMain.handle('@ghostery/adblocker/inject-cosmetic-filters', () => { })
-        ipcMain.handle('@ghostery/adblocker/is-mutation-observer-enabled', () => false)
-    }
+function initAdBlocker(): void {
+    adBlockService = new AdBlockService();
 }
 
 function toggleAdBlocker(enabled: boolean): void {
     adBlockEnabled = enabled
-
-    if (blocker) {
-        // Toggle on defaultSession (BrowserView) only
-        const sessions = [
-            session.defaultSession,
-        ]
-
-        for (const sess of sessions) {
-            if (enabled) {
-                if (!blocker.isBlockingEnabled(sess)) {
-                    safeEnableBlocking(sess)
-                }
-            } else {
-                if (blocker.isBlockingEnabled(sess)) {
-                    try {
-                        blocker.disableBlockingInSession(sess)
-                    } catch (e) {
-                        console.error('[AdBlock] Error disabling blocking:', e)
-                    }
-                }
-            }
-        }
-
-        // Re-apply HTTPS upgrade interceptor on defaultSession
-        // (disableBlockingInSession removes listeners, so we must re-add ours)
-        setupRequestInterceptor(session.defaultSession)
+    if (adBlockService) {
+        adBlockService.toggle(enabled)
     }
 }
 
 function toggleHttpsUpgrade(enabled: boolean): void {
     httpsUpgradeEnabled = enabled
-    setupRequestInterceptor(session.defaultSession)
+    // AdBlockService doesn't support HTTPS upgrade yet
 }
 
 // ============================================
@@ -799,7 +652,7 @@ function setupIPC(): void {
         // mounts the WebviewController (which only renders for non-anthracite:// URLs).
         // The agent will navigate away to its actual target on the first step.
         tab.url = 'data:text/html,'
-        ;(tab as any)._isInternalPage = false
+            ; (tab as any)._isInternalPage = false
         sendTabsUpdate()
 
         // Find the new CDP target by diffing before/after.
@@ -948,6 +801,10 @@ function setupIPC(): void {
         return { success: true }
     })
 
+    ipcMain.on('adblock-log', (event, message: string) => {
+        console.log(`[AdBlock Preload] ${message}`);
+    });
+
     ipcMain.handle('go-back', () => {
         if (activeTabId) {
             const tab = tabs.get(activeTabId)
@@ -984,19 +841,7 @@ function setupIPC(): void {
         return { success: true }
     })
 
-    // Ad blocker
-    ipcMain.handle('toggle-ad-block', (_, enabled: boolean) => {
-        toggleAdBlocker(enabled)
-        return { enabled: adBlockEnabled }
-    })
-
-    ipcMain.handle('get-ad-block-status', () => {
-        return {
-            enabled: adBlockEnabled,
-            blockedCount,
-            httpsUpgradeCount
-        }
-    })
+    // Ad blocker handlers have been moved to AdBlockService
 
     ipcMain.handle('reset-blocked-count', () => {
         blockedCount = 0
@@ -1004,16 +849,7 @@ function setupIPC(): void {
         return { blockedCount, httpsUpgradeCount }
     })
 
-    ipcMain.handle('get-adblock-preload-path', () => {
-        try {
-            // Resolve the path to the adblocker's preload script
-            // This script handles cosmetic filtering (hiding ads) in the renderer
-            return require.resolve('@ghostery/adblocker-electron-preload')
-        } catch (error) {
-            console.error('Failed to resolve adblock preload path:', error)
-            return ''
-        }
-    })
+
 
     ipcMain.handle('get-webview-preload-path', () => {
         return path.join(__dirname, 'webview-preload.js')
@@ -1531,7 +1367,7 @@ function createWindow(): void {
         // Send initial ad block status
         win?.webContents.send('ad-block-status', {
             enabled: adBlockEnabled,
-            count: blockedCount
+            count: adBlockService ? adBlockService.getBlockedCount() : 0
         })
     })
 

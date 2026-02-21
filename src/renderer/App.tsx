@@ -26,11 +26,10 @@ interface WebviewControllerProps {
     onUpdate: (tabId: string, data: Partial<Tab>) => void;
     onMount: (tabId: string, element: Electron.WebviewTag) => void;
     onSwipeWheel: (deltaX: number) => void;
-    preloadPath: string;
     webviewPreloadPath: string;
 }
 
-const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onMount, onSwipeWheel, preloadPath, webviewPreloadPath }: WebviewControllerProps) => {
+const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onMount, onSwipeWheel, webviewPreloadPath }: WebviewControllerProps) => {
     const webviewRef = useRef<Electron.WebviewTag | null>(null);
 
     useEffect(() => {
@@ -56,6 +55,11 @@ const WebviewController = React.memo(({ tab, isActive, lastWebUrl, onUpdate, onM
         const handleNavigateInPage = (e: any) => {
             onUpdate(tab.id, { url: e.url });
             checkNavigationState();
+
+            // Trigger SPA injection in preload script
+            if (element) {
+                element.send('spa-navigate', e.url);
+            }
         };
         const handleTitleUpdated = (e: any) => onUpdate(tab.id, { title: e.title });
         const handleFaviconUpdated = (e: any) => {
@@ -150,7 +154,6 @@ function App() {
     const [isReady, setIsReady] = useState(false);
     const [tabs, setTabs] = useState<Tab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
-    const [preloadPath, setPreloadPath] = useState<string>('');
     const [webviewPreloadPath, setWebviewPreloadPath] = useState<string>('');
     const [showRealmSearch, setShowRealmSearch] = useState(false);
 
@@ -239,11 +242,6 @@ function App() {
             setIsReady(true);
 
             // Fetch preload paths
-            window.electron.adBlock.getPreloadPath().then(path => {
-                if (path) {
-                    setPreloadPath(`file://${path}`);
-                }
-            });
             window.electron.getWebviewPreloadPath().then(path => {
                 if (path) {
                     setWebviewPreloadPath(`file://${path}`);
@@ -564,7 +562,6 @@ function App() {
                                     onUpdate={handleTabUpdate}
                                     onMount={handleWebviewMount}
                                     onSwipeWheel={handleSwipeWheel}
-                                    preloadPath={preloadPath}
                                     webviewPreloadPath={webviewPreloadPath}
                                 />
                             );
