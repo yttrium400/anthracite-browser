@@ -41,7 +41,9 @@ export class AdBlockService {
                 const targets = (await res.json()) as any[];
 
                 for (const target of targets) {
-                    if (target.type !== 'browser' && !target.url?.startsWith('devtools://') && !this.attachedCDPTargets.has(target.id)) {
+                    if ((target.type === 'page' || target.type === 'webview' || target.type === 'iframe' || target.type === 'service_worker') &&
+                        !target.url?.startsWith('devtools://') &&
+                        !this.attachedCDPTargets.has(target.id)) {
                         console.log(`[AdBlock] Discovered unattached target: ${target.type} (ID: ${target.id.substring(0, 8)}) - URL: ${target.url || 'none'}`);
                         this.attachCRI(target);
                     }
@@ -50,6 +52,87 @@ export class AdBlockService {
                 console.error('[AdBlock] Polling /json error:', err.message);
             }
         }, 1000);
+    }
+
+    private scrubAds(obj: any): boolean {
+        let changed = false;
+        if (!obj || typeof obj !== 'object') return false;
+
+        // Target common ad arrays natively
+        const adKeywords = ['adPlacements', 'playerAds', 'adSlots'];
+        for (const key of adKeywords) {
+            if (obj[key] !== undefined) {
+                if (Array.isArray(obj[key]) && obj[key].length > 0) {
+                    obj[key] = [];
+                    changed = true;
+                } else if (!Array.isArray(obj[key])) {
+                    delete obj[key];
+                    changed = true;
+                }
+            }
+        }
+
+        if (Array.isArray(obj)) {
+            for (let i = 0; i < obj.length; i++) {
+                if (obj[i] && typeof obj[i] === 'object') {
+                    if (this.scrubAds(obj[i])) changed = true;
+                }
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                if (obj[key] && typeof obj[key] === 'object') {
+                    if (this.scrubAds(obj[key])) changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
+    private scrubHtmlDocument(body: string, varNames: string[]): string {
+        if (!body.includes('adPlacements') && !body.includes('playerAds') && !body.includes('adSlots')) return body;
+
+        let newBody = body;
+        for (const varName of varNames) {
+            const regex = new RegExp(`${varName}\\s*=\\s*\\{`);
+            const match = newBody.match(regex);
+            if (!match || match.index === undefined) continue;
+
+            const jsonStart = match.index + match[0].length - 1;
+            let jsonEnd = -1;
+            let braceCount = 0;
+            let inString = false;
+            let escape = false;
+
+            for (let i = jsonStart; i < newBody.length; i++) {
+                const char = newBody[i];
+                if (escape) { escape = false; continue; }
+                if (char === '\\') { escape = true; continue; }
+                if (char === '"') { inString = !inString; continue; }
+                if (!inString) {
+                    if (char === '{') braceCount++;
+                    else if (char === '}') braceCount--;
+
+                    if (braceCount === 0) {
+                        jsonEnd = i + 1;
+                        break;
+                    }
+                }
+            }
+
+            if (jsonEnd !== -1) {
+                const jsonStr = newBody.substring(jsonStart, jsonEnd);
+                if (!jsonStr.includes('adPlacements') && !jsonStr.includes('playerAds') && !jsonStr.includes('adSlots')) {
+                    continue;
+                }
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (this.scrubAds(parsed)) {
+                        newBody = newBody.substring(0, jsonStart) + JSON.stringify(parsed) + newBody.substring(jsonEnd);
+                    }
+                } catch (e: any) { }
+            }
+        }
+        return newBody;
     }
 
     private async attachCRI(target: any) {
@@ -65,27 +148,28 @@ export class AdBlockService {
                 console.log(`[AdBlock] RAW CDP detached from ${target.type} (ID: ${target.id.substring(0, 8)}...)`);
             });
 
+            // Service Workers do not support Page domain, but they do fetch requests
+            if (target.type !== 'service_worker') {
+                try {
+                    await client.Page.enable();
+                } catch (e) { }
+            }
+
             client.Fetch.requestPaused(async (params: any) => {
                 const { requestId, request, responseStatusCode } = params;
                 const responseHeaders = params.responseHeaders ? params.responseHeaders.map((h: any) => ({ name: h.name, value: String(h.value) })) : [];
-                const encodingHeader = responseHeaders.find((h: any) => h.name.toLowerCase() === 'content-encoding');
-                const contentTypeHeader = responseHeaders.find((h: any) => h.name.toLowerCase() === 'content-type');
 
                 // 1) Handle Embedded HTML Ad Payloads (ytInitialPlayerResponse)
                 if ((request.url.includes('youtube.com/watch') || request.url.includes('youtube.com/')) && params.resourceType === 'Document') {
-                    console.log(`[AdBlock CDP] Caught HTML Document: ${request.url}`);
                     try {
                         const response = await client.Fetch.getResponseBody({ requestId });
                         let body = response.base64Encoded ? Buffer.from(response.body, 'base64').toString('utf8') : response.body;
 
-                        console.log(`[AdBlock CDP] HTML Document Enc: ${encodingHeader?.value || 'none'}, base64: ${response.base64Encoded}, Preview: ${body.substring(0, 50).replace(/\n/g, ' ')}`);
-
-                        // Force YouTube to abandon the embedded payload and fetch it via API
-                        const scrubbedBody = body.replace(/ytInitialPlayerResponse\s*=\s*\{.*?\};/s, 'ytInitialPlayerResponse = null;');
+                        // Safely extract and modify the embedded JSON objects
+                        const scrubbedBody = this.scrubHtmlDocument(body, ['ytInitialPlayerResponse', 'ytInitialData']);
 
                         if (scrubbedBody !== body) {
                             console.log(`[AdBlock] CDP: Natively scrubbed HTML embedded ad payload for ${request.url}`);
-                            const responseHeaders = params.responseHeaders ? params.responseHeaders.map((h: any) => ({ name: h.name, value: String(h.value) })) : [];
                             await client.Fetch.fulfillRequest({
                                 requestId,
                                 responseCode: responseStatusCode || 200,
@@ -94,67 +178,31 @@ export class AdBlockService {
                             });
                             return;
                         }
-                    } catch (e) {
-                        console.error('[AdBlock] HTML Scrubbing Error:', e);
-                    }
+                    } catch (e) { }
                 }
 
                 // 2) Handle JSON API Ad Payloads
                 if (request.url.includes('/youtubei/v1/player') || request.url.includes('/youtubei/v1/next') || request.url.includes('/youtubei/v1/get_watch')) {
-                    console.log(`[AdBlock Tracker] Caught API Payload: ${request.url.split('?')[0]}`);
-                    console.log(`[AdBlock Tracker] Encoding: ${encodingHeader?.value || 'none'}, Content-Type: ${contentTypeHeader?.value || 'none'}`);
                     try {
                         const response = await client.Fetch.getResponseBody({ requestId });
                         let body = response.base64Encoded ? Buffer.from(response.body, 'base64').toString('utf8') : response.body;
 
-                        console.log(`[AdBlock Tracker] Body Preview: ${body.substring(0, 100).replace(/\n/g, ' ')}`);
+                        if (!body.includes('adPlacements') && !body.includes('playerAds') && !body.includes('adSlots')) {
+                            await client.Fetch.continueRequest({ requestId });
+                            return;
+                        }
 
                         let modified = false;
 
-                        // Deep search and destroy array payloads commonly used for ads
                         try {
                             const parsed = JSON.parse(body);
-
-                            // A generic traverser to destroy ad placements reliably
-                            const scrubAds = (obj: any): boolean => {
-                                let changed = false;
-                                if (!obj || typeof obj !== 'object') return false;
-
-                                const adKeywords = ['adPlacements', 'playerAds', 'adSlots'];
-                                for (const key of adKeywords) {
-                                    if (obj[key] !== undefined) {
-                                        obj[key] = []; // Nullify the array
-                                        changed = true;
-                                        console.log(`[AdBlock Tracker] Annihilated targeted ad array: ${key}`);
-                                    }
-                                }
-
-                                for (const key in obj) {
-                                    if (obj[key] && typeof obj[key] === 'object') {
-                                        if (scrubAds(obj[key])) changed = true;
-                                    }
-                                }
-                                return changed;
-                            };
-
-                            if (scrubAds(parsed)) {
+                            if (this.scrubAds(parsed)) {
                                 body = JSON.stringify(parsed);
                                 modified = true;
-                            } else {
-                                console.log('[AdBlock Tracker] No ad arrays found in JSON.');
                             }
-                        } catch (e: any) {
-                            console.log('[AdBlock Tracker] JSON Parse Error (likely compressed binary):', e.message);
-                            // Fallback Regex for broken JSON responses
-                            const original = body;
-                            body = body.replace(/"adPlacements"\s*:\s*\[[^\]]*\]/g, '"adPlacements":[]')
-                                .replace(/"adSlots"\s*:\s*\[[^\]]*\]/g, '"adSlots":[]')
-                                .replace(/"playerAds"\s*:\s*\[[^\]]*\]/g, '"playerAds":[]');
-                            if (original !== body) modified = true;
-                        }
+                        } catch (e: any) { }
 
                         if (modified) {
-                            console.log(`[AdBlock Tracker] Successfully delivered scrubbed API response for ${request.url.split('?')[0]}`);
                             await client.Fetch.fulfillRequest({
                                 requestId,
                                 responseCode: responseStatusCode || 200,
@@ -162,12 +210,8 @@ export class AdBlockService {
                                 body: Buffer.from(body).toString('base64')
                             });
                             return;
-                        } else {
-                            console.log(`[AdBlock Tracker] API payload left unmodified.`);
                         }
-                    } catch (e) {
-                        console.error('[AdBlock Tracker] API Scrubbing Error:', e);
-                    }
+                    } catch (e) { }
                 }
 
                 // Let uninteresting requests continue normally
@@ -176,8 +220,6 @@ export class AdBlockService {
                 } catch (e) { }
             });
 
-            // Pause ONLY YouTube HTML documents and specific JSON APIs to achieve zero-latency page loads.
-            // If we don't specify patterns, CDP pauses every single image, script, and font globally, causing 5-7s delays.
             await client.Fetch.enable({
                 patterns: [
                     { urlPattern: '*youtube.com/watch*', requestStage: 'Response', resourceType: 'Document' },
@@ -189,7 +231,6 @@ export class AdBlockService {
             });
             console.log(`[AdBlock] Fetch.enable SUCCESS for target ${target.id.substring(0, 8)}... (${target.url || 'unknown'})`);
         } catch (err) {
-            // Failed to attach, remove from set so we can retry next tick
             this.attachedCDPTargets.delete(target.id);
             console.error(`[AdBlock] Failed to attach RAW WebSocket CDP to ${target.type} ${target.id.substring(0, 8)} (will retry):`, err);
         }
@@ -270,7 +311,7 @@ export class AdBlockService {
 
                 if (isMatched) {
                     this.blockedCount++;
-                    console.log(`[AdBlock] Blocked (${rType}): ${details.url}`);
+                    console.log(`[AdBlock] Blocked(${rType}): ${details.url}`);
                     if (details.webContents) {
                         details.webContents.send('ad-blocked', { count: this.blockedCount });
                     }
@@ -322,7 +363,7 @@ export class AdBlockService {
             try {
                 const simpleSelectors = this.engine.hiddenClassIdSelectors(classes, ids, []);
                 if (simpleSelectors && simpleSelectors.length > 0) {
-                    css += `${simpleSelectors.join(', ')} { display: none !important; } \n`;
+                    css += `${simpleSelectors.join(', ')} { display: none!important; } \n`;
                 }
             } catch (e) {
                 console.error('[AdBlockService] Error getting hiddenClassIdSelectors:', e);
@@ -330,11 +371,11 @@ export class AdBlockService {
 
             // urlCosmeticResources might return more complex rules
             if (resources && resources.hide_selectors) {
-                css += `${resources.hide_selectors.join(', ')} { display: none !important; } \n`;
+                css += `${resources.hide_selectors.join(', ')} { display: none!important; } \n`;
             }
 
             if (resources && resources.style_selectors) {
-                css += `${resources.style_selectors.join(', ')} { display: none !important; } \n`;
+                css += `${resources.style_selectors.join(', ')} { display: none!important; } \n`;
             }
 
             if (resources.injected_script) {
