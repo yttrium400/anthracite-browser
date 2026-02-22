@@ -223,6 +223,9 @@ function App() {
     const isHomePage = activeTab?.url === 'anthracite://newtab';
     const isSettingsPage = activeTab?.url === 'anthracite://settings';
     const isInternalPage = activeTab?.url?.startsWith('anthracite://');
+    // Agent tabs are bootstrapped with 'data:text/html,' until the agent navigates to a real URL.
+    // Show the home page overlay during this window so the user doesn't see a black screen.
+    const isAgentStartingPage = activeTab?.url === 'data:text/html,';
 
     // ... existing keyboard shortcut ...
     useEffect(() => {
@@ -519,7 +522,7 @@ function App() {
                                     <SettingsPage />
                                 </motion.div>
                             )}
-                            {isHomePage && (
+                            {(isHomePage || isAgentStartingPage) && (
                                 <motion.div
                                     key="home"
                                     className="absolute inset-0 z-20"

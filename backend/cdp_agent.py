@@ -67,6 +67,121 @@ _patch_browser_use_for_electron()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# One-time monkey-patch: fix screenshots for Electron webview targets
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _patch_screenshot_for_electron():
+    """Replace ScreenshotWatchdog.on_ScreenshotEvent with a direct-WebSocket version.
+
+    Root cause: browser-use sends Page.captureScreenshot via the browser-level
+    multiplexed session (cdp_use's 'flattened sessions' approach).  On Electron
+    <webview> targets this command is routed correctly but the compositor never
+    replies — the future hangs indefinitely, triggering bubus's 15-second event
+    timeout every single step.
+
+    Fix: open a *direct* WebSocket connection to the target's own debugger URL
+    (ws://127.0.0.1:9222/devtools/page/<TARGET_ID>), send captureScreenshot
+    there, and return the result.  Chromium supports multiple clients on the
+    same target, so the existing AdBlockService connection is not displaced.
+    A hard 5-second asyncio timeout guarantees we never block the agent.
+    """
+    try:
+        from browser_use.browser.watchdogs.screenshot_watchdog import ScreenshotWatchdog
+        from browser_use.browser.views import BrowserError
+
+        if getattr(ScreenshotWatchdog, "_anthracite_patched", False):
+            return
+
+        async def on_ScreenshotEvent(self, event):  # noqa: N802
+            import asyncio
+            import json
+
+            focused_target = self.browser_session.get_focused_target()
+            if not focused_target:
+                raise BrowserError("[Screenshot] No focused target")
+
+            target_id = focused_target.target_id
+
+            # ── Resolve the direct debugger WebSocket URL ─────────────────────
+            try:
+                async with aiohttp.ClientSession() as http:
+                    async with http.get(
+                        f"http://127.0.0.1:{CDP_PORT}/json",
+                        timeout=aiohttp.ClientTimeout(total=3),
+                    ) as resp:
+                        targets = await resp.json(content_type=None)
+
+                ws_url = next(
+                    (t["webSocketDebuggerUrl"] for t in targets if t.get("id") == target_id),
+                    None,
+                )
+                if not ws_url:
+                    raise BrowserError(f"[Screenshot] No WS URL for {target_id[:12]}")
+            except BrowserError:
+                raise
+            except Exception as e:
+                raise BrowserError(f"[Screenshot] Target lookup failed: {e}")
+
+            # ── Capture via direct WS with a hard 5-second timeout ────────────
+            try:
+                async with asyncio.timeout(5.0):
+                    async with aiohttp.ClientSession() as http:
+                        async with http.ws_connect(ws_url) as ws:
+                            await ws.send_json({
+                                "id": 1,
+                                "method": "Page.captureScreenshot",
+                                "params": {
+                                    "format": "jpeg",
+                                    "quality": 50,
+                                    "captureBeyondViewport": False,
+                                    "optimizeForSpeed": True,
+                                },
+                            })
+                            async for msg in ws:
+                                if msg.type == aiohttp.WSMsgType.TEXT:
+                                    data = json.loads(msg.data)
+                                    if data.get("id") == 1:
+                                        if "result" in data:
+                                            img = data["result"].get("data")
+                                            if img:
+                                                logger.info(
+                                                    f"[Screenshot] Captured {len(img) // 1024}KB JPEG via direct WS"
+                                                )
+                                                return img
+                                        elif "error" in data:
+                                            raise BrowserError(
+                                                f"[Screenshot] CDP error: {data['error'].get('message')}"
+                                            )
+                                elif msg.type in (
+                                    aiohttp.WSMsgType.CLOSE,
+                                    aiohttp.WSMsgType.ERROR,
+                                ):
+                                    raise BrowserError(f"[Screenshot] WS {msg.type.name}")
+                            raise BrowserError("[Screenshot] WS closed without response")
+
+            except asyncio.TimeoutError:
+                raise BrowserError("[Screenshot] timed out after 5 s (direct WS)")
+            except BrowserError:
+                raise
+            except Exception as e:
+                raise BrowserError(f"[Screenshot] Direct WS failed: {e}")
+            finally:
+                try:
+                    await self.browser_session.remove_highlights()
+                except Exception:
+                    pass
+
+        ScreenshotWatchdog.on_ScreenshotEvent = on_ScreenshotEvent
+        ScreenshotWatchdog._anthracite_patched = True
+        logger.debug("[Patch] ScreenshotWatchdog replaced with direct-WS implementation")
+    except Exception as e:
+        logger.warning(f"[Patch] Could not patch ScreenshotWatchdog: {e}")
+
+
+_patch_screenshot_for_electron()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -221,18 +336,28 @@ async def run_agent_task_streaming(
             max_actions_per_step=1,    # One action per step so agent sees autocomplete/state changes between actions
             use_judge=False,           # Disable post-run judge (saves 2 API calls, avoids false failures)
             extend_system_message=(
-                "Site selection — always start at the right site for the task:\n"
-                "- Flights (cheapest flight, book flight, flight prices): navigate directly to https://www.google.com/flights\n"
-                "- Hotels/accommodation (hotel, stay, hostel): navigate directly to https://www.booking.com\n"
-                "- Shopping (buy, order, price for product): navigate directly to https://www.amazon.com.au\n"
-                "- General search/information: navigate directly to https://www.google.com\n"
-                "Do NOT use DuckDuckGo or other search engines for tasks that have a direct site above.\n"
-                "Do NOT open new tabs — navigate within the current tab only.\n"
+                "Site selection — navigate directly to the right site first:\n"
+                "- Flights: https://www.google.com/flights\n"
+                "- Hotels/accommodation: https://www.booking.com\n"
+                "- Shopping: https://www.amazon.com.au\n"
+                "- General search: https://www.google.com\n"
+                "Do NOT use DuckDuckGo. Do NOT open new tabs.\n"
                 "\n"
-                "Autocomplete fields (flights, hotels, etc.):\n"
-                "- After typing in a search/location field, ALWAYS wait for and click the matching autocomplete suggestion (role=option or role=listitem in the dropdown).\n"
-                "- Do NOT click elements with role=tab that show city names — those are navigation tabs, NOT autocomplete suggestions.\n"
-                "- If you typed a city and a dropdown appeared, click the first matching option in that dropdown before moving to the next field."
+                "Google Flights — follow this EXACT step order, no skipping:\n"
+                "  Step 1. Navigate to https://www.google.com/flights (plain URL, no hash or query string).\n"
+                "  Step 2. Change trip type to 'One way' BEFORE touching any other field.\n"
+                "          Find the trip-type selector (shows 'Round trip' by default) near the top of the form.\n"
+                "          Click it and select 'One way'. Confirm it now reads 'One way' before proceeding.\n"
+                "  Step 3. Click 'Where from?', type the origin, then click the AIRPORT option\n"
+                "          (e.g. 'Sydney Airport SYD'). Never click the generic city option — it opens a sub-menu.\n"
+                "  Step 4. Click 'Where to?', type the destination, click the AIRPORT option.\n"
+                "  Step 5. Click the Departure date field, select the date, click 'Done'.\n"
+                "          In One-way mode 'Done' closes the calendar after one date — if it doesn't close,\n"
+                "          the form is still in Round-trip mode; go back to Step 2.\n"
+                "  Step 6. Click 'Search'.\n"
+                "\n"
+                "IMPORTANT: Step 2 is mandatory. If you skip it the calendar will require a return date\n"
+                "and 'Done' / 'Search' will not work correctly.\n"
             ),
         )
 

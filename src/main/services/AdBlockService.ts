@@ -48,7 +48,11 @@ export class AdBlockService {
                     }
                 }
             } catch (err: any) {
-                console.error('[AdBlock] Polling /json error:', err.message);
+                // ECONNREFUSED is expected at startup before the first webview is created —
+                // suppress it to avoid log spam; any other error is worth seeing.
+                if (!err.message?.includes('ECONNREFUSED')) {
+                    console.error('[AdBlock] Polling /json error:', err.message);
+                }
             }
         }, 1000);
     }

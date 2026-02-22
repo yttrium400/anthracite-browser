@@ -51,6 +51,17 @@ interface ActiveTab {
     canGoForward: boolean;
 }
 
+// ── Draft text helpers (sessionStorage) ──────────────────────────────────────
+// Using sessionStorage instead of a React ref so the draft survives component
+// remounts (e.g. panel CSS toggling that unmounts/remounts the tree).
+const draftKey = (tabId: string) => `topbar_draft_${tabId}`;
+const getDraft = (tabId: string): string | null =>
+    sessionStorage.getItem(draftKey(tabId));
+const saveDraft = (tabId: string, text: string): void =>
+    sessionStorage.setItem(draftKey(tabId), text);
+const clearDraft = (tabId: string): void =>
+    sessionStorage.removeItem(draftKey(tabId));
+
 export function TopBar({
     className,
     isSidebarPinned,
@@ -80,6 +91,13 @@ export function TopBar({
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<NodeJS.Timeout>();
     const activeTabIdRef = useRef<string | null>(null);
+    // Ref mirror of isAIProcessing so the tab-update listener (stale closure) can
+    // check it without needing to be recreated on every state change.
+    const isAIProcessingRef = useRef(false);
+    // Tracks the last URL we've seen for the current tab.
+    // onTabUpdated fires for loading state / title / favicon changes too — we only
+    // want to reset the input when the URL itself has changed (a real navigation).
+    const activeTabUrlRef = useRef<string>('');
 
     // Keep ref in sync with activeTab
     useEffect(() => {
@@ -93,44 +111,70 @@ export function TopBar({
             window.electron.tabs.getActive().then(tab => {
                 setActiveTab(tab);
                 activeTabIdRef.current = tab?.id || null;
-                // Don't show internal URLs in the search bar
-                const isInternalUrl = tab?.url.startsWith('anthracite://') || tab?.url.startsWith('about:');
-                if (tab && !isInternalUrl) {
-                    setInputValue(tab.url);
+                activeTabUrlRef.current = tab?.url || '';
+                const isInternalUrl = tab?.url.startsWith('anthracite://') || tab?.url.startsWith('about:') || tab?.url.startsWith('data:');
+                if (tab) {
+                    const draft = getDraft(tab.id);
+                    if (draft !== null) {
+                        setInputValue(draft);
+                    } else if (!isInternalUrl) {
+                        setInputValue(tab.url);
+                    }
                 }
             });
 
             // Listen for active tab changes
             const unsubscribe = window.electron.tabs.onActiveTabChanged((tab) => {
+                const draft = tab?.id ? getDraft(tab.id) : null;
                 setActiveTab(tab);
                 activeTabIdRef.current = tab?.id || null;
-                const isInternalUrl = tab?.url.startsWith('anthracite://') || tab?.url.startsWith('about:');
-                if (tab && !isEditing && !isInternalUrl) {
-                    setInputValue(tab.url);
-                } else if (isInternalUrl) {
-                    setInputValue('');
+                activeTabUrlRef.current = tab?.url || '';
+                const isInternalUrl = tab?.url.startsWith('anthracite://') || tab?.url.startsWith('about:') || tab?.url.startsWith('data:');
+                if (tab) {
+                    if (draft !== null) {
+                        setInputValue(draft);
+                    } else if (!isInternalUrl) {
+                        setInputValue(tab.url);
+                    } else if (!isAIProcessingRef.current) {
+                        // Only blank the bar for internal pages (newtab) when the
+                        // agent is NOT running.  When the agent creates a fresh tab
+                        // it fires onActiveTabChanged with an internal URL — without
+                        // this guard that would immediately wipe the command text.
+                        setInputValue('');
+                    }
                 }
             });
 
             // Listen for tab updates (loading state, URL, title, etc.)
             const unsubscribeUpdate = window.electron.tabs.onTabUpdated((tab) => {
-                // Use ref to get current activeTabId to avoid stale closure
                 if (activeTabIdRef.current && tab.id === activeTabIdRef.current) {
+                    // Only reset inputValue when the URL itself changes (real navigation).
+                    // onTabUpdated also fires for loading-state / title / favicon changes
+                    // with the same URL — those must not overwrite a pending draft.
+                    const urlChanged = tab.url !== activeTabUrlRef.current;
+
                     setActiveTab(prev => prev ? { ...prev, ...tab } : null);
-                    // Always update URL when navigation happens (unless editing)
-                    const isInternalUrl = tab.url.startsWith('anthracite://') || tab.url.startsWith('about:');
+
+                    const isInternalUrl = tab.url.startsWith('anthracite://') || tab.url.startsWith('about:') || tab.url.startsWith('data:');
                     if (!isInternalUrl) {
-                        // Use functional update to check isEditing state
+                        if (urlChanged) {
+                            activeTabUrlRef.current = tab.url;
+                        }
                         setInputValue(prevInput => {
-                            // Only update if not currently editing
-                            const inputEl = inputRef.current;
-                            const isFocused = inputEl === document.activeElement;
-                            if (!isFocused) {
+                            const isFocused = inputRef.current === document.activeElement;
+                            // When the URL changes to a real site, always sync the bar
+                            // (even while the agent is running — this is exactly when we
+                            // WANT to show the URL the agent just navigated to).
+                            // The agent-running guard lives only in the internal-URL branch
+                            // below, to prevent the new-tab creation event from wiping
+                            // the command before the agent opens anything.
+                            if (urlChanged && !isFocused) {
+                                clearDraft(tab.id);
                                 return tab.url;
                             }
                             return prevInput;
                         });
-                    } else {
+                    } else if (!isAIProcessingRef.current) {
                         setInputValue('');
                     }
                 }
@@ -141,7 +185,7 @@ export function TopBar({
                 unsubscribeUpdate();
             };
         }
-    }, []); // Remove isEditing dependency to avoid recreating listeners
+    }, []);
 
     // Fetch suggestions when input changes
     const fetchSuggestions = useCallback(async (query: string) => {
@@ -202,6 +246,10 @@ export function TopBar({
     // Debounced input handler
     const handleInputChange = (value: string) => {
         setInputValue(value);
+        // Persist to sessionStorage so the text survives panel switches and remounts.
+        if (activeTab?.id) {
+            saveDraft(activeTab.id, value);
+        }
 
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
@@ -218,12 +266,12 @@ export function TopBar({
             setShowSuggestions(false);
 
             const input = inputValue.trim();
+            // Submitted — discard the saved draft for this tab.
+            if (activeTab?.id) clearDraft(activeTab.id);
 
-            // Optimistic update & Navigation
             if (onNavigate) {
                 onNavigate(input);
             } else {
-                // Fallback if no handler provided (shouldn't happen in App)
                 window.electron.navigation.navigate(input);
             }
 
@@ -234,6 +282,8 @@ export function TopBar({
 
     const handleSelectSuggestion = (suggestion: Suggestion) => {
         setShowSuggestions(false);
+        // Navigating via suggestion — discard any pending draft for this tab.
+        if (activeTab?.id) clearDraft(activeTab.id);
 
         if (suggestion.type === 'history' && suggestion.url) {
             // Navigate directly to URL from history
@@ -292,6 +342,7 @@ export function TopBar({
         abortControllerRef.current = controller;
 
         setIsAIProcessing(true);
+        isAIProcessingRef.current = true;
         setAgentStatus('Starting...');
         setIsAgentPaused(false);
         try {
@@ -376,23 +427,37 @@ export function TopBar({
                 console.error('Failed to run agent:', error);
             }
         } finally {
+            isAIProcessingRef.current = false;
             setIsAIProcessing(false);
             setAgentStatus('');
             setIsAgentPaused(false);
             abortControllerRef.current = null;
+            // Sync the URL bar to wherever the agent landed.
+            window.electron?.tabs.getActive().then(tab => {
+                if (tab && tab.id === activeTabIdRef.current && !tab.url.startsWith('anthracite://')) {
+                    clearDraft(tab.id);
+                    setInputValue(tab.url);
+                }
+            });
         }
     };
 
     const handleFocus = () => {
         setIsFocused(true);
         setIsEditing(true);
-        // Clear internal URLs and select text
-        if (activeTab?.url.startsWith('anthracite://')) {
-            setInputValue('');
-        } else {
+        const isInternalPage = activeTab?.url.startsWith('anthracite://') || activeTab?.url.startsWith('about:');
+        if (!isInternalPage) {
+            // Real page: seed the bar with the URL only if it is currently empty.
+            // If the user has a draft ("visit yt"), inputValue is non-empty so we
+            // leave it alone.
+            if (!inputValue) {
+                setInputValue(activeTab?.url || '');
+            }
             setTimeout(() => inputRef.current?.select(), 0);
         }
-        // Fetch suggestions for current input
+        // Internal pages (newtab, etc.): do NOT touch inputValue here.
+        // It is either '' (no draft) or holds the draft the user typed —
+        // both are already correct; clearing it was the bug.
         if (inputValue) {
             fetchSuggestions(inputValue);
         }
@@ -404,10 +469,10 @@ export function TopBar({
             setIsFocused(false);
             setIsEditing(false);
             setShowSuggestions(false);
-            // Reset to current URL if not submitted
-            if (activeTab && !activeTab.url.startsWith('anthracite://')) {
-                setInputValue(activeTab.url);
-            }
+            // Do NOT reset inputValue here — preserving it means that if the user typed
+            // something and then swiped away (blur without submit), clicking the URL bar
+            // again will show their typed text rather than the current page URL.
+            // onTabUpdated already syncs inputValue when the page actually navigates.
         }, 200);
     };
 
@@ -435,6 +500,8 @@ export function TopBar({
             setIsEditing(false);
             setShowSuggestions(false);
             if (activeTab) {
+                // Explicit cancel — discard draft and revert to the live page URL.
+                if (activeTab.id) clearDraft(activeTab.id);
                 setInputValue(activeTab.url);
             }
             inputRef.current?.blur();
@@ -466,7 +533,7 @@ export function TopBar({
             {/* Traffic Light Spacer (macOS) - Expands when sidebar is pinned */}
             <div
                 className={cn(
-                    "shrink-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                    "shrink-0 transition-all duration-300 ease-ios",
                     isSidebarPinned ? "w-[300px]" : "w-[68px]"
                 )}
             />
@@ -505,7 +572,16 @@ export function TopBar({
                     <input
                         ref={inputRef}
                         type="text"
-                        value={isEditing ? inputValue : (activeTab?.url === 'anthracite://newtab' ? '' : getDomain(displayUrl))}
+                        value={
+                            // Show the raw input when:
+                            //   (a) user is actively editing,
+                            //   (b) agent is running (keep the command visible), or
+                            //   (c) user typed something that doesn't match the live URL
+                            //       (pending draft survived a panel/tab switch).
+                            isEditing || isAIProcessing || (inputValue !== '' && inputValue !== (activeTab?.url || ''))
+                                ? inputValue
+                                : activeTab?.url === 'anthracite://newtab' ? '' : getDomain(activeTab?.url || '')
+                        }
                         onChange={(e) => handleInputChange(e.target.value)}
                         onFocus={handleFocus}
                         onBlur={handleBlur}

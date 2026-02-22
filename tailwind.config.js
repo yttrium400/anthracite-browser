@@ -152,6 +152,7 @@ module.exports = {
                 'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
                 'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 'material': 'cubic-bezier(0.4, 0, 0.2, 1)',
+                'ios': 'cubic-bezier(0.32, 0.72, 0, 1)',
             },
             backgroundImage: {
                 'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
