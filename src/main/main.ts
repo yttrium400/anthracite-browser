@@ -398,7 +398,6 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
     // Handle new window requests (open in new tab)
     // This blocks new Electron windows and keeps everything in-app, maintaining Realm/Dock context.
     view.webContents.setWindowOpenHandler((details) => {
-        console.log('[WindowOpen] Request:', details)
         // Inherit parent's organization (Realm/Dock)
         const parentOrg = getTabOrganization(id)
 
@@ -774,7 +773,6 @@ function setupIPC(): void {
             const timer = setTimeout(() => {
                 // historyDebounceTimers.delete(tabId) // Cleanup
                 if (tab.url && !tab.url.startsWith('anthracite://') && !tab.url.startsWith('about:')) {
-                    console.log(`[History] Writing: ${tab.url}`)
                     if (state.url) {
                         addHistoryEntry(tab.url, tab.title, tab.favicon)
                     } else {
@@ -801,9 +799,7 @@ function setupIPC(): void {
         return { success: true }
     })
 
-    ipcMain.on('adblock-log', (event, message: string) => {
-        console.log(`[AdBlock Preload] ${message}`);
-    });
+    ipcMain.on('adblock-log', (_event, _message: string) => { /* silenced */ });
 
     ipcMain.handle('go-back', () => {
         if (activeTabId) {

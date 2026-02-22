@@ -22,12 +22,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-if not os.environ.get("OPENAI_API_KEY"):
-    logger.warning("OPENAI_API_KEY not found in environment. Agent features will be disabled.")
-
-
-if not os.environ.get("OPENAI_API_KEY"):
-    logger.warning("OPENAI_API_KEY not found in environment. Agent features will be disabled.")
+if not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+    logger.warning("No API key found (ANTHROPIC_API_KEY or OPENAI_API_KEY). Agent features will be disabled.")
 
 
 
@@ -117,13 +113,14 @@ def read_root():
 
 @app.post("/agent/run")
 async def run_agent(task: TaskRequest):
-    # Determine API key source
+    # Determine API key source (Anthropic preferred, OpenAI fallback)
     api_key = task.api_key or os.environ.get("OPENAI_API_KEY")
-    
-    if not api_key:
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    if not api_key and not anthropic_key:
         logger.error("No API key provided in request or environment")
-        return {"status": "error", "message": "OpenAI API key not found. Please add it in Settings."}
-    
+        return {"status": "error", "message": "API key not found. Please add ANTHROPIC_API_KEY (or OpenAI key) in Settings."}
+
     # Temporarily set env var for the agent process if passed via request
     if task.api_key:
         os.environ["OPENAI_API_KEY"] = task.api_key
@@ -200,15 +197,16 @@ async def stream_agent(task: TaskRequest):
     Complex path: full browser-use pipeline with step-by-step progress.
     """
     
-    # Determine API key source
+    # Determine API key source (Anthropic preferred, OpenAI fallback)
     api_key = task.api_key or os.environ.get("OPENAI_API_KEY")
-    
-    if not api_key:
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    if not api_key and not anthropic_key:
         logger.error("Stream request rejected: No API key found")
         async def error_stream():
-            yield _sse_event({"type": "error", "message": "OpenAI API key not found. Please add it in Settings."})
+            yield _sse_event({"type": "error", "message": "API key not found. Please add ANTHROPIC_API_KEY (or OpenAI key) in Settings."})
         return StreamingResponse(error_stream(), media_type="text/event-stream")
-    
+
     # Set for this process scope
     if task.api_key:
         os.environ["OPENAI_API_KEY"] = task.api_key

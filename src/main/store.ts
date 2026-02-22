@@ -87,7 +87,6 @@ function loadStore(): StoreData {
                 data.version = CURRENT_VERSION
             }
 
-            console.log(`[Store] Loaded ${data.realms.length} realms, ${data.docks.length} docks`)
             return data
         }
     } catch (error) {

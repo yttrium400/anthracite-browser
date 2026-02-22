@@ -44,7 +44,6 @@ export class AdBlockService {
                     if ((target.type === 'page' || target.type === 'webview' || target.type === 'iframe' || target.type === 'service_worker') &&
                         !target.url?.startsWith('devtools://') &&
                         !this.attachedCDPTargets.has(target.id)) {
-                        console.log(`[AdBlock] Discovered unattached target: ${target.type} (ID: ${target.id.substring(0, 8)}) - URL: ${target.url || 'none'}`);
                         this.attachCRI(target);
                     }
                 }
@@ -153,11 +152,8 @@ export class AdBlockService {
 
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl || target });
-            console.log(`[AdBlock] Auto-attached RAW WebSocket CDP to ${target.type} (ID: ${target.id.substring(0, 8)}...)`);
-
             client.on('disconnect', () => {
                 this.attachedCDPTargets.delete(target.id);
-                console.log(`[AdBlock] RAW CDP detached from ${target.type} (ID: ${target.id.substring(0, 8)}...)`);
             });
 
             // Service Workers do not support Page domain, but they do fetch requests
@@ -181,7 +177,6 @@ export class AdBlockService {
                         const scrubbedBody = this.scrubHtmlDocument(body, ['ytInitialPlayerResponse', 'ytInitialData']);
 
                         if (scrubbedBody !== body) {
-                            console.log(`[AdBlock] CDP: Natively scrubbed HTML embedded ad payload for ${request.url}`);
                             await client.Fetch.fulfillRequest({
                                 requestId,
                                 responseCode: responseStatusCode || 200,
@@ -258,7 +253,6 @@ export class AdBlockService {
                     { urlPattern: '*youtubei/v1/get_watch*', requestStage: 'Response' }
                 ]
             });
-            console.log(`[AdBlock] Fetch.enable SUCCESS for target ${target.id.substring(0, 8)}... (${target.url || 'unknown'})`);
         } catch (err) {
             this.attachedCDPTargets.delete(target.id);
             console.error(`[AdBlock] Failed to attach RAW WebSocket CDP to ${target.type} ${target.id.substring(0, 8)} (will retry):`, err);
@@ -269,7 +263,6 @@ export class AdBlockService {
         try {
             // Try loading from cache
             if (fs.existsSync(CACHE_PATH)) {
-                console.log('[AdBlock] Loading engine from cache...');
                 const buffer = fs.readFileSync(CACHE_PATH);
                 try {
                     this.engine = Engine.deserialize(buffer);
@@ -279,7 +272,6 @@ export class AdBlockService {
             }
 
             if (!this.engine) {
-                console.log('[AdBlock] Building engine from filter lists...');
                 const filterSet = new FilterSet(true);
 
                 // Fetch all lists in parallel
@@ -306,7 +298,6 @@ export class AdBlockService {
                 fs.writeFileSync(CACHE_PATH, Buffer.from(serialized));
             }
 
-            console.log('[AdBlock] Engine ready! Network Domain Intercept Active.');
             this.setupInterceptors();
 
         } catch (error) {
@@ -331,16 +322,29 @@ export class AdBlockService {
                 else if (rType === 'xhr' || rType === 'fetch') rType = 'xmlhttprequest';
                 else if (rType === 'webSocket') rType = 'websocket';
 
-                const isMatched = this.engine!.check(
-                    details.url,
-                    details.webContents?.getURL() || '',
-                    rType,
-                    false // debug
-                );
+                // adblock-rs cannot parse hostnames from non-HTTP source URLs
+                // (data:, about:, blob:) and throws an uncaught exception.
+                // Skip the check entirely for requests originating from those contexts.
+                const sourceUrl = details.webContents?.getURL() || '';
+                if (sourceUrl && !sourceUrl.startsWith('http')) {
+                    return callback({ cancel: false });
+                }
+
+                let isMatched = false;
+                try {
+                    isMatched = this.engine!.check(
+                        details.url,
+                        sourceUrl,
+                        rType,
+                        false // debug
+                    );
+                } catch {
+                    // Hostname parse failure — let the request through
+                    return callback({ cancel: false });
+                }
 
                 if (isMatched) {
                     this.blockedCount++;
-                    console.log(`[AdBlock] Blocked(${rType}): ${details.url}`);
                     if (details.webContents) {
                         details.webContents.send('ad-blocked', { count: this.blockedCount });
                     }
@@ -408,9 +412,6 @@ export class AdBlockService {
             }
 
             if (resources.injected_script) {
-                if (url.includes('youtube.com')) {
-                    console.log(`[AdBlockService] Injecting scriptlet payload to YouTube: ${resources.injected_script.substring(0, 500)}...`);
-                }
             }
             return { styles: css, scripts: resources.injected_script || '' };
         } catch (e) {
