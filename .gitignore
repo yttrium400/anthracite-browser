@@ -42,3 +42,6 @@ release/
 backend/build/
 backend/dist/
 backend/*.spec
+
+# Rust N-API Build artifacts
+native-core/target/

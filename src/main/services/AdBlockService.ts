@@ -125,9 +125,21 @@ export class AdBlockService {
                     continue;
                 }
                 try {
-                    const parsed = JSON.parse(jsonStr);
-                    if (this.scrubAds(parsed)) {
-                        newBody = newBody.substring(0, jsonStart) + JSON.stringify(parsed) + newBody.substring(jsonEnd);
+                    let nativeCore: any;
+                    try {
+                        nativeCore = require(require('path').join(process.cwd(), 'native-core/index.darwin-arm64.node'));
+                    } catch (e) { }
+
+                    if (nativeCore && nativeCore.scrubAdsNative) {
+                        const scrubbed = nativeCore.scrubAdsNative(jsonStr);
+                        if (scrubbed !== jsonStr) {
+                            newBody = newBody.substring(0, jsonStart) + scrubbed + newBody.substring(jsonEnd);
+                        }
+                    } else {
+                        const parsed = JSON.parse(jsonStr);
+                        if (this.scrubAds(parsed)) {
+                            newBody = newBody.substring(0, jsonStart) + JSON.stringify(parsed) + newBody.substring(jsonEnd);
+                        }
                     }
                 } catch (e: any) { }
             }
@@ -195,11 +207,28 @@ export class AdBlockService {
                         let modified = false;
 
                         try {
-                            const parsed = JSON.parse(body);
-                            if (this.scrubAds(parsed)) {
-                                body = JSON.stringify(parsed);
-                                modified = true;
+                            console.time('[AdBlock] Rust execution time');
+                            // Try blazing-fast native Rust N-API execution first
+                            let nativeCore: any;
+                            try {
+                                nativeCore = require(require('path').join(process.cwd(), 'native-core/index.darwin-arm64.node'));
+                            } catch (e) { }
+
+                            if (nativeCore && nativeCore.scrubAdsNative) {
+                                const scrubbed = nativeCore.scrubAdsNative(body);
+                                if (scrubbed !== body) {
+                                    body = scrubbed;
+                                    modified = true;
+                                }
+                            } else {
+                                // Fallback to slow JS execution
+                                const parsed = JSON.parse(body);
+                                if (this.scrubAds(parsed)) {
+                                    body = JSON.stringify(parsed);
+                                    modified = true;
+                                }
                             }
+                            console.timeEnd('[AdBlock] Rust execution time');
                         } catch (e: any) { }
 
                         if (modified) {

@@ -1,0 +1,15 @@
+{
+    "name": "native-core",
+    "version": "0.1.0",
+    "main": "native_core.node",
+    "scripts": {
+        "build": "napi build --platform --release",
+        "build:debug": "napi build --platform"
+    },
+    "devDependencies": {
+        "@napi-rs/cli": "^2.18.0"
+    },
+    "engines": {
+        "node": ">= 10"
+    }
+}

@@ -698,6 +698,52 @@
                     "status": "pending"
                 }
             ]
+        },
+        {
+            "id": "18",
+            "title": "Hardware-Native AdBlock (Custom Chromium Engine Fork)",
+            "status": "pending",
+            "priority": "low",
+            "context": "Option 3: The ultimate end-game for 0ms network interception latency. Requires compiling a custom fork of the Chromium open-source project and injecting `adblock-rs` CXX bindings directly into the C++ `net/url_request/` layer (identical to Brave Browser's architecture). PREREQUISITES: A dedicated build machine with at least 150GB of free SSD storage and 16+ CPU cores. Estimated build time per compilation is 2-8 hours.",
+            "created_at": "2026-02-21T18:40:00.000000",
+            "subtasks": [
+                {
+                    "id": "18.1",
+                    "title": "Environment Setup & Depot Tools",
+                    "status": "pending",
+                    "context": "Install Google's `depot_tools` suite. Configure global PATH variables. Fetch the massive Chromium source tree (`fetch chromium`) into a dedicated external drive or high-performance cloud server."
+                },
+                {
+                    "id": "18.2",
+                    "title": "Study Chromium Network Stack Architecture",
+                    "status": "pending",
+                    "context": "Analyze `net/url_request/url_request_http_job.cc` and related classes to identify the exact HTTP header and body interception points before data is passed to the V8 JS context."
+                },
+                {
+                    "id": "18.3",
+                    "title": "Embed Rust CXX Bindings",
+                    "status": "pending",
+                    "context": "Integrate the `adblock-rs` engine into the Chromium build process (`BUILD.gn`). Create safe C++ wrappers (CXX bindings) that the C++ network stack can call into synchronously."
+                },
+                {
+                    "id": "18.4",
+                    "title": "Implement Native Payload Scrubbing",
+                    "status": "pending",
+                    "context": "Port the N-API JSON scrubbing logic directly into the deeply embedded C++ interceptor. Intercept YouTube XHR payloads at the raw TCP layer and scrub `adPlacements` instantly."
+                },
+                {
+                    "id": "18.5",
+                    "title": "Compile Custom Browser Binary",
+                    "status": "pending",
+                    "context": "Run the massive `ninja -C out/Default chrome` compilation. Debug hundreds of inevitable C++ and Chromium build system errors."
+                },
+                {
+                    "id": "18.6",
+                    "title": "Swap Electron's Underlying Engine",
+                    "status": "pending",
+                    "context": "Once the custom Chromium binary is stable, recompile Electron from source to use our custom Chromium fork instead of the default unpatched Chromium upstream."
+                }
+            ]
         }
     ]
 }
