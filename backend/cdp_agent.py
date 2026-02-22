@@ -215,7 +215,7 @@ async def run_agent_task_streaming(
             browser_session=browser_session,
             register_new_step_callback=adapted_step_cb,
             register_should_stop_callback=adapted_stop_cb,
-            use_vision=True,           # Claude's vision handles complex layouts
+            use_vision="auto",         # Screenshots only when LLM explicitly needs them (AX tree primary, like Comet)
             generate_gif=False,        # Don't save GIF, no output dir configured
             max_failures=5,
             max_actions_per_step=1,    # One action per step so agent sees autocomplete/state changes between actions

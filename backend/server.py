@@ -102,7 +102,6 @@ async def warmup():
         # Trigger lazy imports
         import backend.cdp_agent
         import backend.classifier
-        import backend.cdp_fast
         logger.info("Backend warmup complete: Heavy modules loaded")
     except Exception as e:
         logger.error(f"Warmup failed: {e}")
