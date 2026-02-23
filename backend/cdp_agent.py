@@ -256,25 +256,31 @@ async def run_agent_task_streaming(
     # ── Adapt step_callback to browser-use's signature ───────────────────────
     # browser-use: callback(browser_state, agent_output, step_num: int)
     # ours:        callback(step_num, action_name, args_dict, result_str)
-    # Login-page patterns that warrant takeover mode
+    # Login-page patterns that warrant takeover mode.
+    # These are credential/password pages only — NOT OAuth consent screens.
+    # OAuth consent flows (accounts.google.com/o/oauth2/...) don't need a password;
+    # the agent can handle them automatically since the user is already logged in.
     _AUTH_URL_PATTERNS = [
-        "accounts.google.com",
+        # Google: actual sign-in pages (not consent/oauth pages)
+        "accounts.google.com/signin",
+        "accounts.google.com/v3/signin",
+        "accounts.google.com/ServiceLogin",
+        # Microsoft: credential pages
         "login.microsoftonline.com",
         "login.live.com",
+        # GitHub: login form
         "github.com/login",
         "github.com/session",
+        # LinkedIn: login form
         "www.linkedin.com/login",
         "www.linkedin.com/checkpoint",
+        # Amazon: sign-in
         "www.amazon.com/ap/signin",
-        "amazon.com/ap/signin",
-        "apple.com/signin",
-        "appleid.apple.com",
-        "/login?",
-        "/signin?",
-        "/sign-in?",
-        "/auth/login",
-        "/oauth/authorize",
-        "/oauth2/authorize",
+        "amazon.com.au/ap/signin",
+        "amazon.co.uk/ap/signin",
+        # Apple ID
+        "appleid.apple.com/sign-in",
+        "appleid.apple.com/auth/authorize",
     ]
 
     def _detect_auth_service(url: str) -> str:
