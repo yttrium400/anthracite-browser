@@ -256,10 +256,55 @@ async def run_agent_task_streaming(
     # ── Adapt step_callback to browser-use's signature ───────────────────────
     # browser-use: callback(browser_state, agent_output, step_num: int)
     # ours:        callback(step_num, action_name, args_dict, result_str)
+    # Login-page patterns that warrant takeover mode
+    _AUTH_URL_PATTERNS = [
+        "accounts.google.com",
+        "login.microsoftonline.com",
+        "login.live.com",
+        "github.com/login",
+        "github.com/session",
+        "www.linkedin.com/login",
+        "www.linkedin.com/checkpoint",
+        "www.amazon.com/ap/signin",
+        "amazon.com/ap/signin",
+        "apple.com/signin",
+        "appleid.apple.com",
+        "/login?",
+        "/signin?",
+        "/sign-in?",
+        "/auth/login",
+        "/oauth/authorize",
+        "/oauth2/authorize",
+    ]
+
+    def _detect_auth_service(url: str) -> str:
+        if "google" in url:
+            return "Google"
+        if "github" in url:
+            return "GitHub"
+        if "linkedin" in url:
+            return "LinkedIn"
+        if "amazon" in url:
+            return "Amazon"
+        if "microsoft" in url or "live.com" in url or "microsoftonline" in url:
+            return "Microsoft"
+        if "apple" in url:
+            return "Apple"
+        return "the website"
+
     adapted_step_cb = None
     if step_callback:
         async def adapted_step_cb(browser_state, agent_output, step_num: int):
             try:
+                # Detect login/auth pages — emit auth_required and let server.py pause agent
+                if browser_state and getattr(browser_state, "url", None):
+                    current_url = browser_state.url
+                    if any(pat in current_url for pat in _AUTH_URL_PATTERNS):
+                        service = _detect_auth_service(current_url)
+                        logger.info(f"[Takeover] Auth page detected at {current_url[:80]} — pausing for {service}")
+                        await step_callback(step_num, "auth_required", {"url": current_url, "service": service}, "")
+                        return
+
                 action_name = "thinking"
                 args: dict = {}
 

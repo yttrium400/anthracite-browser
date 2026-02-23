@@ -11,6 +11,9 @@ import {
     RotateCcw,
     Check,
     Search,
+    UserCircle,
+    LogOut,
+    RefreshCw,
 } from 'lucide-react';
 
 interface AppSettings {
@@ -40,7 +43,7 @@ interface SettingsPageProps {
     className?: string;
 }
 
-type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer';
+type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts';
 
 // Toggle Switch Component
 function Toggle({
@@ -148,6 +151,34 @@ function SectionHeader({
     );
 }
 
+interface ConnectedAccount {
+    service: string;
+    email: string | null;
+    isActive: boolean;
+}
+
+// Service domain map for the disconnect action
+const SERVICE_DOMAINS: Record<string, string> = {
+    'Google': '.google.com',
+    'GitHub': 'github.com',
+    'Amazon': '.amazon.com',
+    'LinkedIn': '.linkedin.com',
+    'Reddit': '.reddit.com',
+    'X (Twitter)': '.twitter.com',
+    'Microsoft': '.live.com',
+};
+
+// Colored initials avatars for each service
+const SERVICE_COLORS: Record<string, string> = {
+    'Google': 'bg-blue-500/20 text-blue-400',
+    'GitHub': 'bg-white/10 text-white/70',
+    'Amazon': 'bg-amber-500/20 text-amber-400',
+    'LinkedIn': 'bg-blue-600/20 text-blue-400',
+    'Reddit': 'bg-orange-500/20 text-orange-400',
+    'X (Twitter)': 'bg-white/10 text-white/70',
+    'Microsoft': 'bg-cyan-500/20 text-cyan-400',
+};
+
 export function SettingsPage({ className }: SettingsPageProps) {
     const [settings, setSettings] = useState<AppSettings | null>(null);
     const [activeSection, setActiveSection] = useState<SettingsSection>('browser');
@@ -155,6 +186,8 @@ export function SettingsPage({ className }: SettingsPageProps) {
     const [showApiKey, setShowApiKey] = useState(false);
     const [apiKeyTestStatus, setApiKeyTestStatus] = useState<'success' | 'error' | 'testing' | null>(null);
     const [appVersion, setAppVersion] = useState<string>('');
+    const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
+    const [accountsLoading, setAccountsLoading] = useState(false);
 
     // Load settings on mount
     useEffect(() => {
@@ -203,6 +236,41 @@ export function SettingsPage({ className }: SettingsPageProps) {
             console.error('Failed to update setting:', error);
         } finally {
             setIsSaving(false);
+        }
+    }, []);
+
+    // Load connected accounts
+    const loadConnectedAccounts = useCallback(async () => {
+        if (!(window.electron as any)?.accounts) return;
+        setAccountsLoading(true);
+        try {
+            const accounts = await (window.electron as any).accounts.getConnected();
+            setConnectedAccounts(accounts || []);
+        } catch (error) {
+            console.error('Failed to load connected accounts:', error);
+        } finally {
+            setAccountsLoading(false);
+        }
+    }, []);
+
+    // Load accounts when section becomes active
+    useEffect(() => {
+        if (activeSection === 'accounts') {
+            loadConnectedAccounts();
+        }
+    }, [activeSection, loadConnectedAccounts]);
+
+    // Disconnect an account
+    const handleDisconnect = useCallback(async (service: string) => {
+        if (!(window.electron as any)?.accounts) return;
+        const domain = SERVICE_DOMAINS[service];
+        if (!domain) return;
+        if (!window.confirm(`Disconnect ${service}? The agent will no longer be able to access ${service} on your behalf.`)) return;
+        try {
+            await (window.electron as any).accounts.disconnect(domain);
+            setConnectedAccounts(prev => prev.filter(a => a.service !== service));
+        } catch (error) {
+            console.error('Failed to disconnect account:', error);
         }
     }, []);
 
@@ -265,6 +333,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
     }
 
     const sections: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
+        { id: 'accounts', label: 'Connected Accounts', icon: UserCircle },
         { id: 'browser', label: 'Browser', icon: Globe },
         { id: 'appearance', label: 'Appearance', icon: Palette },
         { id: 'privacy', label: 'Privacy & Security', icon: Lock },
@@ -320,6 +389,98 @@ export function SettingsPage({ className }: SettingsPageProps) {
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto p-8">
                 <div className="max-w-2xl mx-auto">
+                    {/* Connected Accounts Section */}
+                    {activeSection === 'accounts' && (
+                        <section>
+                            <div className="flex items-center justify-between mb-4">
+                                <SectionHeader
+                                    icon={UserCircle}
+                                    title="Connected Accounts"
+                                    description="Accounts the agent can use on your behalf. Log into any website in a normal tab and it appears here automatically."
+                                />
+                                <button
+                                    onClick={loadConnectedAccounts}
+                                    disabled={accountsLoading}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.08] rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    <RefreshCw className={cn("h-3.5 w-3.5", accountsLoading && "animate-spin")} />
+                                    Refresh
+                                </button>
+                            </div>
+
+                            {accountsLoading ? (
+                                <div className="flex items-center justify-center py-12 text-text-tertiary">
+                                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                                    <span className="text-sm">Scanning for logged-in accounts...</span>
+                                </div>
+                            ) : connectedAccounts.length === 0 ? (
+                                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-8 text-center">
+                                    <UserCircle className="h-10 w-10 text-text-tertiary mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-text-secondary mb-1">No accounts detected</p>
+                                    <p className="text-xs text-text-tertiary max-w-xs mx-auto">
+                                        Log into Google, GitHub, Amazon, or any other site in a normal Anthracite tab.
+                                        Your session will be available to the AI agent automatically.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {connectedAccounts.map((account) => (
+                                        <div
+                                            key={account.service}
+                                            className="flex items-center gap-4 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06] hover:border-white/[0.1] transition-colors"
+                                        >
+                                            {/* Avatar */}
+                                            <div className={cn(
+                                                "h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                                                SERVICE_COLORS[account.service] || 'bg-white/10 text-white/70'
+                                            )}>
+                                                {account.service.charAt(0)}
+                                            </div>
+
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-text-primary">{account.service}</span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">
+                                                        Connected
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-text-tertiary mt-0.5 truncate">
+                                                    {account.email || 'Session active · Agent can use this account'}
+                                                </p>
+                                            </div>
+
+                                            {/* Disconnect */}
+                                            <button
+                                                onClick={() => handleDisconnect(account.service)}
+                                                title={`Disconnect ${account.service}`}
+                                                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-text-tertiary hover:text-error hover:bg-error/5 rounded-lg transition-colors shrink-0"
+                                            >
+                                                <LogOut className="h-3.5 w-3.5" />
+                                                Disconnect
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Security note */}
+                            <div className="mt-6 p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                                <div className="flex items-start gap-3">
+                                    <Shield className="h-4 w-4 text-text-tertiary shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-medium text-text-secondary mb-1">How this works</p>
+                                        <p className="text-xs text-text-tertiary leading-relaxed">
+                                            Anthracite's AI agent uses the same browser session you do — your cookies are stored locally
+                                            and never sent to any server. The agent can only act on sites where you're already logged in.
+                                            Disconnect any account to clear its session cookies immediately.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
                     {/* Browser Section */}
                     {activeSection === 'browser' && (
                         <section>

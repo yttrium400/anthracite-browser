@@ -245,6 +245,17 @@ async def stream_agent(task: TaskRequest):
 
                 async def step_callback(step_num, action, args, result):
                     """Push step info to the SSE queue (new CDP agent signature)."""
+                    # Auth-required: pause the agent and notify the frontend for takeover mode
+                    if action == "auth_required":
+                        agent_control.pause()
+                        await queue.put({
+                            "type": "auth_required",
+                            "step": step_num,
+                            "url": args.get("url", ""),
+                            "service": args.get("service", "the website"),
+                        })
+                        return
+
                     # Build a human-readable goal from the action and args
                     goal = args.get("text") or args.get("url") or args.get("result") or action
                     await queue.put({

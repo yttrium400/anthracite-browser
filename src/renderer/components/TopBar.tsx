@@ -80,6 +80,7 @@ export function TopBar({
     const [isAIProcessing, setIsAIProcessing] = useState(false);
     const [agentStatus, setAgentStatus] = useState<string>('');
     const [isAgentPaused, setIsAgentPaused] = useState(false);
+    const [authRequired, setAuthRequired] = useState<{ service: string; url: string } | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Autocomplete state
@@ -406,14 +407,22 @@ export function TopBar({
                                 case 'step':
                                     setAgentStatus(event.next_goal || `Step ${event.step}...`);
                                     break;
+                                case 'auth_required':
+                                    setAuthRequired({ service: event.service, url: event.url });
+                                    setAgentStatus(`Sign in to ${event.service} to continue`);
+                                    setIsAgentPaused(true);
+                                    break;
                                 case 'done':
                                     setAgentStatus('');
+                                    setAuthRequired(null);
                                     break;
                                 case 'stopped':
                                     setAgentStatus('Stopped');
+                                    setAuthRequired(null);
                                     break;
                                 case 'error':
                                     setAgentStatus(`Error: ${event.message}`);
+                                    setAuthRequired(null);
                                     console.error('Agent error:', event.message);
                                     setTimeout(() => setAgentStatus(''), 4000);
                                     break;
@@ -431,6 +440,7 @@ export function TopBar({
             setIsAIProcessing(false);
             setAgentStatus('');
             setIsAgentPaused(false);
+            setAuthRequired(null);
             abortControllerRef.current = null;
             // Sync the URL bar to wherever the agent landed.
             window.electron?.tabs.getActive().then(tab => {
@@ -736,6 +746,34 @@ export function TopBar({
 
             {/* Right Spacer */}
             <div className="w-20 shrink-0" />
+
+            {/* Takeover Banner — shown when agent hits a login/auth page */}
+            {authRequired && (
+                <div
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-[9999] flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25 backdrop-blur-xl shadow-large text-sm"
+                    style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                >
+                    <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                    <span className="text-amber-200 font-medium">
+                        Sign in to <span className="font-semibold">{authRequired.service}</span> to continue
+                    </span>
+                    <span className="text-amber-400/60 text-xs">Agent paused</span>
+                    <div className="flex items-center gap-1 ml-1">
+                        <button
+                            onClick={handlePauseResumeAgent}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-medium transition-colors"
+                        >
+                            Resume
+                        </button>
+                        <button
+                            onClick={handleStopAgent}
+                            className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-text-tertiary text-xs font-medium transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </header>
     );
 }

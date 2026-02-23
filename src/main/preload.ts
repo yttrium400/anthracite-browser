@@ -244,6 +244,12 @@ contextBridge.exposeInMainWorld('electron', {
 
     // App Info
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+    // Connected Accounts
+    accounts: {
+        getConnected: () => ipcRenderer.invoke('get-connected-accounts'),
+        disconnect: (domain: string) => ipcRenderer.invoke('clear-account-cookies', domain),
+    },
 })
 
 // ============================================
@@ -394,6 +400,10 @@ declare global {
                 get: () => Promise<{ activeRealmId: string; realms: Realm[]; docks: Dock[]; tabs: OrganizedTabInfo[] }>
             }
             getAppVersion: () => Promise<string>
+            accounts: {
+                getConnected: () => Promise<Array<{ service: string; email: string | null; isActive: boolean }>>
+                disconnect: (domain: string) => Promise<{ success: boolean }>
+            }
         }
     }
 }

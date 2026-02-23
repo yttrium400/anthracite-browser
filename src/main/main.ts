@@ -1205,6 +1205,84 @@ function setupIPC(): void {
     ipcMain.handle('get-app-version', () => {
         return app.getVersion()
     })
+
+    // ── Connected Accounts ───────────────────────────────────────────────────
+    // SECURITY: Raw cookie values are classified data.
+    // Never log, never send to renderer, never include in LLM context.
+    // Only metadata (service name, email) is returned to the renderer.
+
+    interface ServiceDef {
+        name: string
+        domain: string
+        sessionCookieNames: string[]
+        identityUrl?: string
+    }
+
+    const ACCOUNT_SERVICES: ServiceDef[] = [
+        {
+            name: 'Google',
+            domain: '.google.com',
+            sessionCookieNames: ['SID', 'SSID', '__Secure-3PSID'],
+            identityUrl: 'https://accounts.google.com/ListAccounts?gpsia=1&source=ogb&json=standard',
+        },
+        { name: 'GitHub', domain: 'github.com', sessionCookieNames: ['user_session', '__Host-user_session_same_site'] },
+        { name: 'Amazon', domain: '.amazon.com', sessionCookieNames: ['session-id', 'ubid-main'] },
+        { name: 'LinkedIn', domain: '.linkedin.com', sessionCookieNames: ['li_at'] },
+        { name: 'Reddit', domain: '.reddit.com', sessionCookieNames: ['reddit_session', 'token_v2'] },
+        { name: 'X (Twitter)', domain: '.twitter.com', sessionCookieNames: ['auth_token'] },
+        { name: 'Microsoft', domain: '.live.com', sessionCookieNames: ['ESTSAUTH', 'ESTSAUTHPERSISTENT'] },
+    ]
+
+    ipcMain.handle('get-connected-accounts', async () => {
+        const anthraciteSession = session.fromPartition('persist:anthracite')
+        const connected: Array<{ service: string; email: string | null; isActive: boolean }> = []
+
+        for (const svc of ACCOUNT_SERVICES) {
+            try {
+                const cookies = await anthraciteSession.cookies.get({ domain: svc.domain })
+                const hasSession = cookies.some(c => svc.sessionCookieNames.includes(c.name))
+
+                if (!hasSession) continue
+
+                let email: string | null = null
+
+                // For Google: query the ListAccounts endpoint using the session cookies
+                if (svc.name === 'Google' && svc.identityUrl) {
+                    try {
+                        const resp = await anthraciteSession.fetch(svc.identityUrl, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        })
+                        if (resp.ok) {
+                            const text = await resp.text()
+                            // Response looks like: [["gaia.l.a.r",[["...", 1, "Name", "user@gmail.com", ...]]]]
+                            const emailMatch = text.match(/"([a-zA-Z0-9._%+\-]+@gmail\.com|[a-zA-Z0-9._%+\-]+@googlemail\.com)"/i)
+                            if (emailMatch) email = emailMatch[1]
+                        }
+                    } catch { /* non-fatal — just show connected without email */ }
+                }
+
+                connected.push({ service: svc.name, email, isActive: true })
+            } catch { /* skip services that fail */ }
+        }
+
+        return connected
+    })
+
+    ipcMain.handle('clear-account-cookies', async (_event, domain: string) => {
+        // SECURITY: Raw cookie values are classified data.
+        const anthraciteSession = session.fromPartition('persist:anthracite')
+        try {
+            const cookies = await anthraciteSession.cookies.get({ domain })
+            await Promise.all(cookies.map(c => {
+                const cookieDomain = c.domain?.startsWith('.') ? c.domain.slice(1) : (c.domain || domain)
+                const url = `https://${cookieDomain}${c.path || '/'}`
+                return anthraciteSession.cookies.remove(url, c.name)
+            }))
+            return { success: true }
+        } catch {
+            return { success: false }
+        }
+    })
 }
 
 // ============================================
