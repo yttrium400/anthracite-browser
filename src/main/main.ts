@@ -23,7 +23,7 @@ const authPopupIds = new Set<number>()
  * Cookies written during login are immediately available to the main webview
  * since both share the same session partition.
  */
-function openAuthPopup(url: string): void {
+async function openAuthPopup(url: string): Promise<void> {
     if (authPopupIds.size > 0) return // already open
 
     const authSession = session.fromPartition('persist:anthracite')
@@ -44,6 +44,23 @@ function openAuthPopup(url: string): void {
     authPopupIds.add(popup.webContents.id)
     popup.webContents.setUserAgent(CLEAN_UA)
 
+    // Inject webdriver = false into the MAIN WORLD before any page script runs.
+    // contextIsolation:true means preload scripts can't touch the page's navigator —
+    // the only reliable way is via the debugger API's addScriptToEvaluateOnNewDocument,
+    // which runs in the main world before any other JavaScript.
+    try {
+        popup.webContents.debugger.attach('1.3')
+        await popup.webContents.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+            source: `
+                try { Object.defineProperty(navigator, 'webdriver', { get: () => false }) } catch(e) {}
+                try { Object.defineProperty(navigator, 'webdriver', { value: false, writable: false, enumerable: false, configurable: true }) } catch(e) {}
+                try { delete navigator.__proto__.webdriver } catch(e) {}
+            `,
+        })
+    } catch (e) {
+        console.warn('[Auth] Debugger inject failed (non-fatal):', e)
+    }
+
     // Allow Google's own sub-popups (account chooser, 2FA prompts, etc.)
     // with the same session so cookies flow through
     popup.webContents.setWindowOpenHandler(({ url: openUrl }) => {
@@ -60,7 +77,8 @@ function openAuthPopup(url: string): void {
     })
 
     popup.on('closed', () => {
-        authPopupIds.delete(popup.id)
+        authPopupIds.delete(popup.webContents.id)
+        try { popup.webContents.debugger.detach() } catch { /* already detached */ }
     })
 
     // Close popup once Google redirects away from the auth domain (login complete)
