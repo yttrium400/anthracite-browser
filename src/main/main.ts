@@ -9,6 +9,69 @@ app.commandLine.appendSwitch('remote-debugging-port', String(CDP_PORT))
 // Remove the navigator.webdriver flag that remote debugging sets — without this
 // Google and other sites block login with "This browser may not be secure"
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled')
+
+// Clean Chrome UA — no "Electron/" token which Google blocks
+const CLEAN_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+// Track auth popup webContents IDs so the global window-open handler skips them
+const authPopupIds = new Set<number>()
+
+/**
+ * Open a Google auth page in a dedicated BrowserWindow using the same
+ * persist:anthracite session. This bypasses Google's <webview> block —
+ * Google treats BrowserWindows as real browsers, not embedded webviews.
+ * Cookies written during login are immediately available to the main webview
+ * since both share the same session partition.
+ */
+function openAuthPopup(url: string): void {
+    if (authPopupIds.size > 0) return // already open
+
+    const authSession = session.fromPartition('persist:anthracite')
+
+    const popup = new BrowserWindow({
+        width: 480,
+        height: 640,
+        resizable: true,
+        autoHideMenuBar: true,
+        title: 'Sign In',
+        webPreferences: {
+            session: authSession,
+            nodeIntegration: false,
+            contextIsolation: true,
+        },
+    })
+
+    authPopupIds.add(popup.webContents.id)
+    popup.webContents.setUserAgent(CLEAN_UA)
+
+    // Allow Google's own sub-popups (account chooser, 2FA prompts, etc.)
+    // with the same session so cookies flow through
+    popup.webContents.setWindowOpenHandler(({ url: openUrl }) => {
+        if (openUrl.includes('google.com')) {
+            return {
+                action: 'allow',
+                overrideBrowserWindowOptions: {
+                    autoHideMenuBar: true,
+                    webPreferences: { session: authSession },
+                },
+            }
+        }
+        return { action: 'deny' }
+    })
+
+    popup.on('closed', () => {
+        authPopupIds.delete(popup.id)
+    })
+
+    // Close popup once Google redirects away from the auth domain (login complete)
+    popup.webContents.on('did-navigate', (_, navUrl) => {
+        if (!navUrl.includes('accounts.google.com') && !popup.isDestroyed()) {
+            setTimeout(() => { if (!popup.isDestroyed()) popup.close() }, 800)
+        }
+    })
+
+    popup.loadURL(url)
+}
 import { spawn, ChildProcess } from 'node:child_process'
 
 import fetch from 'cross-fetch'
@@ -29,31 +92,34 @@ app.on('ready', () => {
 
 
 app.on('web-contents-created', (_, contents) => {
-    // console.log('[App] web-contents-created', contents.id, contents.getType())
-
-    // Intercept window open requests from any web contents (including <webview>)
+    // Intercept window open requests from any web contents (including <webview>),
+    // EXCEPT auth popup windows which manage their own window-open handler.
     contents.setWindowOpenHandler((details) => {
-        // Check if this is a real navigation request
+        if (authPopupIds.has(contents.id)) return { action: 'allow' } // let popup handle its own children
         if (details.url && details.url !== 'about:blank') {
-
-            // Create tab via main process function
-            // We need to resolve the realm/dock from the source contents if possible,
-            // but for now let's just create it in the active context.
-            // Since we can't easily map contents -> tab ID here without a lookup,
-            // we'll let createTab handle default assignment.
-
-            // We need to ensure we don't block internal popups if any, but for a browser,
-            // almost all window.opens should be tabs.
-
-            // Use setImmediate to avoid blocking the handler
             setImmediate(() => {
                 const tab = createTab(details.url)
                 switchToTab(tab.id)
             })
-
             return { action: 'deny' }
         }
         return { action: 'allow' }
+    })
+
+    // Intercept navigations to Google sign-in pages from <webview> contents.
+    // Google blocks login attempts from embedded webviews — opening a BrowserWindow
+    // with the same session bypasses this while keeping cookies shared.
+    contents.on('will-navigate', (event, url) => {
+        if (
+            contents.getType() === 'webview' &&
+            (url.includes('accounts.google.com/signin') ||
+                url.includes('accounts.google.com/v3/signin') ||
+                url.includes('accounts.google.com/ServiceLogin') ||
+                url.includes('accounts.google.com/o/oauth2'))
+        ) {
+            event.preventDefault()
+            openAuthPopup(url)
+        }
     })
 })
 
@@ -1557,28 +1623,8 @@ app.whenReady().then(async () => {
     setupIPC()
 
     // ── User-agent stealth ───────────────────────────────────────────────────
-    // Google blocks login from any UA containing "Electron/" (policy since 2019).
-    // session.setUserAgent() does NOT apply to iframes (Electron bug #40374), so
-    // we must also intercept every outgoing request header via webRequest.
-    const CLEAN_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-    const CLEAN_CH_UA = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"'
-
     const webviewSession = session.fromPartition('persist:anthracite')
     webviewSession.setUserAgent(CLEAN_UA)
-
-    // Cover iframes, service workers, and any sub-resource — session.setUserAgent
-    // misses these. Scoped to google.com and accounts.google.com only so we don't
-    // interfere with adblock's onBeforeRequest handler on other domains.
-    webviewSession.webRequest.onBeforeSendHeaders(
-        { urls: ['*://*.google.com/*', '*://accounts.google.com/*'] },
-        (details, callback) => {
-            details.requestHeaders['User-Agent'] = CLEAN_UA
-            details.requestHeaders['sec-ch-ua'] = CLEAN_CH_UA
-            details.requestHeaders['sec-ch-ua-mobile'] = '?0'
-            details.requestHeaders['sec-ch-ua-platform'] = '"macOS"'
-            callback({ requestHeaders: details.requestHeaders })
-        }
-    )
 
     // Strip Electron token from the app-level fallback UA (used by default session)
     app.userAgentFallback = app.userAgentFallback
