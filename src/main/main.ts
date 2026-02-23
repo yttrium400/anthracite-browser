@@ -6,6 +6,9 @@ import { autoUpdater } from 'electron-updater'
 // Enable CDP remote debugging so the AI agent can connect to Anthracite's browser
 const CDP_PORT = 9222
 app.commandLine.appendSwitch('remote-debugging-port', String(CDP_PORT))
+// Remove the navigator.webdriver flag that remote debugging sets — without this
+// Google and other sites block login with "This browser may not be secure"
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled')
 import { spawn, ChildProcess } from 'node:child_process'
 
 import fetch from 'cross-fetch'
@@ -1557,7 +1560,7 @@ app.whenReady().then(async () => {
     // (like YouTube) serve the full desktop version, not simplified layouts
     const webviewSession = session.fromPartition('persist:anthracite')
     webviewSession.setUserAgent(
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
     )
 
     // Migrate history from JSON to SQLite (one-time)

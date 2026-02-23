@@ -6,6 +6,10 @@
 
 import { ipcRenderer, webFrame } from 'electron';
 
+// Remove navigator.webdriver so sites like Google don't block login.
+// The remote-debugging-port flag sets this to true; we undo it here.
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+
 // Cosmetic CSS injection handled below. Native scriptlet injection 
 // is no longer used here; JSON payloads are now scrubbed natively via CDP Fetch domains.
 
