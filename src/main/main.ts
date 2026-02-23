@@ -23,11 +23,14 @@ const authPopupIds = new Set<number>()
  * Cookies written during login are immediately available to the main webview
  * since both share the same session partition.
  */
-async function openAuthPopup(url: string): Promise<void> {
+function openAuthPopup(url: string): void {
     if (authPopupIds.size > 0) return // already open
 
     const authSession = session.fromPartition('persist:anthracite')
 
+    // contextIsolation: false so auth-preload.js runs in the page's main world
+    // and can set navigator.webdriver = false before any Google script reads it.
+    // nodeIntegration remains false — only the preload has Node access.
     const popup = new BrowserWindow({
         width: 480,
         height: 640,
@@ -37,29 +40,15 @@ async function openAuthPopup(url: string): Promise<void> {
         webPreferences: {
             session: authSession,
             nodeIntegration: false,
-            contextIsolation: true,
+            contextIsolation: false,
+            preload: path.join(__dirname, 'auth-preload.js'),
         },
     })
 
-    authPopupIds.add(popup.webContents.id)
+    // Capture ID immediately — popup.webContents is null after the window closes
+    const wcId = popup.webContents.id
+    authPopupIds.add(wcId)
     popup.webContents.setUserAgent(CLEAN_UA)
-
-    // Inject webdriver = false into the MAIN WORLD before any page script runs.
-    // contextIsolation:true means preload scripts can't touch the page's navigator —
-    // the only reliable way is via the debugger API's addScriptToEvaluateOnNewDocument,
-    // which runs in the main world before any other JavaScript.
-    try {
-        popup.webContents.debugger.attach('1.3')
-        await popup.webContents.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-            source: `
-                try { Object.defineProperty(navigator, 'webdriver', { get: () => false }) } catch(e) {}
-                try { Object.defineProperty(navigator, 'webdriver', { value: false, writable: false, enumerable: false, configurable: true }) } catch(e) {}
-                try { delete navigator.__proto__.webdriver } catch(e) {}
-            `,
-        })
-    } catch (e) {
-        console.warn('[Auth] Debugger inject failed (non-fatal):', e)
-    }
 
     // Allow Google's own sub-popups (account chooser, 2FA prompts, etc.)
     // with the same session so cookies flow through
@@ -69,7 +58,7 @@ async function openAuthPopup(url: string): Promise<void> {
                 action: 'allow',
                 overrideBrowserWindowOptions: {
                     autoHideMenuBar: true,
-                    webPreferences: { session: authSession },
+                    webPreferences: { session: authSession, contextIsolation: false },
                 },
             }
         }
@@ -77,8 +66,7 @@ async function openAuthPopup(url: string): Promise<void> {
     })
 
     popup.on('closed', () => {
-        authPopupIds.delete(popup.webContents.id)
-        try { popup.webContents.debugger.detach() } catch { /* already detached */ }
+        authPopupIds.delete(wcId)
     })
 
     // Close popup once Google redirects away from the auth domain (login complete)
