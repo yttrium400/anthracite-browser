@@ -1556,12 +1556,34 @@ app.on('activate', () => {
 app.whenReady().then(async () => {
     setupIPC()
 
-    // Set Chrome user agent for the webview partition to ensure websites
-    // (like YouTube) serve the full desktop version, not simplified layouts
+    // ── User-agent stealth ───────────────────────────────────────────────────
+    // Google blocks login from any UA containing "Electron/" (policy since 2019).
+    // session.setUserAgent() does NOT apply to iframes (Electron bug #40374), so
+    // we must also intercept every outgoing request header via webRequest.
+    const CLEAN_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    const CLEAN_CH_UA = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"'
+
     const webviewSession = session.fromPartition('persist:anthracite')
-    webviewSession.setUserAgent(
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    webviewSession.setUserAgent(CLEAN_UA)
+
+    // Cover iframes, service workers, and any sub-resource — session.setUserAgent
+    // misses these. Scoped to google.com and accounts.google.com only so we don't
+    // interfere with adblock's onBeforeRequest handler on other domains.
+    webviewSession.webRequest.onBeforeSendHeaders(
+        { urls: ['*://*.google.com/*', '*://accounts.google.com/*'] },
+        (details, callback) => {
+            details.requestHeaders['User-Agent'] = CLEAN_UA
+            details.requestHeaders['sec-ch-ua'] = CLEAN_CH_UA
+            details.requestHeaders['sec-ch-ua-mobile'] = '?0'
+            details.requestHeaders['sec-ch-ua-platform'] = '"macOS"'
+            callback({ requestHeaders: details.requestHeaders })
+        }
     )
+
+    // Strip Electron token from the app-level fallback UA (used by default session)
+    app.userAgentFallback = app.userAgentFallback
+        .replace(/Electron\/[\d.]+ /g, '')
+        .replace(/anthracite-app\/[\d.]+ /g, '')
 
     // Migrate history from JSON to SQLite (one-time)
     migrateFromJson()
