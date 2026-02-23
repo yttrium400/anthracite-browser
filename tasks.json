@@ -62,47 +62,47 @@
         },
         {
             "id": "5",
-            "title": "Google/OAuth Account Linking — Agent Auth",
+            "title": "Connected Accounts — Agent Auth via Ambient Session Reuse",
             "status": "in_progress",
             "priority": "critical",
-            "context": "Users need to link accounts (Google, Microsoft, etc.) so the AI agent can act as them — log into Gmail, book flights on their airline account, manage their calendar. Currently the agent has NO auth context and cannot access any logged-in services. This is NOT traditional OAuth (we don't need API tokens) — the agent needs actual browser session cookies so it can navigate sites as the user. The webview uses 'persist:anthracite' Electron session partition — cookies from normal browsing in this partition are already available to the agent since it controls the same webview. The main gap is: (1) no 'Connected Accounts' UI to show the user what's linked, (2) no session expiry detection, (3) no secure persistence across restarts.",
+            "context": "RESEARCH COMPLETE (2026-02-23). Users need to link accounts (Google, GitHub, Amazon, etc.) so the AI agent can act as them — log into Gmail, book flights, manage their calendar. The chosen architecture is AMBIENT SESSION REUSE (same pattern as Comet by Perplexity and Dia by The Browser Company): the agent controls the same webview the user browses in ('persist:anthracite' Electron session), so cookies from manual logins are already available to the agent — NO separate OAuth or credential storage needed. The second pattern is TAKEOVER MODE (same as OpenAI Operator): when agent detects a login/CAPTCHA/MFA wall, it pauses and hands control to the user, who completes auth manually, then the agent resumes. INDUSTRY PATTERNS STUDIED: (1) Comet/Dia — ambient session reuse, exact same approach we use; agent acts inside the user's own browser profile. (2) OpenAI Operator — same ambient reuse but adds 'takeover mode' popup for login/CAPTCHA; agent pauses, user takes over, resumes after URL leaves auth domain. (3) Manus/Airtop — session capture/replay via cloud VMs: export ENTIRE browser profile as cookie jar, replay on cloud; NOT our approach (we're local). (4) Composio/Perplexity Connector — OAuth token delegation via API scopes; NOT our approach (we need full browser sessions, not API tokens). ELECTRON CONFIRM: persist:anthracite stores to ~/Library/Application Support/Anthracite/Partitions/anthracite/Cookies (SQLite) — cookies automatically survive restarts. SECURITY RULES: NEVER pass raw cookie values to LLM, NEVER log cookie values, NEVER transmit externally, NEVER persist credentials beyond Electron's own encrypted storage. The three missing pieces: (1) Connected Accounts UI — show which accounts are detected in persist:anthracite cookies, (2) Takeover mode — detect login pages during agent runs and pause for user, (3) Account detection logic — query known endpoints to extract username/email without leaking to LLM.",
             "created_at": "2026-02-12T12:05:00.000000",
             "subtasks": [
                 {
                     "id": "5.1",
-                    "title": "Design the auth persistence architecture",
+                    "title": "IPC handler: read and classify accounts from persist:anthracite cookies",
                     "status": "pending",
-                    "context": "When user logs into Google in a normal Anthracite tab, capture and persist the session cookies for google.com. Store them so they survive app restarts. Electron's session.defaultSession.cookies API can get/set cookies. The agent's CDP-connected webview shares the 'persist:anthracite' session partition, so cookies are already shared — the main task is ensuring they persist across restarts."
+                    "context": "In src/main/main.ts (or a new AccountsService.ts), add ipcMain.handle('get-connected-accounts') that calls session.fromPartition('persist:anthracite').cookies.get({}) and classifies accounts by domain. For Google: check for 'SID' or 'SSID' cookie on .google.com, then query https://accounts.google.com/ListAccounts?gpsia=1 in a hidden request to get the signed-in email (parse the GJSON array response — email is at index [1][0][2] in each session). For GitHub: check 'user_session' cookie on github.com. For Amazon: check 'session-id' on amazon.com/.amazon.com.au. For LinkedIn: check 'li_at' on linkedin.com. Return array of {service, email, avatarUrl, isActive}. SECURITY: return ONLY metadata (email, avatar URL) to renderer — NEVER the raw cookie values. Log detection counts only, never values."
                 },
                 {
                     "id": "5.2",
-                    "title": "Implement persistent cookie/session storage",
+                    "title": "Connected Accounts UI in SettingsPage",
                     "status": "pending",
-                    "context": "Electron sessions with the 'persist:' prefix are already persisted to disk by Electron automatically (stored in userData/Partitions/). Verify this is working correctly and that the persist:anthracite partition survives app restarts with cookies intact."
+                    "context": "Add a 'Connected Accounts' section to src/renderer/components/SettingsPage.tsx. On mount, call window.electron.invoke('get-connected-accounts'). Show each detected account as a card: service logo icon, service name, email address, green 'Connected' badge. If no accounts: show placeholder 'Log into any website in Anthracite and it will appear here automatically.' Add a 'Disconnect' button per account that calls ipcMain.handle('clear-account-cookies', {domain}) → session.fromPartition('persist:anthracite').cookies.remove(url, name) for all cookies matching that domain. Design should match existing settings card style (dark surface, subtle border). Services to detect: Google, GitHub, Amazon, LinkedIn, Twitter/X, Reddit, Microsoft/Outlook."
                 },
                 {
                     "id": "5.3",
-                    "title": "Share session state between user browsing and agent webview",
+                    "title": "Takeover mode — pause agent on login/CAPTCHA/MFA detection",
                     "status": "pending",
-                    "context": "The agent already controls the same webview (persist:anthracite session). Verify that when a user is logged into Google in a tab and the agent runs a task on that tab, the agent sees the logged-in state. Test: navigate to gmail.com manually, then run agent task 'read my latest email' and verify it sees inbox not login page."
+                    "context": "In backend/cdp_agent.py (run_agent_task_streaming), after each navigation action, check if the resulting URL matches known auth patterns. Login URL detection heuristics: URL contains 'accounts.google.com', 'login.', 'signin.', 'auth.', 'oauth.', '/login', '/signin', '/authenticate', or page title contains 'Sign in', 'Log in', 'Verify it's you'. If detected: (1) fire step_callback with special action_name='auth_required' and args={url, service}, (2) set a flag that blocks the agent loop from proceeding, (3) frontend shows a non-blocking 'Takeover' notification overlay: 'Google needs you to sign in. Complete login then click Resume.' User completes login in the visible webview. Frontend polls for URL change away from auth domain, then calls resume endpoint. In server.py, add /agent/resume endpoint that clears the block flag and resumes the asyncio task. Also detect CAPTCHA: check if page contains iframe[src*='recaptcha'] or iframe[src*='hcaptcha']."
                 },
                 {
                     "id": "5.4",
-                    "title": "Add 'Connected Accounts' section in Settings",
+                    "title": "Frontend takeover notification UI",
                     "status": "pending",
-                    "context": "Scan the persist:anthracite session cookies for known domains (google.com, github.com, linkedin.com, amazon.com, etc.). For each domain with active session cookies, show 'Google — signed in as user@gmail.com' (extract email from cookie or by querying the page). Allow user to disconnect (clear cookies for that domain). Add this as a new section in src/renderer/components/SettingsPage.tsx."
+                    "context": "In src/renderer/components/CommandBar.tsx (or a new TakeoverOverlay.tsx), show a subtle banner when agent_status === 'auth_required': glass-morphism panel at bottom of webview area with: service icon, message 'Sign in to [Service] to continue', 'Takeover' button (makes webview interactive, hides agent overlay), 'Cancel Task' button. After user completes login, show 'Resume Agent' button. Track webview URL changes (listen to 'did-navigate' from agent tab) — when URL leaves auth domain, auto-show 'Resume Agent' button. POST to http://localhost:8000/agent/resume with taskId. The agent then continues from where it paused. Visual style: same glass panel style as existing agent progress indicator, amber/warning color scheme to indicate user action needed."
                 },
                 {
                     "id": "5.5",
-                    "title": "Handle session expiry detection and re-auth prompts",
+                    "title": "Session health check before agent runs",
                     "status": "pending",
-                    "context": "Sessions expire. When the agent tries to act on a site and gets redirected to login, detect this and prompt the user: 'Your Google session has expired. Please sign in again.' Pause agent, let user sign in, then resume. Detect login redirect by checking if current URL is a login/auth page (accounts.google.com, login.*, etc.)."
+                    "context": "Before starting an agent task that likely requires auth (detect from instruction keywords: 'my email', 'my account', 'my orders', 'book', 'schedule', 'send'), call get-connected-accounts and check if the relevant service is connected. If not: show a non-blocking warning in CommandBar: 'Tip: Log into Google in any tab so the agent can access your account.' Don't block the task — just inform. This prevents the agent from starting, trying to log in, failing, and burning API credits on a doomed task. Map intent keywords to services: gmail/google/docs/drive/sheets → Google, github/repo/PR → GitHub, amazon/order/shipping → Amazon."
                 },
                 {
                     "id": "5.6",
-                    "title": "Security: encrypt stored session data, never send externally",
+                    "title": "Security audit: verify no cookie leakage to LLM or logs",
                     "status": "pending",
-                    "context": "Session cookies are extremely sensitive (they ARE the user's identity). The persist:anthracite partition is already stored locally by Electron. Verify: never transmit cookies to any external server, never include in error reports, never log cookie values. Clear on 'Sign Out' of Anthracite account (when that feature exists)."
+                    "context": "Audit all code paths: (1) IPC get-connected-accounts must return ONLY {service, email, avatarUrl} — grep codebase for cookie.value to ensure it's never forwarded. (2) Python cdp_agent.py: the agent's AX tree extraction and action loop must never output raw cookie content — cookies are in the browser process, not directly accessible to the Python agent anyway, but verify no CDP Runtime.evaluate calls that could extract document.cookie are emitted. (3) server.py logs: ensure step_callback results (which go to SSE stream) never contain auth tokens. (4) Add a comment block in AccountsService.ts: 'SECURITY: Raw cookie values are classified data. Never log, never send to renderer, never include in LLM context.' Follow Electron's security guidelines: use safeStorage for any credentials that need to be stored outside the session."
                 }
             ]
         },
