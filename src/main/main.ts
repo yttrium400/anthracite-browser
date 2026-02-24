@@ -1,4 +1,4 @@
-import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents } from 'electron'
+import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents, shell } from 'electron'
 import path from 'node:path'
 
 import { autoUpdater } from 'electron-updater'
@@ -1353,6 +1353,16 @@ function setupIPC(): void {
                 const url = `https://${cookieDomain}${c.path || '/'}`
                 return anthraciteSession.cookies.remove(url, c.name)
             }))
+            return { success: true }
+        } catch {
+            return { success: false }
+        }
+    })
+
+    ipcMain.handle('open-external-url', async (_event, url: string) => {
+        // Open URLs in the system browser (used for payment checkout, external links)
+        try {
+            await shell.openExternal(url)
             return { success: true }
         } catch {
             return { success: false }

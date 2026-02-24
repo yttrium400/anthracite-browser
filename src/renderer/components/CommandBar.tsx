@@ -10,6 +10,8 @@ import {
     Globe,
     History,
     Search,
+    KeyRound,
+    Zap,
 } from 'lucide-react';
 
 interface ModelOption {
@@ -64,6 +66,7 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
     const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
     const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
     const [showModelMenu, setShowModelMenu] = useState(false);
+    const [modelsLoaded, setModelsLoaded] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const modelMenuRef = useRef<HTMLDivElement>(null);
@@ -108,6 +111,8 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
             } else if (models.length > 0) {
                 setSelectedModel(models[0]);
             }
+
+            setModelsLoaded(true);
         };
         load();
     }, []);
@@ -549,6 +554,32 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                     <span>for new line</span>
                 </div>
             </div>
+
+            {/* No-model upgrade nudge */}
+            {modelsLoaded && availableModels.length === 0 && (
+                <div className="mt-4 flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-text-tertiary">
+                    <KeyRound className="h-3.5 w-3.5 shrink-0 text-text-tertiary/60" />
+                    <span>Add an API key to enable the AI agent.</span>
+                    <div className="flex items-center gap-2 ml-auto shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => window.electron?.navigation.navigate('anthracite://settings')}
+                            className="text-brand-light hover:text-brand transition-colors font-medium"
+                        >
+                            Add API key →
+                        </button>
+                        <span className="text-white/[0.12]">|</span>
+                        <button
+                            type="button"
+                            onClick={() => window.electron?.openExternal('https://anthracite.app/pro')}
+                            className="flex items-center gap-1 text-amber-400/80 hover:text-amber-400 transition-colors font-medium"
+                        >
+                            <Zap className="h-3 w-3" />
+                            Go Pro
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
