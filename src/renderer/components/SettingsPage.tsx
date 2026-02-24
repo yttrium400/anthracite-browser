@@ -14,6 +14,9 @@ import {
     UserCircle,
     LogOut,
     RefreshCw,
+    CreditCard,
+    Zap,
+    CheckCircle2,
 } from 'lucide-react';
 
 interface AppSettings {
@@ -46,7 +49,7 @@ interface SettingsPageProps {
     className?: string;
 }
 
-type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts';
+type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription';
 
 // Toggle Switch Component
 function Toggle({
@@ -216,6 +219,13 @@ export function SettingsPage({ className }: SettingsPageProps) {
         };
         loadSettings();
 
+        // Jump to a specific section if another component requested it via localStorage
+        const pending = localStorage.getItem('settings-pending-section') as SettingsSection | null;
+        if (pending) {
+            setActiveSection(pending);
+            localStorage.removeItem('settings-pending-section');
+        }
+
         // Subscribe to settings changes
         const unsubscribe = window.electron?.settings.onChanged((data) => {
             if (data.settings) {
@@ -350,6 +360,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
     }
 
     const sections: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
+        { id: 'subscription', label: 'Plan & Billing', icon: CreditCard },
         { id: 'accounts', label: 'Connected Accounts', icon: UserCircle },
         { id: 'browser', label: 'Browser', icon: Globe },
         { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -364,7 +375,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
             className
         )}>
             {/* Sidebar Navigation */}
-            <nav className="w-56 border-r border-white/[0.06] bg-[#111113]/50 p-4 flex flex-col">
+            <nav className="w-64 border-r border-white/[0.06] bg-[#111113]/50 p-4 flex flex-col">
                 <button
                     onClick={handleBack}
                     className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary mb-6 transition-colors"
@@ -488,7 +499,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                     <div>
                                         <p className="text-xs font-medium text-text-secondary mb-1">How this works</p>
                                         <p className="text-xs text-text-tertiary leading-relaxed">
-                                            Anthracite's AI agent uses the same browser session you do — your cookies are stored locally
+                                            Anthracite's AI agent uses the same browser session you do. Your cookies are stored locally
                                             and never sent to any server. The agent can only act on sites where you're already logged in.
                                             Disconnect any account to clear its session cookies immediately.
                                         </p>
@@ -834,6 +845,114 @@ export function SettingsPage({ className }: SettingsPageProps) {
                         </section>
                     )}
 
+                    {/* Subscription Section */}
+                    {activeSection === 'subscription' && (
+                        <section>
+                            <SectionHeader
+                                icon={CreditCard}
+                                title="Plan & Billing"
+                                description="Manage your Anthracite subscription and usage."
+                            />
+
+                            {/* Free plan (current) */}
+                            <div className="relative p-7 rounded-2xl border-2 border-brand/40 bg-brand/5 mb-4">
+                                <div className="flex items-start justify-between mb-5">
+                                    <div>
+                                        <div className="flex items-center gap-2.5 mb-1.5">
+                                            <span className="text-xl font-bold text-text-primary">Free</span>
+                                            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-brand/20 text-brand-light font-semibold">Current plan</span>
+                                        </div>
+                                        <p className="text-sm text-text-tertiary">Everything you need to browse smarter.</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-4xl font-bold text-text-primary">$0</span>
+                                        <span className="text-sm text-text-tertiary">/mo</span>
+                                    </div>
+                                </div>
+                                <ul className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                                    {[
+                                        'Full browser with tabs, history and realms',
+                                        'AI agent with your own API key',
+                                        'Connected Accounts (ambient session)',
+                                        'Native ad blocker',
+                                        'Local Ollama models',
+                                    ].map(f => (
+                                        <li key={f} className="flex items-start gap-2 text-sm text-text-secondary">
+                                            <CheckCircle2 className="h-4 w-4 text-brand shrink-0 mt-0.5" />
+                                            {f}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            {/* Pro plan */}
+                            <div className="relative p-7 rounded-2xl border border-white/[0.1] bg-white/[0.03] mb-6 overflow-hidden">
+                                {/* Subtle glow */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
+                                <div className="relative">
+                                    <div className="flex items-start justify-between mb-5">
+                                        <div>
+                                            <div className="flex items-center gap-2.5 mb-1.5">
+                                                <span className="text-xl font-bold text-text-primary flex items-center gap-2">
+                                                    <Zap className="h-5 w-5 text-amber-400" />
+                                                    Pro
+                                                </span>
+                                                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">Coming soon</span>
+                                            </div>
+                                            <p className="text-sm text-text-tertiary">No API key needed. We handle the infrastructure.</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-4xl font-bold text-text-primary">$20</span>
+                                            <span className="text-sm text-text-tertiary">/mo</span>
+                                        </div>
+                                    </div>
+                                    <ul className="grid grid-cols-2 gap-x-6 gap-y-2.5 mb-6">
+                                        {[
+                                            'Everything in Free',
+                                            '200 agent credits per month',
+                                            'No API key needed, we proxy calls',
+                                            'Claude Sonnet 4.6 by default',
+                                            'Priority support',
+                                        ].map(f => (
+                                            <li key={f} className="flex items-start gap-2 text-sm text-text-secondary">
+                                                <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                                                {f}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <button
+                                        onClick={() => window.electron?.openExternal('https://anthracitebrowser.com')}
+                                        className="w-full py-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-sm font-semibold transition-colors"
+                                    >
+                                        Join the waitlist →
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* BYOK info */}
+                            <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Shield className="h-4 w-4 text-text-tertiary shrink-0" />
+                                    <h4 className="text-sm font-medium text-text-primary">Bring your own API key</h4>
+                                </div>
+                                <p className="text-sm text-text-tertiary mb-3">
+                                    On the Free plan, add your Anthropic, OpenAI, or Google AI key in{' '}
+                                    <button
+                                        type="button"
+                                        className="text-brand-light hover:text-brand transition-colors"
+                                        onClick={() => setActiveSection('developer')}
+                                    >
+                                        Developer settings
+                                    </button>
+                                    . The agent uses it directly. Your key, your usage, your cost.
+                                </p>
+                                <p className="text-xs text-text-tertiary/70">
+                                    Keys are stored locally and never transmitted to Anthracite servers.
+                                </p>
+                            </div>
+                        </section>
+                    )}
+
                     {/* Developer Section */}
                     {activeSection === 'developer' && (
                         <section>
@@ -864,7 +983,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                     Keys are stored locally and never transmitted externally. At least one key is required to use the AI agent.
                                 </p>
                                 <div className="space-y-3">
-                                    {/* Anthropic — Recommended */}
+                                    {/* Anthropic (Recommended) */}
                                     {(() => {
                                         const isActive = !!settings.anthropicApiKey;
                                         return (
