@@ -1,5 +1,6 @@
-import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents } from 'electron'
+import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents, shell } from 'electron'
 import path from 'node:path'
+import { authService } from './authService'
 
 import { autoUpdater } from 'electron-updater'
 
@@ -82,6 +83,50 @@ import { spawn, ChildProcess } from 'node:child_process'
 
 import fetch from 'cross-fetch'
 
+
+// ============================================
+// Custom Protocol & Single Instance (Auth Deep Links)
+// ============================================
+
+// Register anthracite:// as a URL scheme so magic links / OAuth callbacks
+// can return to the app (e.g. anthracite://auth/callback#access_token=...).
+// In dev mode electron is the host binary, so we must include the app path.
+if (process.defaultApp && process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('anthracite', process.execPath, [process.argv[1]])
+} else {
+    app.setAsDefaultProtocolClient('anthracite')
+}
+
+// Single-instance lock: on Windows deep links arrive as a command-line arg
+// in a second process rather than open-url. Force-focus the first instance.
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+    app.quit()
+}
+app.on('second-instance', (_event, argv) => {
+    // Windows: deep link URL is the last argv element
+    const deepLinkUrl = argv.find(arg => arg.startsWith('anthracite://'))
+    if (deepLinkUrl) handleDeepLink(deepLinkUrl)
+
+    // Bring main window to focus
+    const window = BrowserWindow.getAllWindows()[0]
+    if (window) {
+        if (window.isMinimized()) window.restore()
+        window.focus()
+    }
+})
+
+// macOS: deep links arrive via the open-url event
+app.on('open-url', (event, url) => {
+    event.preventDefault()
+    handleDeepLink(url)
+})
+
+function handleDeepLink(url: string): void {
+    if (url.startsWith('anthracite://auth/callback')) {
+        authService.handleCallback(url)
+    }
+}
 
 // Auto-updater logging
 autoUpdater.logger = require("electron-log")
@@ -1358,6 +1403,38 @@ function setupIPC(): void {
             return { success: false }
         }
     })
+
+    // ── Open external URL in system browser ──────────────────────────────────
+    ipcMain.handle('open-external-url', async (_event, url: string) => {
+        if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+            await shell.openExternal(url)
+            return { success: true }
+        }
+        return { success: false }
+    })
+
+    // ── User Auth (Supabase) ─────────────────────────────────────────────────
+
+    // Returns current AuthUser or null (SECURITY: never returns raw tokens)
+    ipcMain.handle('auth-get-user', () => authService.getUser())
+
+    // Send magic link to the provided email address
+    ipcMain.handle('auth-sign-in-email', async (_event, email: string) => {
+        return authService.signInWithEmail(email)
+    })
+
+    // Get the Supabase-hosted OAuth URL and open it in the system browser
+    ipcMain.handle('auth-sign-in-oauth', async (_event, provider: 'google' | 'github') => {
+        const url = await authService.getOAuthUrl(provider)
+        if (!url) return { success: false, error: 'Auth not configured' }
+        await shell.openExternal(url)
+        return { success: true }
+    })
+
+    ipcMain.handle('auth-sign-out', async () => {
+        await authService.signOut()
+        return { success: true }
+    })
 }
 
 // ============================================
@@ -1518,6 +1595,9 @@ function createWindow(): void {
             enabled: adBlockEnabled,
             count: adBlockService ? adBlockService.getBlockedCount() : 0
         })
+
+        // Push current auth state to the freshly loaded renderer
+        authService.broadcastInitial()
     })
 
     // Enable ad-blocking on webview tags when they are attached
@@ -1656,6 +1736,12 @@ app.whenReady().then(async () => {
 
     // Migrate history from JSON to SQLite (one-time)
     migrateFromJson()
+
+    // Initialise auth service (reads persisted session from disk)
+    authService.init(
+        process.env.SUPABASE_URL || '',
+        process.env.SUPABASE_ANON_KEY || '',
+    )
 
     await initAdBlocker()
     startPythonBackend()

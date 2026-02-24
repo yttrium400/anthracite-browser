@@ -128,6 +128,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@radix-ui/react-slot": "^1.2.4",
+    "@supabase/supabase-js": "^2.97.0",
     "adblock-resources": "^0.0.1-security",
     "adblock-rs": "^0.12.1",
     "better-sqlite3": "^12.6.2",
