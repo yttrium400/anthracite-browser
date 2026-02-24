@@ -295,6 +295,9 @@ interface AppSettings {
     restoreTabsOnStartup: boolean
     enableDevTools: boolean
     openaiApiKey?: string
+    anthropicApiKey?: string
+    googleApiKey?: string
+    selectedModel?: string
 }
 
 declare global {

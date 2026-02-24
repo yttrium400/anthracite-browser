@@ -3,6 +3,9 @@ uvicorn==0.27.1
 browser-use>=0.11.11
 langchain-anthropic
 langchain-openai
+langchain-google-genai
+langchain-community
+httpx
 python-multipart==0.0.9
 python-dotenv
 aiohttp

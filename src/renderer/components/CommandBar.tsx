@@ -12,6 +12,26 @@ import {
     Search,
 } from 'lucide-react';
 
+interface ModelOption {
+    id: string;
+    name: string;
+    provider: 'anthropic' | 'openai' | 'google' | 'ollama';
+}
+
+const ANTHROPIC_MODELS: ModelOption[] = [
+    { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', provider: 'anthropic' },
+    { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'anthropic' },
+    { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', provider: 'anthropic' },
+];
+const OPENAI_MODELS: ModelOption[] = [
+    { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o mini', provider: 'openai' },
+];
+const GOOGLE_MODELS: ModelOption[] = [
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'google' },
+    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'google' },
+];
+
 interface CommandBarProps {
     onRun: (instruction: string) => void;
     isRunning: boolean;
@@ -41,9 +61,65 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(-1);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+    const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
+    const [showModelMenu, setShowModelMenu] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
+    const modelMenuRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<NodeJS.Timeout>();
+
+    // Load available models from settings + probe Ollama
+    useEffect(() => {
+        const load = async () => {
+            const settings = await window.electron?.settings.getAll().catch(() => null);
+            const models: ModelOption[] = [];
+            if (settings?.anthropicApiKey) models.push(...ANTHROPIC_MODELS);
+            if (settings?.openaiApiKey) models.push(...OPENAI_MODELS);
+            if (settings?.googleApiKey) models.push(...GOOGLE_MODELS);
+
+            // Probe Ollama
+            try {
+                const res = await fetch('http://127.0.0.1:8000/ollama/models');
+                const data = await res.json();
+                if (data.available && data.models?.length) {
+                    data.models.forEach((name: string) =>
+                        models.push({ id: name, name, provider: 'ollama' })
+                    );
+                }
+            } catch { /* Ollama not running */ }
+
+            setAvailableModels(models);
+
+            // Restore persisted selection or pick smart default
+            const savedId = settings?.selectedModel;
+            const match = models.find(m => m.id === savedId);
+            if (match) {
+                setSelectedModel(match);
+            } else if (models.length > 0) {
+                setSelectedModel(models[0]);
+            }
+        };
+        load();
+    }, []);
+
+    // Close model menu on outside click
+    useEffect(() => {
+        if (!showModelMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (modelMenuRef.current && !modelMenuRef.current.contains(e.target as Node)) {
+                setShowModelMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showModelMenu]);
+
+    const handleSelectModel = useCallback(async (model: ModelOption) => {
+        setSelectedModel(model);
+        setShowModelMenu(false);
+        await window.electron?.settings.set('selectedModel', model.id).catch(() => null);
+    }, []);
 
     // Rotate placeholders
     useEffect(() => {
@@ -296,13 +372,55 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                                 <Mic className="h-4 w-4" />
                             </button>
                             <div className="h-5 w-px bg-white/[0.08] mx-1" />
-                            <button
-                                type="button"
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:bg-white/[0.06] transition-colors"
-                            >
-                                <span>GPT-4o</span>
-                                <ChevronDown className="h-3 w-3" />
-                            </button>
+                            {/* Model selector */}
+                            <div className="relative" ref={modelMenuRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => availableModels.length > 0 && setShowModelMenu(v => !v)}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                                        availableModels.length > 0
+                                            ? "text-text-secondary hover:bg-white/[0.06]"
+                                            : "text-text-tertiary cursor-default"
+                                    )}
+                                    title={availableModels.length === 0 ? "Add an API key in Settings to enable the AI agent" : undefined}
+                                >
+                                    <span>{selectedModel?.name ?? 'No model'}</span>
+                                    {availableModels.length > 0 && <ChevronDown className="h-3 w-3" />}
+                                </button>
+
+                                {showModelMenu && (
+                                    <div className="absolute bottom-full mb-2 left-0 z-50 w-52 rounded-xl border border-white/[0.1] bg-[#1A1A1D]/95 backdrop-blur-xl shadow-large py-1 overflow-hidden">
+                                        {(['anthropic', 'openai', 'google', 'ollama'] as const).map(provider => {
+                                            const group = availableModels.filter(m => m.provider === provider);
+                                            if (!group.length) return null;
+                                            const labels = { anthropic: 'Anthropic', openai: 'OpenAI', google: 'Google AI', ollama: 'Ollama (local)' };
+                                            return (
+                                                <div key={provider}>
+                                                    <div className="px-3 pt-2 pb-1 text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
+                                                        {labels[provider]}
+                                                    </div>
+                                                    {group.map(model => (
+                                                        <button
+                                                            key={model.id}
+                                                            type="button"
+                                                            onClick={() => handleSelectModel(model)}
+                                                            className={cn(
+                                                                "w-full text-left px-3 py-2 text-xs transition-colors",
+                                                                selectedModel?.id === model.id
+                                                                    ? "text-brand-light bg-brand/10"
+                                                                    : "text-text-secondary hover:bg-white/[0.06] hover:text-text-primary"
+                                                            )}
+                                                        >
+                                                            {model.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Right Actions */}

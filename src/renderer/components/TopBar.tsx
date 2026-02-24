@@ -354,9 +354,8 @@ export function TopBar({
                 activeTarget = await (window as any).electron.agent.createAgentTab();
             }
 
-            // Get API key from settings
+            // Get keys + selected model from settings
             const settings = await window.electron?.settings.getAll();
-            const apiKey = settings?.openaiApiKey;
 
             // 2. Stream agent task via SSE
             const response = await fetch('http://127.0.0.1:8000/agent/stream', {
@@ -366,7 +365,10 @@ export function TopBar({
                     instruction: inputValue.trim(),
                     cdp_url: activeTarget?.cdpUrl || 'http://127.0.0.1:9222',
                     target_id: activeTarget?.targetId || null,
-                    api_key: apiKey,
+                    api_key: settings?.openaiApiKey || null,
+                    anthropic_api_key: settings?.anthropicApiKey || null,
+                    google_api_key: settings?.googleApiKey || null,
+                    model: settings?.selectedModel || null,
                 }),
                 signal: controller.signal,
             });

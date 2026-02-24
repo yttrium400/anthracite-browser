@@ -84,10 +84,14 @@ class TaskRequest(BaseModel):
     instruction: str
     cdp_url: str = "http://127.0.0.1:9222"
     target_id: str | None = None
-    api_key: str | None = None  # Allow passing key from frontend
+    api_key: str | None = None           # OpenAI key from frontend
+    anthropic_api_key: str | None = None  # Anthropic key from frontend
+    google_api_key: str | None = None     # Google AI key from frontend
+    model: str | None = None              # Selected model ID (e.g. "claude-sonnet-4-6")
 
 class TestApiKeyRequest(BaseModel):
     api_key: str
+    provider: str = "openai"  # "openai" | "anthropic" | "google"
 
 @app.on_event("startup")
 async def startup_event():
@@ -163,24 +167,37 @@ async def agent_status():
 
 @app.post("/test-api-key")
 async def test_api_key(request: TestApiKeyRequest):
-    """Test if an OpenAI API key is valid by making a minimal API call."""
+    """Test if an API key is valid by making a minimal call to the provider."""
     try:
-        from langchain_openai import ChatOpenAI
-        
-        # Create a temporary LLM instance with the provided key
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            api_key=request.api_key,
-            timeout=10,
-        )
-        
-        # Make a minimal test call
-        result = await llm.ainvoke("test")
-        
+        if request.provider == "anthropic":
+            from langchain_anthropic import ChatAnthropic
+            llm = ChatAnthropic(model="claude-haiku-4-5-20251001", api_key=request.api_key, timeout=10)
+        elif request.provider == "google":
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=request.api_key)
+        else:  # openai
+            from langchain_openai import ChatOpenAI
+            llm = ChatOpenAI(model="gpt-4o-mini", api_key=request.api_key, timeout=10)
+
+        await llm.ainvoke("hi")
         return {"status": "success", "valid": True}
     except Exception as e:
-        logger.error(f"API key test failed: {e}")
+        logger.error(f"API key test failed ({request.provider}): {e}")
         return {"status": "error", "valid": False, "message": str(e)}
+
+
+@app.get("/ollama/models")
+async def get_ollama_models():
+    """Probe the local Ollama server for available models."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get("http://localhost:11434/api/tags")
+            data = response.json()
+            models = [m["name"] for m in data.get("models", [])]
+            return {"available": True, "models": models}
+    except Exception:
+        return {"available": False, "models": []}
 
 
 def _sse_event(data: dict) -> str:
@@ -196,19 +213,16 @@ async def stream_agent(task: TaskRequest):
     Complex path: full browser-use pipeline with step-by-step progress.
     """
     
-    # Determine API key source (Anthropic preferred, OpenAI fallback)
+    # Resolve keys: frontend value takes priority over env
     api_key = task.api_key or os.environ.get("OPENAI_API_KEY")
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    anthropic_key = task.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
+    google_key = task.google_api_key or os.environ.get("GOOGLE_API_KEY")
 
-    if not api_key and not anthropic_key:
+    if not api_key and not anthropic_key and not google_key:
         logger.error("Stream request rejected: No API key found")
         async def error_stream():
-            yield _sse_event({"type": "error", "message": "API key not found. Please add ANTHROPIC_API_KEY (or OpenAI key) in Settings."})
+            yield _sse_event({"type": "error", "message": "No API key found. Add a key in Settings → Developer."})
         return StreamingResponse(error_stream(), media_type="text/event-stream")
-
-    # Set for this process scope
-    if task.api_key:
-        os.environ["OPENAI_API_KEY"] = task.api_key
 
     async def event_stream():
         try:
@@ -273,6 +287,9 @@ async def stream_agent(task: TaskRequest):
                             task.instruction,
                             task.target_id,
                             api_key=api_key,
+                            anthropic_api_key=anthropic_key,
+                            google_api_key=google_key,
+                            model=task.model,
                             step_callback=step_callback,
                             should_stop=agent_control.should_stop,
                         )

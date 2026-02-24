@@ -204,6 +204,9 @@ async def run_agent_task_streaming(
     instruction: str,
     target_id: str,
     api_key: str | None = None,
+    anthropic_api_key: str | None = None,
+    google_api_key: str | None = None,
+    model: str | None = None,
     step_callback=None,
     should_stop=None,
 ) -> str:
@@ -220,27 +223,53 @@ async def run_agent_task_streaming(
         String result reported by the agent when done.
     """
     # ── Pick LLM ──────────────────────────────────────────────────────────────
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    openai_key = api_key or os.environ.get("OPENAI_API_KEY")
+    _anthropic_key = anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
+    _openai_key = api_key or os.environ.get("OPENAI_API_KEY")
+    _google_key = google_api_key or os.environ.get("GOOGLE_API_KEY")
 
-    if anthropic_key:
+    if model and model.startswith("claude-"):
+        if not _anthropic_key:
+            raise ValueError(f"Anthropic API key required for model '{model}'. Add it in Settings → Developer.")
         from browser_use.llm.anthropic.chat import ChatAnthropic
-        llm = ChatAnthropic(
-            model="claude-sonnet-4-6",
-            api_key=anthropic_key,
-        )
-        logger.info("[Agent] Using Claude Sonnet 4.6 (Anthropic)")
-    elif openai_key:
+        llm = ChatAnthropic(model=model, api_key=_anthropic_key)
+        logger.info(f"[Agent] Using {model} (Anthropic)")
+
+    elif model and model.startswith("gpt-"):
+        if not _openai_key:
+            raise ValueError(f"OpenAI API key required for model '{model}'. Add it in Settings → Developer.")
         from browser_use.llm.openai.chat import ChatOpenAI
-        llm = ChatOpenAI(
-            model="gpt-4o",
-            api_key=openai_key,
-        )
-        logger.info("[Agent] Using GPT-4o (OpenAI fallback — set ANTHROPIC_API_KEY for best results)")
+        llm = ChatOpenAI(model=model, api_key=_openai_key)
+        logger.info(f"[Agent] Using {model} (OpenAI)")
+
+    elif model and model.startswith("gemini-"):
+        if not _google_key:
+            raise ValueError(f"Google API key required for model '{model}'. Add it in Settings → Developer.")
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(model=model, google_api_key=_google_key)
+        logger.info(f"[Agent] Using {model} (Google AI)")
+
+    elif model:
+        # Ollama local model
+        from langchain_community.chat_models import ChatOllama
+        llm = ChatOllama(model=model, base_url="http://localhost:11434")
+        logger.info(f"[Agent] Using {model} (Ollama local)")
+
     else:
-        raise ValueError(
-            "No API key available. Set ANTHROPIC_API_KEY in Settings or environment."
-        )
+        # Auto-select: Anthropic > OpenAI > Google
+        if _anthropic_key:
+            from browser_use.llm.anthropic.chat import ChatAnthropic
+            llm = ChatAnthropic(model="claude-sonnet-4-6", api_key=_anthropic_key)
+            logger.info("[Agent] Auto-selected Claude Sonnet 4.6 (Anthropic)")
+        elif _openai_key:
+            from browser_use.llm.openai.chat import ChatOpenAI
+            llm = ChatOpenAI(model="gpt-4o", api_key=_openai_key)
+            logger.info("[Agent] Auto-selected GPT-4o (OpenAI)")
+        elif _google_key:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=_google_key)
+            logger.info("[Agent] Auto-selected Gemini 2.0 Flash (Google AI)")
+        else:
+            raise ValueError("No API key available. Add a key in Settings → Developer.")
 
     # ── Connect BrowserSession to Electron's CDP endpoint ────────────────────
     from browser_use import Agent, BrowserSession
