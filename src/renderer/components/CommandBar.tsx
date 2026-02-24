@@ -69,16 +69,25 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
     const modelMenuRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<NodeJS.Timeout>();
 
-    // Load available models from settings + probe Ollama
+    // Load available models from settings + backend /providers (for .env keys) + Ollama
     useEffect(() => {
         const load = async () => {
-            const settings = await window.electron?.settings.getAll().catch(() => null);
-            const models: ModelOption[] = [];
-            if (settings?.anthropicApiKey) models.push(...ANTHROPIC_MODELS);
-            if (settings?.openaiApiKey) models.push(...OPENAI_MODELS);
-            if (settings?.googleApiKey) models.push(...GOOGLE_MODELS);
+            const [settings, envProviders] = await Promise.all([
+                window.electron?.settings.getAll().catch(() => null),
+                fetch('http://127.0.0.1:8000/providers').then(r => r.json()).catch(() => ({})),
+            ]);
 
-            // Probe Ollama
+            // A provider is available if its key is in settings OR in the backend env
+            const hasAnthropic = !!(settings?.anthropicApiKey || envProviders?.anthropic);
+            const hasOpenAI = !!(settings?.openaiApiKey || envProviders?.openai);
+            const hasGoogle = !!(settings?.googleApiKey || envProviders?.google);
+
+            const models: ModelOption[] = [];
+            if (hasAnthropic) models.push(...ANTHROPIC_MODELS);
+            if (hasOpenAI) models.push(...OPENAI_MODELS);
+            if (hasGoogle) models.push(...GOOGLE_MODELS);
+
+            // Probe Ollama via backend
             try {
                 const res = await fetch('http://127.0.0.1:8000/ollama/models');
                 const data = await res.json();

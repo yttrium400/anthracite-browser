@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-if not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
-    logger.warning("No API key found (ANTHROPIC_API_KEY or OPENAI_API_KEY). Agent features will be disabled.")
+if not any([os.environ.get("ANTHROPIC_API_KEY"), os.environ.get("OPENAI_API_KEY"), os.environ.get("GOOGLE_API_KEY")]):
+    logger.warning("No API key found in environment. Keys can be configured in Settings → Developer.")
 
 
 
@@ -162,6 +162,20 @@ async def agent_status():
     return {
         "running": agent_control.is_running,
         "paused": agent_control.is_paused,
+    }
+
+
+@app.get("/providers")
+async def get_providers():
+    """Tell the frontend which providers have keys configured in the environment.
+
+    The frontend merges this with any keys set in Settings — settings always win,
+    but this ensures .env-only setups still populate the model selector.
+    """
+    return {
+        "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "openai": bool(os.environ.get("OPENAI_API_KEY")),
+        "google": bool(os.environ.get("GOOGLE_API_KEY")),
     }
 
 
