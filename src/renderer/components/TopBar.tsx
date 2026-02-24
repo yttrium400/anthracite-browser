@@ -81,6 +81,7 @@ export function TopBar({
     const [agentStatus, setAgentStatus] = useState<string>('');
     const [isAgentPaused, setIsAgentPaused] = useState(false);
     const [authRequired, setAuthRequired] = useState<{ service: string; url: string } | null>(null);
+    const [showNoModelHint, setShowNoModelHint] = useState(false);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Autocomplete state
@@ -338,6 +339,22 @@ export function TopBar({
 
     const handleRunAgent = async () => {
         if (!inputValue.trim()) return;
+
+        // Check if any API key is configured before firing the agent
+        const settings = await window.electron?.settings.getAll().catch(() => null);
+        const hasKey = !!(
+            settings?.anthropicApiKey || settings?.openaiApiKey || settings?.googleApiKey
+        );
+        if (!hasKey) {
+            // Also check backend env keys
+            const envProviders = await fetch('http://127.0.0.1:8000/providers')
+                .then(r => r.json()).catch(() => ({}));
+            if (!envProviders?.anthropic && !envProviders?.openai && !envProviders?.google) {
+                setShowNoModelHint(true);
+                setTimeout(() => setShowNoModelHint(false), 6000);
+                return;
+            }
+        }
 
         const controller = new AbortController();
         abortControllerRef.current = controller;
@@ -748,6 +765,32 @@ export function TopBar({
 
             {/* Right Spacer */}
             <div className="w-20 shrink-0" />
+
+            {/* No-model hint — shown briefly when user tries to run without an API key */}
+            {showNoModelHint && (
+                <div
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-[9999] flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#1A1A1D]/95 border border-white/[0.1] backdrop-blur-xl shadow-large text-xs"
+                    style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                >
+                    <span className="text-text-secondary">Add an API key to run agent tasks.</span>
+                    <button
+                        onClick={() => {
+                            setShowNoModelHint(false);
+                            localStorage.setItem('settings-pending-section', 'developer');
+                            window.electron?.navigation.navigate('anthracite://settings');
+                        }}
+                        className="text-brand-light hover:text-brand font-medium transition-colors shrink-0"
+                    >
+                        Open Settings →
+                    </button>
+                    <button
+                        onClick={() => setShowNoModelHint(false)}
+                        className="text-text-tertiary hover:text-text-secondary transition-colors ml-1"
+                    >
+                        <X size={13} />
+                    </button>
+                </div>
+            )}
 
             {/* Takeover Banner — shown when agent hits a login/auth page */}
             {authRequired && (

@@ -11,7 +11,6 @@ import {
     History,
     Search,
     KeyRound,
-    Zap,
 } from 'lucide-react';
 
 interface ModelOption {
@@ -67,6 +66,7 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
     const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
     const [showModelMenu, setShowModelMenu] = useState(false);
     const [modelsLoaded, setModelsLoaded] = useState(false);
+    const [showNoModelHint, setShowNoModelHint] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const modelMenuRef = useRef<HTMLDivElement>(null);
@@ -207,6 +207,7 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
     // Debounced input handler
     const handleInputChange = (value: string) => {
         setInput(value);
+        if (showNoModelHint) setShowNoModelHint(false);
 
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
@@ -219,11 +220,23 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (input.trim() && !isRunning) {
-            setShowSuggestions(false);
-            onRun(input);
+        if (!input.trim() || isRunning) return;
+
+        // If this looks like an agent task but no model is configured, nudge instead of running
+        if (modelsLoaded && availableModels.length === 0 && !looksLikeUrl(input.trim())) {
+            setShowNoModelHint(true);
+            return;
         }
+
+        setShowSuggestions(false);
+        setShowNoModelHint(false);
+        onRun(input);
     };
+
+    // Simple heuristic: bare URLs / domain-like strings are navigation, not agent tasks
+    function looksLikeUrl(text: string): boolean {
+        return /^https?:\/\//i.test(text) || /^[\w-]+\.[a-z]{2,}(\/|$)/i.test(text);
+    }
 
     const handleSelectSuggestion = (suggestion: Suggestion) => {
         if (suggestion.type === 'history' && suggestion.url) {
@@ -555,29 +568,22 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                 </div>
             </div>
 
-            {/* No-model upgrade nudge */}
-            {modelsLoaded && availableModels.length === 0 && (
-                <div className="mt-4 flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-text-tertiary">
-                    <KeyRound className="h-3.5 w-3.5 shrink-0 text-text-tertiary/60" />
-                    <span>Add an API key to enable the AI agent.</span>
-                    <div className="flex items-center gap-2 ml-auto shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => window.electron?.navigation.navigate('anthracite://settings')}
-                            className="text-brand-light hover:text-brand transition-colors font-medium"
-                        >
-                            Add API key →
-                        </button>
-                        <span className="text-white/[0.12]">|</span>
-                        <button
-                            type="button"
-                            onClick={() => window.electron?.openExternal('https://anthracite.app/pro')}
-                            className="flex items-center gap-1 text-amber-400/80 hover:text-amber-400 transition-colors font-medium"
-                        >
-                            <Zap className="h-3 w-3" />
-                            Go Pro
-                        </button>
-                    </div>
+            {/* No-model hint — only shown after a failed run attempt */}
+            {showNoModelHint && (
+                <div className="mt-3 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-text-tertiary">
+                    <KeyRound className="h-3.5 w-3.5 shrink-0 text-text-tertiary/50" />
+                    <span>Add an API key to run agent tasks.</span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowNoModelHint(false);
+                            localStorage.setItem('settings-pending-section', 'developer');
+                            window.electron?.navigation.navigate('anthracite://settings');
+                        }}
+                        className="ml-auto shrink-0 text-brand-light hover:text-brand transition-colors font-medium"
+                    >
+                        Open Settings →
+                    </button>
                 </div>
             )}
         </div>
