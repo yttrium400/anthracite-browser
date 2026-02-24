@@ -9,12 +9,6 @@
             "created_at": "2026-02-12T12:01:00.000000",
             "subtasks": [
                 {
-                    "id": "1.1",
-                    "title": "Create electron-builder.json with platform targets",
-                    "status": "completed",
-                    "context": "Mac: DMG + universal binary (Intel + Apple Silicon). Windows: NSIS installer. Linux: AppImage (optional, lower priority). Configure app metadata, file associations, protocol handler (anthracite://)."
-                },
-                {
                     "id": "1.2",
                     "title": "macOS code signing + notarization",
                     "status": "pending",
@@ -25,29 +19,6 @@
                     "title": "Windows Distribution: Publish to Microsoft Store",
                     "status": "pending",
                     "context": "Microsoft Store handles signing for free/cheap (~$19 once), avoiding the expensive EV cert ($400/yr). Requires packaging as MSIX. Users install via Store link or appinstaller."
-                },
-                {
-                    "id": "1.4",
-                    "title": "Configure electron-updater for auto-updates",
-                    "status": "completed",
-                    "context": "Use GitHub Releases as update server (free). electron-updater checks for new versions on app launch. Show update available notification in-app."
-                },
-                {
-                    "id": "1.5",
-                    "title": "Handle native module bundling (better-sqlite3)",
-                    "status": "completed",
-                    "context": "better-sqlite3 requires platform-specific .node binary. electron-rebuild is already configured (postinstall script). Verify it works in packaged builds on all platforms."
-                },
-                {
-                    "id": "1.6",
-                    "title": "Bundle Python backend with the Electron app",
-                    "status": "completed",
-                    "context": "Currently the Python backend (backend/) runs separately. For production: either bundle a Python runtime (PyInstaller/cx_Freeze the FastAPI server into a single binary) or require users to have Python installed. Bundling is strongly preferred for non-technical users. Alternative: rewrite backend in Node.js to eliminate Python dependency entirely."
-                },
-                {
-                    "id": "1.7",
-                    "title": "Test full install → launch → use → auto-update flow on Mac and Windows",
-                    "status": "completed"
                 }
             ]
         },
@@ -60,33 +31,10 @@
             "created_at": "2026-02-12T12:02:00.000000",
             "subtasks": [
                 {
-                    "id": "2.1",
-                    "title": "Create .github/workflows/build.yml",
-                    "status": "completed",
-                    "context": "Matrix build: macos-latest (DMG), windows-latest (NSIS), ubuntu-latest (AppImage). Trigger on push to tags matching v*. Steps: checkout, setup Node, npm install, electron-rebuild, npm run build, upload artifacts."
-                },
-                {
                     "id": "2.2",
                     "title": "Store code signing secrets in GitHub Secrets",
                     "status": "pending",
                     "context": "Mac: APPLE_ID, APPLE_TEAM_ID, CSC_LINK (base64 .p12), CSC_KEY_PASSWORD. Windows: WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD."
-                },
-                {
-                    "id": "2.3",
-                    "title": "Auto-publish to GitHub Releases on tag push",
-                    "status": "completed",
-                    "context": "Use electron-builder --publish always. Creates GitHub Release with platform artifacts attached."
-                },
-                {
-                    "id": "2.4",
-                    "title": "Add type-check and lint step before build",
-                    "status": "completed"
-                },
-                {
-                    "id": "2.5",
-                    "title": "Cache node_modules and Electron binaries",
-                    "status": "completed",
-                    "context": "Use actions/cache for node_modules and ~/.cache/electron. Saves 2-3 min per build."
                 }
             ]
         },
@@ -98,24 +46,6 @@
             "context": "The signup form on anthracitebrowser.com (website/src/components/Signup.tsx) is purely cosmetic. It shows 'You're on the list' but saves nothing — no API call, no database, no email service. Need a real backend to collect and manage waitlist signups.",
             "created_at": "2026-02-12T12:03:00.000000",
             "subtasks": [
-                {
-                    "id": "3.1",
-                    "title": "Choose and set up waitlist backend",
-                    "status": "completed",
-                    "context": "Options ranked by simplicity: (1) Vercel serverless function + Supabase table — free tier covers early stage, (2) Resend audience API — email-native, good for later sending launch emails, (3) Google Sheets API — quick and dirty. Recommended: Supabase for the table + Resend for confirmation emails."
-                },
-                {
-                    "id": "3.2",
-                    "title": "Create API endpoint for signup submission",
-                    "status": "completed",
-                    "context": "POST /api/signup accepting { name, email, role }. Validate email format. Check for duplicates. Return success/error."
-                },
-                {
-                    "id": "3.3",
-                    "title": "Connect Signup.tsx to the real API",
-                    "status": "completed",
-                    "context": "Replace the cosmetic setSubmitted(true) in handleSubmit with an actual fetch() to the API. Handle loading state, errors, duplicate emails gracefully."
-                },
                 {
                     "id": "3.4",
                     "title": "Send confirmation email on signup (optional)",
@@ -131,112 +61,48 @@
             ]
         },
         {
-            "id": "4",
-            "title": "Replace Custom CDP Agent with browser-use + Claude Sonnet 4.6",
-            "status": "pending",
-            "priority": "critical",
-            "context": "BACKGROUND: Anthracite currently has a hand-rolled CDP agent (backend/cdp_agent.py) that was built to replace browser-use. It uses Accessibility.getFullAXTree only, has no reflection, no real memory, and hallucinates specific data (prices, names) it cannot see. We have tried patching it extensively — input float-to-top, autocomplete detection, done() guards, planner phase, model escalation — but it remains unreliable on real-world tasks like 'find cheapest hotel in Brisbane CBD 22 Feb' because it fundamentally cannot read prices from the page (prices are short static DOM text, not AX-interactive elements) and gpt-4o gives up and invents data.\n\nWHY BROWSER-USE NOW: browser-use has ABANDONED Playwright and migrated to raw CDP (their own cdp-use library, 2025). This makes it architecturally identical to our custom agent at the transport level. browser-use's agent is significantly more capable: it merges DOM + AX tree + Snapshot tree into EnhancedDOMTreeNode structures (preserving which price belongs to which hotel card — the exact structural context we are missing); it has explicit per-step memory (AgentOutput.memory field carries key facts between steps); it has a reflection/evaluation step (was the action effective?); an ActionLoopDetector that injects nudge messages on repeated patterns; and message compaction that summarises history instead of dropping it. All of this has been tuned on real web tasks for over a year.\n\nWHY CLAUDE SONNET 4.6: Claude Sonnet 4.6 scores 72.5% on computer use benchmarks, significantly better than GPT-4o on web interaction tasks. browser-use natively supports Anthropic via langchain_anthropic. Cost: $3/M input + $15/M output vs GPT-4o at $2.50/M + $10/M — Claude is ~30-40% more expensive per task but the accuracy gain justifies it. For a typical 10-step agent task (~20k input tokens, ~2k output tokens) the cost difference is ~$0.02/task.\n\nARCHITECTURE TO PRESERVE: The Electron app has two surfaces per tab — an off-screen BrowserView (y=-10000, default session) and an on-screen <webview> (persist:anthracite session). Agent tabs connect to the webview's CDP target, NOT the BrowserView. The webview CDP target is found by querying http://127.0.0.1:9222/json, filtering for type='webview', and excluding about: URLs (which are the BrowserView marker). This means the agent controls what the user actually sees. This architecture MUST be preserved — the browser-use agent must connect to the same webview CDP target.\n\nWHAT TO KEEP FROM CURRENT BACKEND: (1) backend/classifier.py — regex-first intent classifier that routes 'go to youtube.com' to fast_navigate (no agent needed) and everything else to the agent. Keep this entirely. (2) backend/server.py /agent/stream SSE endpoint — the streaming architecture (SSE queue, step_callback, agent_control stop/pause/resume) should be kept. Only the agent call inside changes. (3) The fast_navigate path in server.py — when classifier returns fast_navigate, we tell the frontend to navigate via IPC (no agent needed). Keep this.\n\nWHAT TO REPLACE: backend/cdp_agent.py — the entire file. Replace with a thin adapter that: (a) resolves the webview's WebSocket URL using the existing _get_ws_url logic, (b) creates a browser-use BrowserSession connected to that WebSocket URL, (c) creates a browser-use Agent with Claude Sonnet 4.6 as the LLM, (d) runs the agent with step callbacks wired to the SSE queue.",
-            "created_at": "2026-02-20T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "4.1",
-                    "title": "Install browser-use and Anthropic SDK dependencies",
-                    "status": "pending",
-                    "context": "Add to backend/requirements.txt: browser-use (latest, for raw CDP agent), langchain-anthropic (for Claude Sonnet 4.6 LLM). Remove or keep langchain-openai as fallback. Verify: pip install browser-use langchain-anthropic. Check that browser-use's version already uses cdp-use (not Playwright) — this happened in late 2025, confirm from browser-use changelog/releases. If browser-use still uses Playwright internally, use the latest version that includes the CDP migration."
-                },
-                {
-                    "id": "4.2",
-                    "title": "Resolve webview CDP WebSocket URL for browser-use BrowserSession",
-                    "status": "pending",
-                    "context": "Current logic in cdp_agent.py _get_ws_url(): fetch http://127.0.0.1:9222/json, find the target whose id matches target_id passed from the frontend. This target_id is the webview's CDP target ID, sent via IPC when an agent task starts (see src/main/main.ts and src/renderer/components/CommandBar.tsx). browser-use BrowserSession accepts a cdp_url or websocket_url parameter — pass the resolved WebSocket debugger URL directly. Do NOT pass just http://127.0.0.1:9222 as the cdp_url because that connects to the whole browser, not the specific tab. The webSocketDebuggerUrl from /json looks like: ws://127.0.0.1:9222/devtools/page/<target_id>."
-                },
-                {
-                    "id": "4.3",
-                    "title": "Create backend/cdp_agent.py adapter wrapping browser-use Agent",
-                    "status": "pending",
-                    "context": "Replace the current cdp_agent.py entirely. The public interface must remain compatible with server.py: async def run_agent_task_streaming(instruction, target_id, api_key=None, step_callback=None, should_stop=None) -> str. Internally: (1) resolve webview WebSocket URL via _get_ws_url(target_id), (2) create BrowserSession(websocket_url=ws_url) — do NOT let browser-use launch a new browser, only connect to the existing webview, (3) create ChatAnthropic(model='claude-sonnet-4-6', api_key=anthropic_key) as the LLM, (4) create Agent(task=instruction, llm=llm, browser_session=session), (5) run agent with on_step_end callback that calls step_callback and checks should_stop, (6) return agent history final_result(). The step_callback signature expected by server.py is: async def step_callback(step_num, action, args, result). Map browser-use's step data to this format."
-                },
-                {
-                    "id": "4.4",
-                    "title": "Wire browser-use step callbacks to SSE streaming in server.py",
-                    "status": "pending",
-                    "context": "server.py /agent/stream already has SSE infrastructure: an asyncio.Queue, a step_callback that pushes {type: 'step', step, next_goal, actions} events, and a run_agent() background task. The step_callback in server.py currently expects (step_num, action, args, result). browser-use Agent has on_step_end(agent_output, step_number) callback — extract the action name and args from agent_output.action and map to the expected format. Also wire the should_stop check: on each step, check agent_control.should_stop() and if true, raise InterruptedError inside the callback to abort the agent. The 'done' event should fire when agent.run() completes with the final result string."
-                },
-                {
-                    "id": "4.5",
-                    "title": "Handle API key routing: Anthropic key for executor, OpenAI key for planner (optional)",
-                    "status": "pending",
-                    "context": "The current system reads OPENAI_API_KEY from .env or from the frontend request (TaskRequest.api_key). We need to add ANTHROPIC_API_KEY support. server.py TaskRequest model has api_key field — extend to support anthropic_api_key or detect which key is provided. The frontend Settings page (src/renderer/components/SettingsPage.tsx) currently has an OpenAI key field — add an Anthropic key field. For users who only have an OpenAI key, fall back to gpt-4o as the executor (keep this as a graceful fallback, not an error). Priority: Anthropic key → Claude Sonnet 4.6. OpenAI key only → gpt-4o. Neither → error with clear message."
-                },
-                {
-                    "id": "4.6",
-                    "title": "Preserve classifier + fast_navigate path exactly as-is",
-                    "status": "pending",
-                    "context": "backend/classifier.py must not be changed. It is regex-first, defaults to 'complex' on no match (no LLM fallback — intentional asymmetric risk). The fast_navigate path in server.py /agent/stream must remain: when classifier returns fast_navigate, yield {type: 'fast_action', action: 'navigate', url: url} which tells the frontend to navigate via IPC (tab URL bar updates, history records). This path has zero LLM calls and is near-instant. The agent is only invoked when classifier returns 'complex'. This two-tier approach is the product's speed advantage — keep it intact."
-                },
-                {
-                    "id": "4.7",
-                    "title": "Verify browser-use does not create a new browser session or overwrite webview cookies",
-                    "status": "pending",
-                    "context": "Critical: the webview uses 'persist:anthracite' Electron session partition. This means the user's cookies, login sessions (Google, etc.) are in this partition. When browser-use connects via CDP to the webview's WebSocket URL, it must NOT reset the page, clear cookies, or navigate away before the task starts. Verify: BrowserSession in connect-to-existing-browser mode should not call Page.resetNavigationHistory, Storage.clearDataForOrigin, or similar. If browser-use does any of these on connect, we need to disable them. Test: user is logged into Google in a tab, run agent task on that tab, verify Google session is still active after agent finishes."
-                },
-                {
-                    "id": "4.8",
-                    "title": "Add Anthropic key field to Settings UI",
-                    "status": "pending",
-                    "context": "src/renderer/components/SettingsPage.tsx currently has one API key field (OpenAI). Add a second field for Anthropic API key. Same UX: password input, test button that hits a new /test-api-key-anthropic endpoint, stored via electron.settings.set('anthropicApiKey', ...) using safeStorage. The frontend CommandBar should send the Anthropic key alongside the instruction when starting an agent task. Update the TaskRequest model in server.py and the IPC message in preload.ts/main.ts accordingly."
-                },
-                {
-                    "id": "4.9",
-                    "title": "Integration test: real-world tasks that previously failed",
-                    "status": "pending",
-                    "context": "Test the following tasks that failed with the custom agent and must pass with browser-use + Claude: (1) 'find cheapest hotel in Brisbane CBD 22 Feb' — agent must go to booking.com, set the destination, set the date using the calendar picker, search, sort by price, and return the actual cheapest hotel name and price visible on the page. (2) 'find cheapest flight from Sydney to Brisbane' — agent must go to google.com/flights, fill origin/destination, handle autocomplete suggestions, set the date, and return flight options with prices. (3) 'play punjabi music on YouTube' — agent must navigate to youtube.com, search for punjabi music, and click a video to start playing it. (4) 'what is the weather in Tokyo' — fast_navigate path should handle this (google search), no agent needed. For each test, check terminal logs to verify: correct site visited, correct fields filled, no hallucinated data in final result."
-                }
-            ]
-        },
-        {
             "id": "5",
-            "title": "Google/OAuth Account Linking — Agent Auth",
-            "status": "pending",
+            "title": "Connected Accounts — Agent Auth via Ambient Session Reuse",
+            "status": "in_progress",
             "priority": "critical",
-            "context": "Users need to link accounts (Google, Microsoft, etc.) so the AI agent can act as them — log into Gmail, book flights on their airline account, manage their calendar. Currently the agent has NO auth context and cannot access any logged-in services. This is NOT traditional OAuth (we don't need API tokens) — the agent needs actual browser session cookies so it can navigate sites as the user.",
+            "context": "RESEARCH COMPLETE (2026-02-23). Users need to link accounts (Google, GitHub, Amazon, etc.) so the AI agent can act as them — log into Gmail, book flights, manage their calendar. The chosen architecture is AMBIENT SESSION REUSE (same pattern as Comet by Perplexity and Dia by The Browser Company): the agent controls the same webview the user browses in ('persist:anthracite' Electron session), so cookies from manual logins are already available to the agent — NO separate OAuth or credential storage needed. The second pattern is TAKEOVER MODE (same as OpenAI Operator): when agent detects a login/CAPTCHA/MFA wall, it pauses and hands control to the user, who completes auth manually, then the agent resumes. INDUSTRY PATTERNS STUDIED: (1) Comet/Dia — ambient session reuse, exact same approach we use; agent acts inside the user's own browser profile. (2) OpenAI Operator — same ambient reuse but adds 'takeover mode' popup for login/CAPTCHA; agent pauses, user takes over, resumes after URL leaves auth domain. (3) Manus/Airtop — session capture/replay via cloud VMs: export ENTIRE browser profile as cookie jar, replay on cloud; NOT our approach (we're local). (4) Composio/Perplexity Connector — OAuth token delegation via API scopes; NOT our approach (we need full browser sessions, not API tokens). ELECTRON CONFIRM: persist:anthracite stores to ~/Library/Application Support/Anthracite/Partitions/anthracite/Cookies (SQLite) — cookies automatically survive restarts. SECURITY RULES: NEVER pass raw cookie values to LLM, NEVER log cookie values, NEVER transmit externally, NEVER persist credentials beyond Electron's own encrypted storage. The three missing pieces: (1) Connected Accounts UI — show which accounts are detected in persist:anthracite cookies, (2) Takeover mode — detect login pages during agent runs and pause for user, (3) Account detection logic — query known endpoints to extract username/email without leaking to LLM.",
             "created_at": "2026-02-12T12:05:00.000000",
             "subtasks": [
                 {
                     "id": "5.1",
-                    "title": "Design the auth persistence architecture",
+                    "title": "IPC handler: read and classify accounts from persist:anthracite cookies",
                     "status": "pending",
-                    "context": "When user logs into Google in a normal Anthracite tab, capture and persist the session cookies for google.com. Store them so they survive app restarts. Electron's session.defaultSession.cookies API can get/set cookies. The agent's CDP-connected BrowserView needs to share these cookies."
+                    "context": "In src/main/main.ts (or a new AccountsService.ts), add ipcMain.handle('get-connected-accounts') that calls session.fromPartition('persist:anthracite').cookies.get({}) and classifies accounts by domain. For Google: check for 'SID' or 'SSID' cookie on .google.com, then query https://accounts.google.com/ListAccounts?gpsia=1 in a hidden request to get the signed-in email (parse the GJSON array response — email is at index [1][0][2] in each session). For GitHub: check 'user_session' cookie on github.com. For Amazon: check 'session-id' on amazon.com/.amazon.com.au. For LinkedIn: check 'li_at' on linkedin.com. Return array of {service, email, avatarUrl, isActive}. SECURITY: return ONLY metadata (email, avatar URL) to renderer — NEVER the raw cookie values. Log detection counts only, never values."
                 },
                 {
                     "id": "5.2",
-                    "title": "Implement persistent cookie/session storage",
+                    "title": "Connected Accounts UI in SettingsPage",
                     "status": "pending",
-                    "context": "Electron sessions are ephemeral by default (persist: prefix helps but needs explicit setup). Use session.defaultSession.cookies.get/set to save critical auth cookies. Encrypt stored cookies at rest using Electron's safeStorage API."
+                    "context": "Add a 'Connected Accounts' section to src/renderer/components/SettingsPage.tsx. On mount, call window.electron.invoke('get-connected-accounts'). Show each detected account as a card: service logo icon, service name, email address, green 'Connected' badge. If no accounts: show placeholder 'Log into any website in Anthracite and it will appear here automatically.' Add a 'Disconnect' button per account that calls ipcMain.handle('clear-account-cookies', {domain}) → session.fromPartition('persist:anthracite').cookies.remove(url, name) for all cookies matching that domain. Design should match existing settings card style (dark surface, subtle border). Services to detect: Google, GitHub, Amazon, LinkedIn, Twitter/X, Reddit, Microsoft/Outlook."
                 },
                 {
                     "id": "5.3",
-                    "title": "Share session state between user browsing and agent BrowserView",
+                    "title": "Takeover mode — pause agent on login/CAPTCHA/MFA detection",
                     "status": "pending",
-                    "context": "Currently the agent uses a separate BrowserView (off-screen, connected via CDP). It needs the same session cookies as the user's normal browsing session. Either use the same Electron session partition, or copy cookies before agent task starts."
+                    "context": "In backend/cdp_agent.py (run_agent_task_streaming), after each navigation action, check if the resulting URL matches known auth patterns. Login URL detection heuristics: URL contains 'accounts.google.com', 'login.', 'signin.', 'auth.', 'oauth.', '/login', '/signin', '/authenticate', or page title contains 'Sign in', 'Log in', 'Verify it's you'. If detected: (1) fire step_callback with special action_name='auth_required' and args={url, service}, (2) set a flag that blocks the agent loop from proceeding, (3) frontend shows a non-blocking 'Takeover' notification overlay: 'Google needs you to sign in. Complete login then click Resume.' User completes login in the visible webview. Frontend polls for URL change away from auth domain, then calls resume endpoint. In server.py, add /agent/resume endpoint that clears the block flag and resumes the asyncio task. Also detect CAPTCHA: check if page contains iframe[src*='recaptcha'] or iframe[src*='hcaptcha']."
                 },
                 {
                     "id": "5.4",
-                    "title": "Add 'Connected Accounts' section in Settings",
+                    "title": "Frontend takeover notification UI",
                     "status": "pending",
-                    "context": "Show which services the agent has access to (based on stored sessions). E.g., 'Google — signed in as user@gmail.com', 'GitHub — signed in'. Allow user to disconnect (clear cookies for that domain)."
+                    "context": "In src/renderer/components/CommandBar.tsx (or a new TakeoverOverlay.tsx), show a subtle banner when agent_status === 'auth_required': glass-morphism panel at bottom of webview area with: service icon, message 'Sign in to [Service] to continue', 'Takeover' button (makes webview interactive, hides agent overlay), 'Cancel Task' button. After user completes login, show 'Resume Agent' button. Track webview URL changes (listen to 'did-navigate' from agent tab) — when URL leaves auth domain, auto-show 'Resume Agent' button. POST to http://localhost:8000/agent/resume with taskId. The agent then continues from where it paused. Visual style: same glass panel style as existing agent progress indicator, amber/warning color scheme to indicate user action needed."
                 },
                 {
                     "id": "5.5",
-                    "title": "Handle session expiry detection and re-auth prompts",
+                    "title": "Session health check before agent runs",
                     "status": "pending",
-                    "context": "Sessions expire. When the agent tries to act on a site and gets redirected to login, detect this and prompt the user: 'Your Google session has expired. Please sign in again.' Pause agent, let user sign in, then resume."
+                    "context": "Before starting an agent task that likely requires auth (detect from instruction keywords: 'my email', 'my account', 'my orders', 'book', 'schedule', 'send'), call get-connected-accounts and check if the relevant service is connected. If not: show a non-blocking warning in CommandBar: 'Tip: Log into Google in any tab so the agent can access your account.' Don't block the task — just inform. This prevents the agent from starting, trying to log in, failing, and burning API credits on a doomed task. Map intent keywords to services: gmail/google/docs/drive/sheets → Google, github/repo/PR → GitHub, amazon/order/shipping → Amazon."
                 },
                 {
                     "id": "5.6",
-                    "title": "Security: encrypt stored session data, never send externally",
+                    "title": "Security audit: verify no cookie leakage to LLM or logs",
                     "status": "pending",
-                    "context": "Session cookies are extremely sensitive (they ARE the user's identity). Encrypt at rest using Electron safeStorage. Never transmit to any server. Never include in error reports. Clear on 'Sign Out' of Anthracite account."
+                    "context": "Audit all code paths: (1) IPC get-connected-accounts must return ONLY {service, email, avatarUrl} — grep codebase for cookie.value to ensure it's never forwarded. (2) Python cdp_agent.py: the agent's AX tree extraction and action loop must never output raw cookie content — cookies are in the browser process, not directly accessible to the Python agent anyway, but verify no CDP Runtime.evaluate calls that could extract document.cookie are emitted. (3) server.py logs: ensure step_callback results (which go to SSE stream) never contain auth tokens. (4) Add a comment block in AccountsService.ts: 'SECURITY: Raw cookie values are classified data. Never log, never send to renderer, never include in LLM context.' Follow Electron's security guidelines: use safeStorage for any credentials that need to be stored outside the session."
                 }
             ]
         },
@@ -245,14 +111,14 @@
             "title": "Multi-Model Support & API Key Management UI",
             "status": "pending",
             "priority": "high",
-            "context": "After task 4, Anthracite uses Claude Sonnet 4.6 (Anthropic) as the primary executor model and optionally gpt-4o (OpenAI) as fallback. Users need to configure their own API keys. The Settings page currently has only an OpenAI key field — Anthropic key field is added as part of task 4.8. This task covers the full multi-model UX: model selector in CommandBar, secure key storage, and support for additional providers.",
+            "context": "Anthracite uses Claude Sonnet 4.6 (Anthropic) as the primary executor model and optionally gpt-4o (OpenAI) as fallback. Users need to configure their own API keys. The Settings page currently has both Anthropic and OpenAI key fields. This task covers the full multi-model UX: model selector in CommandBar, and support for additional providers.",
             "created_at": "2026-02-12T12:06:00.000000",
             "subtasks": [
                 {
                     "id": "6.1",
-                    "title": "Complete API Key settings page (Anthropic + OpenAI)",
+                    "title": "Complete API Key settings page (Anthropic + OpenAI + Google)",
                     "status": "pending",
-                    "context": "Anthropic key field is added in task 4.8. This subtask: add Google AI (Gemini) key field as a third option. All keys: password input, inline test button, stored via safeStorage. Show which keys are currently active. Clear visual hierarchy: Anthropic (recommended, Claude Sonnet 4.6) > OpenAI (fallback, gpt-4o) > Google (future)."
+                    "context": "Add Google AI (Gemini) key field as a third option. All keys: password input, inline test button, stored via safeStorage. Show which keys are currently active. Clear visual hierarchy: Anthropic (recommended, Claude Sonnet 4.6) > OpenAI (fallback, gpt-4o) > Google (future)."
                 },
                 {
                     "id": "6.2",
@@ -704,38 +570,38 @@
             "title": "Hardware-Native AdBlock (Custom Chromium Engine Fork)",
             "status": "pending",
             "priority": "low",
-            "context": "Option 3: The ultimate end-game for 0ms network interception latency. Requires compiling a custom fork of the Chromium open-source project and injecting `adblock-rs` CXX bindings directly into the C++ `net/url_request/` layer (identical to Brave Browser's architecture). PREREQUISITES: A dedicated build machine with at least 150GB of free SSD storage and 16+ CPU cores. Estimated build time per compilation is 2-8 hours.",
+            "context": "Option 3: The ultimate end-game for 0ms network interception latency. Requires compiling a custom fork of the Chromium open-source project and injecting adblock-rs CXX bindings directly into the C++ net/url_request/ layer (identical to Brave Browser's architecture). PREREQUISITES: A dedicated build machine with at least 150GB of free SSD storage and 16+ CPU cores. Estimated build time per compilation is 2-8 hours.",
             "created_at": "2026-02-21T18:40:00.000000",
             "subtasks": [
                 {
                     "id": "18.1",
                     "title": "Environment Setup & Depot Tools",
                     "status": "pending",
-                    "context": "Install Google's `depot_tools` suite. Configure global PATH variables. Fetch the massive Chromium source tree (`fetch chromium`) into a dedicated external drive or high-performance cloud server."
+                    "context": "Install Google's depot_tools suite. Configure global PATH variables. Fetch the massive Chromium source tree (fetch chromium) into a dedicated external drive or high-performance cloud server."
                 },
                 {
                     "id": "18.2",
                     "title": "Study Chromium Network Stack Architecture",
                     "status": "pending",
-                    "context": "Analyze `net/url_request/url_request_http_job.cc` and related classes to identify the exact HTTP header and body interception points before data is passed to the V8 JS context."
+                    "context": "Analyze net/url_request/url_request_http_job.cc and related classes to identify the exact HTTP header and body interception points before data is passed to the V8 JS context."
                 },
                 {
                     "id": "18.3",
                     "title": "Embed Rust CXX Bindings",
                     "status": "pending",
-                    "context": "Integrate the `adblock-rs` engine into the Chromium build process (`BUILD.gn`). Create safe C++ wrappers (CXX bindings) that the C++ network stack can call into synchronously."
+                    "context": "Integrate the adblock-rs engine into the Chromium build process (BUILD.gn). Create safe C++ wrappers (CXX bindings) that the C++ network stack can call into synchronously."
                 },
                 {
                     "id": "18.4",
                     "title": "Implement Native Payload Scrubbing",
                     "status": "pending",
-                    "context": "Port the N-API JSON scrubbing logic directly into the deeply embedded C++ interceptor. Intercept YouTube XHR payloads at the raw TCP layer and scrub `adPlacements` instantly."
+                    "context": "Port the N-API JSON scrubbing logic directly into the deeply embedded C++ interceptor. Intercept YouTube XHR payloads at the raw TCP layer and scrub adPlacements instantly."
                 },
                 {
                     "id": "18.5",
                     "title": "Compile Custom Browser Binary",
                     "status": "pending",
-                    "context": "Run the massive `ninja -C out/Default chrome` compilation. Debug hundreds of inevitable C++ and Chromium build system errors."
+                    "context": "Run the massive ninja -C out/Default chrome compilation. Debug hundreds of inevitable C++ and Chromium build system errors."
                 },
                 {
                     "id": "18.6",

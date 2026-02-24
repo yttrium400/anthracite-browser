@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-if not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
-    logger.warning("No API key found (ANTHROPIC_API_KEY or OPENAI_API_KEY). Agent features will be disabled.")
+if not any([os.environ.get("ANTHROPIC_API_KEY"), os.environ.get("OPENAI_API_KEY"), os.environ.get("GOOGLE_API_KEY")]):
+    logger.warning("No API key found in environment. Keys can be configured in Settings → Developer.")
 
 
 
@@ -84,10 +84,14 @@ class TaskRequest(BaseModel):
     instruction: str
     cdp_url: str = "http://127.0.0.1:9222"
     target_id: str | None = None
-    api_key: str | None = None  # Allow passing key from frontend
+    api_key: str | None = None           # OpenAI key from frontend
+    anthropic_api_key: str | None = None  # Anthropic key from frontend
+    google_api_key: str | None = None     # Google AI key from frontend
+    model: str | None = None              # Selected model ID (e.g. "claude-sonnet-4-6")
 
 class TestApiKeyRequest(BaseModel):
     api_key: str
+    provider: str = "openai"  # "openai" | "anthropic" | "google"
 
 @app.on_event("startup")
 async def startup_event():
@@ -161,26 +165,53 @@ async def agent_status():
     }
 
 
+@app.get("/providers")
+async def get_providers():
+    """Tell the frontend which providers have keys configured in the environment.
+
+    The frontend merges this with any keys set in Settings — settings always win,
+    but this ensures .env-only setups still populate the model selector.
+    """
+    return {
+        "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "openai": bool(os.environ.get("OPENAI_API_KEY")),
+        "google": bool(os.environ.get("GOOGLE_API_KEY")),
+    }
+
+
 @app.post("/test-api-key")
 async def test_api_key(request: TestApiKeyRequest):
-    """Test if an OpenAI API key is valid by making a minimal API call."""
+    """Test if an API key is valid by making a minimal call to the provider."""
     try:
-        from langchain_openai import ChatOpenAI
-        
-        # Create a temporary LLM instance with the provided key
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            api_key=request.api_key,
-            timeout=10,
-        )
-        
-        # Make a minimal test call
-        result = await llm.ainvoke("test")
-        
+        if request.provider == "anthropic":
+            from langchain_anthropic import ChatAnthropic
+            llm = ChatAnthropic(model="claude-haiku-4-5-20251001", api_key=request.api_key, timeout=10)
+        elif request.provider == "google":
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=request.api_key)
+        else:  # openai
+            from langchain_openai import ChatOpenAI
+            llm = ChatOpenAI(model="gpt-4o-mini", api_key=request.api_key, timeout=10)
+
+        await llm.ainvoke("hi")
         return {"status": "success", "valid": True}
     except Exception as e:
-        logger.error(f"API key test failed: {e}")
+        logger.error(f"API key test failed ({request.provider}): {e}")
         return {"status": "error", "valid": False, "message": str(e)}
+
+
+@app.get("/ollama/models")
+async def get_ollama_models():
+    """Probe the local Ollama server for available models."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get("http://localhost:11434/api/tags")
+            data = response.json()
+            models = [m["name"] for m in data.get("models", [])]
+            return {"available": True, "models": models}
+    except Exception:
+        return {"available": False, "models": []}
 
 
 def _sse_event(data: dict) -> str:
@@ -196,19 +227,16 @@ async def stream_agent(task: TaskRequest):
     Complex path: full browser-use pipeline with step-by-step progress.
     """
     
-    # Determine API key source (Anthropic preferred, OpenAI fallback)
+    # Resolve keys: frontend value takes priority over env
     api_key = task.api_key or os.environ.get("OPENAI_API_KEY")
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    anthropic_key = task.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
+    google_key = task.google_api_key or os.environ.get("GOOGLE_API_KEY")
 
-    if not api_key and not anthropic_key:
+    if not api_key and not anthropic_key and not google_key:
         logger.error("Stream request rejected: No API key found")
         async def error_stream():
-            yield _sse_event({"type": "error", "message": "API key not found. Please add ANTHROPIC_API_KEY (or OpenAI key) in Settings."})
+            yield _sse_event({"type": "error", "message": "No API key found. Add a key in Settings → Developer."})
         return StreamingResponse(error_stream(), media_type="text/event-stream")
-
-    # Set for this process scope
-    if task.api_key:
-        os.environ["OPENAI_API_KEY"] = task.api_key
 
     async def event_stream():
         try:
@@ -245,6 +273,17 @@ async def stream_agent(task: TaskRequest):
 
                 async def step_callback(step_num, action, args, result):
                     """Push step info to the SSE queue (new CDP agent signature)."""
+                    # Auth-required: pause the agent and notify the frontend for takeover mode
+                    if action == "auth_required":
+                        agent_control.pause()
+                        await queue.put({
+                            "type": "auth_required",
+                            "step": step_num,
+                            "url": args.get("url", ""),
+                            "service": args.get("service", "the website"),
+                        })
+                        return
+
                     # Build a human-readable goal from the action and args
                     goal = args.get("text") or args.get("url") or args.get("result") or action
                     await queue.put({
@@ -262,6 +301,9 @@ async def stream_agent(task: TaskRequest):
                             task.instruction,
                             task.target_id,
                             api_key=api_key,
+                            anthropic_api_key=anthropic_key,
+                            google_api_key=google_key,
+                            model=task.model,
                             step_callback=step_callback,
                             should_stop=agent_control.should_stop,
                         )

@@ -37,7 +37,10 @@ export interface AppSettings {
     enableDevTools: boolean;
 
     // API Configuration
-    openaiApiKey?: string; // User's OpenAI API key for agent features
+    openaiApiKey?: string;
+    anthropicApiKey?: string;
+    googleApiKey?: string;
+    selectedModel?: string; // e.g. "claude-sonnet-4-6", "gpt-4o", "gemini-2.0-flash"
 }
 
 // Default settings

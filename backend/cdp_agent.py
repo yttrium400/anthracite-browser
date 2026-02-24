@@ -204,6 +204,9 @@ async def run_agent_task_streaming(
     instruction: str,
     target_id: str,
     api_key: str | None = None,
+    anthropic_api_key: str | None = None,
+    google_api_key: str | None = None,
+    model: str | None = None,
     step_callback=None,
     should_stop=None,
 ) -> str:
@@ -220,27 +223,53 @@ async def run_agent_task_streaming(
         String result reported by the agent when done.
     """
     # ── Pick LLM ──────────────────────────────────────────────────────────────
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    openai_key = api_key or os.environ.get("OPENAI_API_KEY")
+    _anthropic_key = anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
+    _openai_key = api_key or os.environ.get("OPENAI_API_KEY")
+    _google_key = google_api_key or os.environ.get("GOOGLE_API_KEY")
 
-    if anthropic_key:
+    if model and model.startswith("claude-"):
+        if not _anthropic_key:
+            raise ValueError(f"Anthropic API key required for model '{model}'. Add it in Settings → Developer.")
         from browser_use.llm.anthropic.chat import ChatAnthropic
-        llm = ChatAnthropic(
-            model="claude-sonnet-4-6",
-            api_key=anthropic_key,
-        )
-        logger.info("[Agent] Using Claude Sonnet 4.6 (Anthropic)")
-    elif openai_key:
+        llm = ChatAnthropic(model=model, api_key=_anthropic_key)
+        logger.info(f"[Agent] Using {model} (Anthropic)")
+
+    elif model and model.startswith("gpt-"):
+        if not _openai_key:
+            raise ValueError(f"OpenAI API key required for model '{model}'. Add it in Settings → Developer.")
         from browser_use.llm.openai.chat import ChatOpenAI
-        llm = ChatOpenAI(
-            model="gpt-4o",
-            api_key=openai_key,
-        )
-        logger.info("[Agent] Using GPT-4o (OpenAI fallback — set ANTHROPIC_API_KEY for best results)")
+        llm = ChatOpenAI(model=model, api_key=_openai_key)
+        logger.info(f"[Agent] Using {model} (OpenAI)")
+
+    elif model and model.startswith("gemini-"):
+        if not _google_key:
+            raise ValueError(f"Google API key required for model '{model}'. Add it in Settings → Developer.")
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(model=model, google_api_key=_google_key)
+        logger.info(f"[Agent] Using {model} (Google AI)")
+
+    elif model:
+        # Ollama local model
+        from langchain_community.chat_models import ChatOllama
+        llm = ChatOllama(model=model, base_url="http://localhost:11434")
+        logger.info(f"[Agent] Using {model} (Ollama local)")
+
     else:
-        raise ValueError(
-            "No API key available. Set ANTHROPIC_API_KEY in Settings or environment."
-        )
+        # Auto-select: Anthropic > OpenAI > Google
+        if _anthropic_key:
+            from browser_use.llm.anthropic.chat import ChatAnthropic
+            llm = ChatAnthropic(model="claude-sonnet-4-6", api_key=_anthropic_key)
+            logger.info("[Agent] Auto-selected Claude Sonnet 4.6 (Anthropic)")
+        elif _openai_key:
+            from browser_use.llm.openai.chat import ChatOpenAI
+            llm = ChatOpenAI(model="gpt-4o", api_key=_openai_key)
+            logger.info("[Agent] Auto-selected GPT-4o (OpenAI)")
+        elif _google_key:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=_google_key)
+            logger.info("[Agent] Auto-selected Gemini 2.0 Flash (Google AI)")
+        else:
+            raise ValueError("No API key available. Add a key in Settings → Developer.")
 
     # ── Connect BrowserSession to Electron's CDP endpoint ────────────────────
     from browser_use import Agent, BrowserSession
@@ -256,10 +285,61 @@ async def run_agent_task_streaming(
     # ── Adapt step_callback to browser-use's signature ───────────────────────
     # browser-use: callback(browser_state, agent_output, step_num: int)
     # ours:        callback(step_num, action_name, args_dict, result_str)
+    # Login-page patterns that warrant takeover mode.
+    # These are credential/password pages only — NOT OAuth consent screens.
+    # OAuth consent flows (accounts.google.com/o/oauth2/...) don't need a password;
+    # the agent can handle them automatically since the user is already logged in.
+    _AUTH_URL_PATTERNS = [
+        # Google: actual sign-in pages (not consent/oauth pages)
+        "accounts.google.com/signin",
+        "accounts.google.com/v3/signin",
+        "accounts.google.com/ServiceLogin",
+        # Microsoft: credential pages
+        "login.microsoftonline.com",
+        "login.live.com",
+        # GitHub: login form
+        "github.com/login",
+        "github.com/session",
+        # LinkedIn: login form
+        "www.linkedin.com/login",
+        "www.linkedin.com/checkpoint",
+        # Amazon: sign-in
+        "www.amazon.com/ap/signin",
+        "amazon.com.au/ap/signin",
+        "amazon.co.uk/ap/signin",
+        # Apple ID
+        "appleid.apple.com/sign-in",
+        "appleid.apple.com/auth/authorize",
+    ]
+
+    def _detect_auth_service(url: str) -> str:
+        if "google" in url:
+            return "Google"
+        if "github" in url:
+            return "GitHub"
+        if "linkedin" in url:
+            return "LinkedIn"
+        if "amazon" in url:
+            return "Amazon"
+        if "microsoft" in url or "live.com" in url or "microsoftonline" in url:
+            return "Microsoft"
+        if "apple" in url:
+            return "Apple"
+        return "the website"
+
     adapted_step_cb = None
     if step_callback:
         async def adapted_step_cb(browser_state, agent_output, step_num: int):
             try:
+                # Detect login/auth pages — emit auth_required and let server.py pause agent
+                if browser_state and getattr(browser_state, "url", None):
+                    current_url = browser_state.url
+                    if any(pat in current_url for pat in _AUTH_URL_PATTERNS):
+                        service = _detect_auth_service(current_url)
+                        logger.info(f"[Takeover] Auth page detected at {current_url[:80]} — pausing for {service}")
+                        await step_callback(step_num, "auth_required", {"url": current_url, "service": service}, "")
+                        return
+
                 action_name = "thinking"
                 args: dict = {}
 

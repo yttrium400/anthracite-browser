@@ -25,6 +25,12 @@ export default defineConfig({
                 },
             },
             {
+                entry: 'src/main/auth-preload.ts',
+                onstart(args) {
+                    args.reload()
+                },
+            },
+            {
                 entry: 'src/main/webview-preload.ts',
                 vite: {
                     build: {

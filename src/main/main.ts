@@ -6,6 +6,78 @@ import { autoUpdater } from 'electron-updater'
 // Enable CDP remote debugging so the AI agent can connect to Anthracite's browser
 const CDP_PORT = 9222
 app.commandLine.appendSwitch('remote-debugging-port', String(CDP_PORT))
+// Remove the navigator.webdriver flag that remote debugging sets — without this
+// Google and other sites block login with "This browser may not be secure"
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled')
+
+// Clean Chrome UA — no "Electron/" token which Google blocks
+const CLEAN_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+// Track auth popup webContents IDs so the global window-open handler skips them
+const authPopupIds = new Set<number>()
+
+/**
+ * Open a Google auth page in a dedicated BrowserWindow using the same
+ * persist:anthracite session. This bypasses Google's <webview> block —
+ * Google treats BrowserWindows as real browsers, not embedded webviews.
+ * Cookies written during login are immediately available to the main webview
+ * since both share the same session partition.
+ */
+function openAuthPopup(url: string): void {
+    if (authPopupIds.size > 0) return // already open
+
+    const authSession = session.fromPartition('persist:anthracite')
+
+    // contextIsolation: false so auth-preload.js runs in the page's main world
+    // and can set navigator.webdriver = false before any Google script reads it.
+    // nodeIntegration remains false — only the preload has Node access.
+    const popup = new BrowserWindow({
+        width: 480,
+        height: 640,
+        resizable: true,
+        autoHideMenuBar: true,
+        title: 'Sign In',
+        webPreferences: {
+            session: authSession,
+            nodeIntegration: false,
+            contextIsolation: false,
+            preload: path.join(__dirname, 'auth-preload.js'),
+        },
+    })
+
+    // Capture ID immediately — popup.webContents is null after the window closes
+    const wcId = popup.webContents.id
+    authPopupIds.add(wcId)
+    popup.webContents.setUserAgent(CLEAN_UA)
+
+    // Allow Google's own sub-popups (account chooser, 2FA prompts, etc.)
+    // with the same session so cookies flow through
+    popup.webContents.setWindowOpenHandler(({ url: openUrl }) => {
+        if (openUrl.includes('google.com')) {
+            return {
+                action: 'allow',
+                overrideBrowserWindowOptions: {
+                    autoHideMenuBar: true,
+                    webPreferences: { session: authSession, contextIsolation: false },
+                },
+            }
+        }
+        return { action: 'deny' }
+    })
+
+    popup.on('closed', () => {
+        authPopupIds.delete(wcId)
+    })
+
+    // Close popup once Google redirects away from the auth domain (login complete)
+    popup.webContents.on('did-navigate', (_, navUrl) => {
+        if (!navUrl.includes('accounts.google.com') && !popup.isDestroyed()) {
+            setTimeout(() => { if (!popup.isDestroyed()) popup.close() }, 800)
+        }
+    })
+
+    popup.loadURL(url)
+}
 import { spawn, ChildProcess } from 'node:child_process'
 
 import fetch from 'cross-fetch'
@@ -26,31 +98,34 @@ app.on('ready', () => {
 
 
 app.on('web-contents-created', (_, contents) => {
-    // console.log('[App] web-contents-created', contents.id, contents.getType())
-
-    // Intercept window open requests from any web contents (including <webview>)
+    // Intercept window open requests from any web contents (including <webview>),
+    // EXCEPT auth popup windows which manage their own window-open handler.
     contents.setWindowOpenHandler((details) => {
-        // Check if this is a real navigation request
+        if (authPopupIds.has(contents.id)) return { action: 'allow' } // let popup handle its own children
         if (details.url && details.url !== 'about:blank') {
-
-            // Create tab via main process function
-            // We need to resolve the realm/dock from the source contents if possible,
-            // but for now let's just create it in the active context.
-            // Since we can't easily map contents -> tab ID here without a lookup,
-            // we'll let createTab handle default assignment.
-
-            // We need to ensure we don't block internal popups if any, but for a browser,
-            // almost all window.opens should be tabs.
-
-            // Use setImmediate to avoid blocking the handler
             setImmediate(() => {
                 const tab = createTab(details.url)
                 switchToTab(tab.id)
             })
-
             return { action: 'deny' }
         }
         return { action: 'allow' }
+    })
+
+    // Intercept navigations to Google sign-in pages from <webview> contents.
+    // Google blocks login attempts from embedded webviews — opening a BrowserWindow
+    // with the same session bypasses this while keeping cookies shared.
+    contents.on('will-navigate', (event, url) => {
+        if (
+            contents.getType() === 'webview' &&
+            (url.includes('accounts.google.com/signin') ||
+                url.includes('accounts.google.com/v3/signin') ||
+                url.includes('accounts.google.com/ServiceLogin') ||
+                url.includes('accounts.google.com/o/oauth2'))
+        ) {
+            event.preventDefault()
+            openAuthPopup(url)
+        }
     })
 })
 
@@ -1205,6 +1280,84 @@ function setupIPC(): void {
     ipcMain.handle('get-app-version', () => {
         return app.getVersion()
     })
+
+    // ── Connected Accounts ───────────────────────────────────────────────────
+    // SECURITY: Raw cookie values are classified data.
+    // Never log, never send to renderer, never include in LLM context.
+    // Only metadata (service name, email) is returned to the renderer.
+
+    interface ServiceDef {
+        name: string
+        domain: string
+        sessionCookieNames: string[]
+        identityUrl?: string
+    }
+
+    const ACCOUNT_SERVICES: ServiceDef[] = [
+        {
+            name: 'Google',
+            domain: '.google.com',
+            sessionCookieNames: ['SID', 'SSID', '__Secure-3PSID'],
+            identityUrl: 'https://accounts.google.com/ListAccounts?gpsia=1&source=ogb&json=standard',
+        },
+        { name: 'GitHub', domain: 'github.com', sessionCookieNames: ['user_session', '__Host-user_session_same_site'] },
+        { name: 'Amazon', domain: '.amazon.com', sessionCookieNames: ['session-id', 'ubid-main'] },
+        { name: 'LinkedIn', domain: '.linkedin.com', sessionCookieNames: ['li_at'] },
+        { name: 'Reddit', domain: '.reddit.com', sessionCookieNames: ['reddit_session', 'token_v2'] },
+        { name: 'X (Twitter)', domain: '.twitter.com', sessionCookieNames: ['auth_token'] },
+        { name: 'Microsoft', domain: '.live.com', sessionCookieNames: ['ESTSAUTH', 'ESTSAUTHPERSISTENT'] },
+    ]
+
+    ipcMain.handle('get-connected-accounts', async () => {
+        const anthraciteSession = session.fromPartition('persist:anthracite')
+        const connected: Array<{ service: string; email: string | null; isActive: boolean }> = []
+
+        for (const svc of ACCOUNT_SERVICES) {
+            try {
+                const cookies = await anthraciteSession.cookies.get({ domain: svc.domain })
+                const hasSession = cookies.some(c => svc.sessionCookieNames.includes(c.name))
+
+                if (!hasSession) continue
+
+                let email: string | null = null
+
+                // For Google: query the ListAccounts endpoint using the session cookies
+                if (svc.name === 'Google' && svc.identityUrl) {
+                    try {
+                        const resp = await anthraciteSession.fetch(svc.identityUrl, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        })
+                        if (resp.ok) {
+                            const text = await resp.text()
+                            // Response looks like: [["gaia.l.a.r",[["...", 1, "Name", "user@gmail.com", ...]]]]
+                            const emailMatch = text.match(/"([a-zA-Z0-9._%+\-]+@gmail\.com|[a-zA-Z0-9._%+\-]+@googlemail\.com)"/i)
+                            if (emailMatch) email = emailMatch[1]
+                        }
+                    } catch { /* non-fatal — just show connected without email */ }
+                }
+
+                connected.push({ service: svc.name, email, isActive: true })
+            } catch { /* skip services that fail */ }
+        }
+
+        return connected
+    })
+
+    ipcMain.handle('clear-account-cookies', async (_event, domain: string) => {
+        // SECURITY: Raw cookie values are classified data.
+        const anthraciteSession = session.fromPartition('persist:anthracite')
+        try {
+            const cookies = await anthraciteSession.cookies.get({ domain })
+            await Promise.all(cookies.map(c => {
+                const cookieDomain = c.domain?.startsWith('.') ? c.domain.slice(1) : (c.domain || domain)
+                const url = `https://${cookieDomain}${c.path || '/'}`
+                return anthraciteSession.cookies.remove(url, c.name)
+            }))
+            return { success: true }
+        } catch {
+            return { success: false }
+        }
+    })
 }
 
 // ============================================
@@ -1475,12 +1628,31 @@ app.on('activate', () => {
 app.whenReady().then(async () => {
     setupIPC()
 
-    // Set Chrome user agent for the webview partition to ensure websites
-    // (like YouTube) serve the full desktop version, not simplified layouts
+    // ── User-agent stealth ───────────────────────────────────────────────────
     const webviewSession = session.fromPartition('persist:anthracite')
-    webviewSession.setUserAgent(
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-    )
+    webviewSession.setUserAgent(CLEAN_UA)
+
+    // Strip Electron token from the app-level fallback UA (used by default session)
+    app.userAgentFallback = app.userAgentFallback
+        .replace(/Electron\/[\d.]+ /g, '')
+        .replace(/anthracite-app\/[\d.]+ /g, '')
+
+    // Override Sec-CH-UA client-hint headers so Google's SERVER-SIDE check sees
+    // Chrome brands instead of "Electron". setUserAgent() only fixes the User-Agent
+    // string; Sec-CH-UA is a separate header that Electron sends independently.
+    const CH_UA = '"Not A(Brand";v="99", "Google Chrome";v="131", "Chromium";v="131"'
+    const CH_UA_FULL = '"Not A(Brand";v="99.0.0.0", "Google Chrome";v="131.0.0.0", "Chromium";v="131.0.0.0"'
+    webviewSession.webRequest.onBeforeSendHeaders((details, callback) => {
+        const h = details.requestHeaders
+        h['User-Agent'] = CLEAN_UA
+        h['Sec-CH-UA'] = CH_UA
+        h['Sec-CH-UA-Mobile'] = '?0'
+        h['Sec-CH-UA-Platform'] = '"macOS"'
+        if (h['Sec-CH-UA-Full-Version-List'] !== undefined) {
+            h['Sec-CH-UA-Full-Version-List'] = CH_UA_FULL
+        }
+        callback({ requestHeaders: h })
+    })
 
     // Migrate history from JSON to SQLite (one-time)
     migrateFromJson()
