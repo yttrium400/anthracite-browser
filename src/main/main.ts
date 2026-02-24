@@ -1637,6 +1637,23 @@ app.whenReady().then(async () => {
         .replace(/Electron\/[\d.]+ /g, '')
         .replace(/anthracite-app\/[\d.]+ /g, '')
 
+    // Override Sec-CH-UA client-hint headers so Google's SERVER-SIDE check sees
+    // Chrome brands instead of "Electron". setUserAgent() only fixes the User-Agent
+    // string; Sec-CH-UA is a separate header that Electron sends independently.
+    const CH_UA = '"Not A(Brand";v="99", "Google Chrome";v="131", "Chromium";v="131"'
+    const CH_UA_FULL = '"Not A(Brand";v="99.0.0.0", "Google Chrome";v="131.0.0.0", "Chromium";v="131.0.0.0"'
+    webviewSession.webRequest.onBeforeSendHeaders((details, callback) => {
+        const h = details.requestHeaders
+        h['User-Agent'] = CLEAN_UA
+        h['Sec-CH-UA'] = CH_UA
+        h['Sec-CH-UA-Mobile'] = '?0'
+        h['Sec-CH-UA-Platform'] = '"macOS"'
+        if (h['Sec-CH-UA-Full-Version-List'] !== undefined) {
+            h['Sec-CH-UA-Full-Version-List'] = CH_UA_FULL
+        }
+        callback({ requestHeaders: h })
+    })
+
     // Migrate history from JSON to SQLite (one-time)
     migrateFromJson()
 
