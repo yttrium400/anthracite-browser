@@ -781,30 +781,42 @@
         },
         {
             "id": "25",
-            "title": "UI Micro-animations & Motion Polish",
+            "title": "UI Micro-animations & Motion Polish — Entire Browser",
             "status": "pending",
             "priority": "medium",
             "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). Arc Browser's perceived quality comes largely from its animation system — micro-interactions that make every action feel tactile and responsive. The goal is not flashy animations but tasteful, subtle ones that add polish. PRINCIPLES: (1) Use hardware-accelerated properties only: transform and opacity — never animate width, height, top, left. (2) Easing: ease-out for elements entering the screen (they decelerate), ease-in for elements leaving (they accelerate away). Spring/bounce for interactive elements (scale on click). (3) Duration: 120-200ms for micro-interactions, 250-350ms for panel transitions, never more than 400ms for anything UI-level. (4) Motion should reinforce spatial model — tabs slide in from the direction they came from. SPECIFIC ANIMATIONS TO ADD: Tab open: fadeIn (opacity 0→1) + slight scale (0.97→1) over 150ms ease-out with AnimatePresence. Tab close: opacity 1→0 + scale 1→0.95 over 120ms ease-in. Active tab switch: subtle left-border accent slides/fades to new active tab position using Framer layout animations. Sidebar toggle: uses CSS transform translateX instead of width animation for performance, with cubic-bezier(0.32, 0.72, 0, 1) (iOS-style). CommandBar focus: input border subtly glows (box-shadow expands) on focus, 200ms. Button press feedback: scale(0.97) on active state via CSS active:scale-[0.97] transition-transform. Realm switch: cross-fade between realm tab lists using AnimatePresence mode='wait'. Settings section change: content area fades in (opacity 0→1, y: 4px→0) over 200ms on section change. Home page entrance: staggered children animation already exists but can be tuned.",
+            "context": "RESEARCH COMPLETE (2026-02-26). This covers the ENTIRE browser UI, not just the sidebar. Arc Browser's perceived quality comes largely from its animation system. The goal is subtle, tasteful motion that makes actions feel physical and responsive — NOT flashy or distracting. Rule: if you notice the animation itself, it's too much. PRINCIPLES: (1) Hardware-accelerated only: transform and opacity. Never animate width, height, top, left (causes layout reflow). (2) Easing: ease-out for entering elements (decelerate into place), ease-in for exiting. Spring for interactive feedback. (3) Duration: 100-150ms micro, 200-300ms panel transitions, 300-400ms page-level. Never exceed 400ms. (4) Subtlety rule: opacity shifts max 0.1 for hover states, scale max 1.03 for hover, 0.97 for press. SCOPE — EVERY AREA OF THE BROWSER: Sidebar: tab add/remove fadeIn+scale, tab hover bg transition, realm switch cross-fade, sidebar open/close iOS spring. TopBar: URL input focus glow expand, back/forward button scale on press, loading spinner smooth fade in/out. HomePage: entrance stagger already exists, CommandBar focus ring smooth expand, Run button hover scale. CommandBar: suggestion items fadeIn stagger, model selector dropdown scale+fade. Settings: section switch fade+slide, toggle switch spring animation, card hover lift (subtle shadow increase). Agent Panel (task 28): step card slideIn from right, streaming text fade-in per word, panel open/close spring. Realm switching: tab list cross-fade, new realm indicator flash. Context menus: scale-in from origin point, fade-out on close. Tooltips: fade in after 400ms delay, fade out immediately. Modals/dialogs: scale 0.96→1 + fade in, scale 1→0.96 + fade out on close. IMPLEMENTATION: Use framer-motion for complex sequences (AnimatePresence, layout animations). Use Tailwind transition classes for simple hover/focus states. Use CSS cubic-bezier(0.32,0.72,0,1) for panel transitions (iOS-quality spring), cubic-bezier(0.25,0.46,0.45,0.94) for general ease.",
             "created_at": "2026-02-26T00:00:00.000000",
             "subtasks": [
                 {
                     "id": "25.1",
-                    "title": "Tab open/close animations with AnimatePresence",
+                    "title": "Sidebar tab open/close/hover animations",
                     "status": "pending",
-                    "context": "In Sidebar.tsx, wrap the tab list in AnimatePresence. Each SortableTab needs to be wrapped with motion.div with: initial={{ opacity: 0, scale: 0.97, height: 0 }} animate={{ opacity: 1, scale: 1, height: 32 }} exit={{ opacity: 0, scale: 0.95, height: 0 }} transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}. This creates smooth add/remove animations. Note: be careful not to break dnd-kit drag sorting — AnimatePresence must wrap the sorted list, not individual draggable items."
+                    "context": "In Sidebar.tsx, wrap tab list in AnimatePresence. SortableTab: initial={{ opacity: 0, scaleY: 0.8, height: 0 }} animate={{ opacity: 1, scaleY: 1, height: 32 }} exit={{ opacity: 0, scaleY: 0.8, height: 0 }} transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}. Tab hover: transition-colors duration-100. Realm switch: AnimatePresence mode='wait' on the tab list, cross-fade 200ms."
                 },
                 {
                     "id": "25.2",
-                    "title": "Settings section transition animation",
+                    "title": "Settings section transition and toggle spring animation",
                     "status": "pending",
-                    "context": "In SettingsPage.tsx, wrap the active section content panel in AnimatePresence with a key=activeSection. Motion div: initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2, ease: 'easeOut' }}. This creates a clean fade+slide when switching between settings sections."
+                    "context": "Settings content panel: AnimatePresence key=activeSection, motion.div initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-4 }} transition={{ duration:0.18, ease:'easeOut' }}. Toggle switch (from task 24.3): thumb transition uses spring({ stiffness:500, damping:30 }) for bouncy snap feel."
                 },
                 {
                     "id": "25.3",
-                    "title": "Button press scale feedback and hover transitions",
+                    "title": "Global button press and hover micro-interactions",
                     "status": "pending",
-                    "context": "Global CSS in index.css or a Tailwind plugin: add active:scale-[0.97] transition-transform duration-100 to all interactive buttons. For the CommandBar Run button: hover scale-[1.02], active scale-[0.97]. For sidebar close (X) button on tabs: hover bg-white/[0.12] rounded-full scale-110. These small scale effects make the UI feel physical and responsive."
+                    "context": "Add to index.css: button, [role='button'] { transition: transform 100ms cubic-bezier(0.34,1.56,0.64,1), opacity 150ms ease; } button:active { transform: scale(0.97); }. Hover for primary buttons: scale(1.02). Icon-only buttons (close X, nav arrows): hover bg-white/[0.08] rounded, scale(1.1). TopBar back/forward: active:scale-[0.9]. Never add transforms to large layout containers."
+                },
+                {
+                    "id": "25.4",
+                    "title": "HomePage, CommandBar, and TopBar focus animations",
+                    "status": "pending",
+                    "context": "CommandBar input focus: box-shadow expands from 0 to brand-colored glow over 200ms (already partially done, tune easing). Run button hover: scale(1.03), transition 150ms. TopBar URL input focus: border-color transition 150ms, subtle glow. Suggestion items in dropdown: staggered fadeInUp 80ms delay per item, AnimatePresence for mount/unmount. Model selector dropdown: scale(0.97)→scale(1) + opacity 0→1, origin top-center."
+                },
+                {
+                    "id": "25.5",
+                    "title": "Context menus, modals, and tooltips",
+                    "status": "pending",
+                    "context": "Context menu (ContextMenu.tsx): initial={{ opacity:0, scale:0.95, y:-4 }} animate={{ opacity:1, scale:1, y:0 }} exit={{ opacity:0, scale:0.95 }} transition={{ duration:0.12 }}. Modals (DockModal, RealmModal, InputModal): scale(0.96)→scale(1) + opacity, backdrop fadeIn. Tooltips: delay 400ms before showing, fade 150ms, no delay on hide. All context-origin scaling should use CSS transform-origin matching the click point."
                 }
             ]
         },
@@ -816,6 +828,47 @@
             "branch": "feat/browser-enhancements",
             "context": "SUGGESTED ENHANCEMENT (2026-02-26). Arc Browser and premium apps like Linear, Vercel, and Raycast all use a command palette as a power-user shortcut to everything. This integrates well with Anthracite's keyboard-first philosophy. SCOPE: Press Cmd+K from anywhere in the app to open a floating palette. The palette supports: (1) Switch to any open tab (fuzzy search by title or URL), (2) Open new tab with URL/search, (3) Switch realm, (4) Run an agent task (same as typing in CommandBar), (5) Go to settings section. Visual: centered modal, frosted glass bg-[#111113]/95 backdrop-blur-2xl, rounded-2xl, shadow-large. Input at top (h-12, large text). Results list below with keyboard navigation (arrow keys + Enter). Groups: 'Open Tabs' / 'Actions' / 'Settings'. Close on Escape or outside click. IMPLEMENTATION: New component src/renderer/components/CommandPalette.tsx. Register Cmd+K in App.tsx or main layout with useEffect keydown listener. Reuse fuzzy search logic from CommandBar suggestions.",
             "created_at": "2026-02-26T00:00:00.000000"
+        },
+        {
+            "id": "28",
+            "title": "Agent Activity Panel — Right-Side Collapsible Chat Panel",
+            "status": "pending",
+            "priority": "critical",
+            "branch": "feat/browser-enhancements",
+            "context": "RESEARCH COMPLETE (2026-02-26). INSPIRATION: Perplexity Comet uses a sidebar chat panel — the agent activity is shown as a persistent right panel while the main browsing area takes primary real estate. The panel shows real-time agent thinking, step-by-step actions, and allows user control (pause/stop/next command). OpenAI Operator (now ChatGPT agent) uses narration-based activity display with pause/resume/stop controls. Brave Browser's implementation shows pause (halts tool execution, thoughts continue) + stop (full halt, partial results) buttons. CURRENT STATE: Anthracite's agent output is shown inline in the CommandBar as a small status message and a takeover banner. There's no dedicated panel for agent activity. The SSE stream in CommandBar.tsx receives step events from the backend: { step_num, action, args, result } and displays minimal status. SSE events also fire 'auth_required' for takeover mode. All this logic needs to be lifted out of CommandBar and into a dedicated AgentPanel component. DESIGN: Right-side slide-in panel, 320px wide (resizable), opens automatically when an agent task starts, user can pin it open or close it. Has a toggle button in the TopBar (or sidebar footer). PANEL LAYOUT (top to bottom): (1) Header bar: 'Agent' label + active task title + close/pin toggle button. (2) Task context card: shows the original user instruction in a subtle card at top. (3) Activity feed: scrollable list of step cards — each card shows: step number badge, action icon (navigate=Globe, click=MousePointer, type=Keyboard, etc.), action description, result summary. Cards stream in with slideInRight animation. Current step pulses with a subtle glow. (4) Thinking indicator: when agent is reasoning between steps, show an animated 3-dot typing indicator or a shimmer skeleton. (5) Controls bar (sticky bottom): Pause/Resume button, Stop button, and a text input for 'Send follow-up command'. (6) Status line: 'Step 4 of ~12 estimated', elapsed time. INTERACTION: User can type a follow-up instruction in the input and press Enter while the agent is running — this sends an interrupt to the backend that modifies the agent's next prompt. On task completion: show a 'Done' state with a summary card, 'Run another task' button. On error: red error card with retry option. TAB HIGHLIGHT: When agent controls a tab, that tab in the sidebar gets a subtle animated border/glow in brand color (like Comet's blue outline). FOLLOW-UP COMMANDS: POST to http://127.0.0.1:8000/agent/message with { taskId, message } — backend routes this into the agent's next step context. Backend needs a new endpoint for this. ANIMATION: Panel slides in from right using transform translateX(100%)→translateX(0) with cubic-bezier(0.32,0.72,0,1), 300ms. Step cards animate in with fadeInRight 150ms. PERSISTENCE: Panel pin state stored in localStorage. If pinned, it stays open between tasks. If not pinned, it closes when task completes. COMPONENT FILES: New src/renderer/components/AgentPanel.tsx. Modify App.tsx or the main layout to render AgentPanel alongside the browser content area (flex row: sidebar + browser + agentPanel). Move SSE streaming logic from CommandBar.tsx to AgentPanel (or a shared useAgentTask hook). The CommandBar's Run button now opens the panel and starts the task.",
+            "created_at": "2026-02-26T00:00:00.000000",
+            "subtasks": [
+                {
+                    "id": "28.1",
+                    "title": "Create AgentPanel.tsx component with activity feed",
+                    "status": "pending",
+                    "context": "New file: src/renderer/components/AgentPanel.tsx. Props: { isOpen: boolean, onClose: () => void, isPinned: boolean, onPinToggle: () => void }. State: taskInstruction (string), steps (AgentStep[]), status ('idle'|'running'|'paused'|'done'|'error'), elapsedSeconds (number), followUpInput (string). AgentStep type: { stepNum: number, action: string, args: Record<string, any>, result: string, timestamp: number }. The panel is a fixed right panel: right-0 top-0 h-full w-80 bg-[#0D0D0F]/98 backdrop-blur-xl border-l border-white/[0.06] shadow-large. Animation: motion.div with initial={{ x: '100%' }} animate={{ x: isOpen ? 0 : '100%' }} transition={{ type:'tween', ease:[0.32,0.72,0,1], duration:0.3 }}. The SSE event listener (currently in CommandBar) moves here. On each step event, append to steps array and scroll feed to bottom."
+                },
+                {
+                    "id": "28.2",
+                    "title": "Step card design and streaming animations",
+                    "status": "pending",
+                    "context": "Each AgentStep renders as a compact card in the feed. Layout: left column (step number badge, vertical connector line to next card) + right column (action name, args summary, result text). Action icons from lucide-react: navigate→Globe, click→MousePointer2, type→Keyboard, scroll→ScrollText, wait→Clock, done→CheckCircle2, error→AlertCircle. Active/current step: border-brand/30 bg-brand/5 with a subtle pulse animation on the left border. Completed steps: muted, text-text-secondary. Step card entrance animation: motion.div initial={{ opacity:0, x:16 }} animate={{ opacity:1, x:0 }} transition={{ duration:0.15 }}. Between steps: show an animated 3-dot indicator (existing Loader2 or a custom dots component)."
+                },
+                {
+                    "id": "28.3",
+                    "title": "Follow-up command input and backend endpoint",
+                    "status": "pending",
+                    "context": "At the bottom of AgentPanel: a sticky input bar. Input: text-sm, placeholder 'Send a follow-up...', rounded-xl bg-white/[0.04]. Send button: ArrowRight icon. On submit: POST to http://127.0.0.1:8000/agent/message with { message: string }. In backend/server.py: add POST /agent/message endpoint that sets a global message_queue variable. In backend/cdp_agent.py: after each step, check message_queue — if non-empty, prepend the user message to the next step's context: add a user message 'User instruction update: {message}' into the messages array before the next LLM call. This lets users course-correct the agent mid-task."
+                },
+                {
+                    "id": "28.4",
+                    "title": "Agent tab highlight in sidebar",
+                    "status": "pending",
+                    "context": "When an agent task is running and controlling a specific tab (identified by tabId from the SSE stream or from the agent start response), that tab in the Sidebar should show a visual indicator. In SortableTab.tsx: add a prop isAgentControlled: boolean. When true: add a left border in brand color (border-l-2 border-brand) + a subtle pulsing glow effect (animate-pulse on a brand-colored dot badge). The agentControlledTabId state is stored in a React context (AgentContext) that both AgentPanel and Sidebar can read. When task ends, clear the highlight."
+                },
+                {
+                    "id": "28.5",
+                    "title": "Integrate panel into app layout and move SSE logic",
+                    "status": "pending",
+                    "context": "In App.tsx (or the main browser layout): add AgentPanel alongside the content area. The main layout should be a flex row: [Sidebar][BrowserContent][AgentPanel]. AgentPanel sits at position:fixed right-0 so it overlays the browser content rather than squishing it (overlay mode, not push mode — like Comet's sidebar). Move the SSE streaming fetch from CommandBar.tsx into a custom hook: src/renderer/hooks/useAgentTask.ts. This hook manages: startTask(instruction, cdpTarget), pauseTask(), resumeTask(), stopTask(), SSE event parsing, steps state, status state. Both CommandBar (to start a task) and AgentPanel (to display and control) consume this hook via a shared AgentContext. Remove duplicate agent control code from CommandBar after migration."
+                }
+            ]
         },
         {
             "id": "27",

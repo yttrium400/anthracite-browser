@@ -635,7 +635,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
 
                                     <p className="text-xs text-text-tertiary px-1">
                                         Sign in to sync your settings and realms across devices.
-                                        No account needed to use Anthracite — it works fully offline.
+                                        No account needed. Anthracite works fully offline.
                                     </p>
                                 </div>
                             )}
