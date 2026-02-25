@@ -1,21 +1,27 @@
 /**
  * AuthService — Supabase-backed user authentication for Anthracite.
  *
- * Sign-in flow:
- *   1. Email magic link  → user clicks link in email → deep link anthracite://auth/callback#... fires
+ * Sign-in flow (PKCE via local HTTP callback server):
+ *   1. Email magic link  → user clicks link in email → system browser opens
+ *      → Supabase verifies → redirects to http://127.0.0.1:7777/auth/callback?code=...
+ *      → local server exchanges code for session
  *   2. OAuth (Google / GitHub) → shell.openExternal(supabase_url) → system browser handles OAuth
- *      → Supabase redirects to anthracite://auth/callback#access_token=...
+ *      → Supabase redirects to http://127.0.0.1:7777/auth/callback?code=...
+ *      → local server exchanges code for session
+ *
+ * Using localhost (not anthracite://) avoids the need for OS-level protocol registration,
+ * which is unreliable in development mode on macOS.
  *
  * Session is encrypted at rest via Electron safeStorage and written to userData/auth-session.bin
  *
  * SECURITY: raw tokens are never sent to the renderer. Only AuthUser metadata is exposed.
  */
 
-import { safeStorage, BrowserWindow } from 'electron'
+import { safeStorage, BrowserWindow, app } from 'electron'
 import { createClient, SupabaseClient, Session } from '@supabase/supabase-js'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { app } from 'electron'
+import * as http from 'node:http'
 
 export interface AuthUser {
     id: string
@@ -25,22 +31,124 @@ export interface AuthUser {
     plan: 'free' | 'pro'
 }
 
+const CALLBACK_PORT = 7777
 const SESSION_FILE = () => path.join(app.getPath('userData'), 'auth-session.bin')
+
+// In-memory storage so the PKCE code verifier survives across the sign-in round-trip
+// within the same process instance (the main process is long-running).
+const memoryStorage = (() => {
+    const store: Record<string, string> = {}
+    return {
+        getItem: (key: string) => store[key] ?? null,
+        setItem: (key: string, value: string) => { store[key] = value },
+        removeItem: (key: string) => { delete store[key] },
+    }
+})()
 
 class AuthService {
     private client: SupabaseClient | null = null
     private session: Session | null = null
     private user: AuthUser | null = null
+    private callbackServer: http.Server | null = null
 
     // Must be called after app is ready (safeStorage requires ready state)
     init(supabaseUrl: string, supabaseAnonKey: string): void {
+        // Always start the callback server regardless of whether credentials are set,
+        // so the server is ready before the user even sends a magic link.
+        this.startCallbackServer()
+
         if (!supabaseUrl || !supabaseAnonKey) return
 
         this.client = createClient(supabaseUrl, supabaseAnonKey, {
-            auth: { persistSession: false }, // we handle persistence ourselves
+            auth: {
+                persistSession: false,   // we handle persistence ourselves
+                flowType: 'pkce',        // PKCE sends ?code= in query string (not hash fragment)
+                storage: memoryStorage,  // store PKCE verifier in memory
+            },
         })
 
         this.loadSession()
+    }
+
+    // ── Local HTTP callback server ───────────────────────────────────────────
+
+    private startCallbackServer(): void {
+        if (this.callbackServer) return
+
+        this.callbackServer = http.createServer((req, res) => {
+            if (!req.url) { res.writeHead(400); res.end(); return }
+
+            const url = new URL(req.url, `http://127.0.0.1:${CALLBACK_PORT}`)
+
+            // Step 1: Supabase redirects here with ?code=...
+            if (url.pathname === '/auth/callback') {
+                const code = url.searchParams.get('code')
+                const error = url.searchParams.get('error')
+                const errorDesc = url.searchParams.get('error_description')
+
+                if (error) {
+                    res.writeHead(200, { 'Content-Type': 'text/html' })
+                    res.end(this.htmlPage(`Sign in failed: ${errorDesc ?? error}`))
+                    return
+                }
+
+                if (code) {
+                    this.handleCode(code)
+                    res.writeHead(200, { 'Content-Type': 'text/html' })
+                    res.end(this.htmlPage('Signed in successfully! You can close this tab.'))
+                    return
+                }
+
+                // Fallback: implicit flow — tokens are in the URL hash fragment.
+                // The browser never sends the hash to the server, so we return an HTML
+                // page that reads it via JS and posts it to /auth/tokens.
+                res.writeHead(200, { 'Content-Type': 'text/html' })
+                res.end(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<p style="font-family:sans-serif;text-align:center;margin-top:100px">Completing sign in…</p>
+<script>
+var p=new URLSearchParams(location.hash.slice(1));
+var at=p.get('access_token'),rt=p.get('refresh_token');
+if(at&&rt){
+  fetch('/auth/tokens?access_token='+encodeURIComponent(at)+'&refresh_token='+encodeURIComponent(rt))
+    .then(function(){document.querySelector('p').textContent='Signed in! You can close this tab.';});
+}else{
+  document.querySelector('p').textContent='Sign in failed. You can close this tab.';
+}
+</script></body></html>`)
+                return
+            }
+
+            // Step 2 (implicit fallback): JS posts tokens here as query params
+            if (url.pathname === '/auth/tokens') {
+                const access_token = url.searchParams.get('access_token')
+                const refresh_token = url.searchParams.get('refresh_token')
+                res.writeHead(200)
+                res.end('ok')
+                if (access_token && refresh_token) {
+                    this.handleTokens(access_token, refresh_token)
+                }
+                return
+            }
+
+            res.writeHead(404); res.end()
+        })
+
+        this.callbackServer.listen(CALLBACK_PORT, '127.0.0.1', () => {
+            console.log(`[auth] callback server listening on http://127.0.0.1:${CALLBACK_PORT}`)
+        })
+        this.callbackServer.on('error', (err: NodeJS.ErrnoException) => {
+            console.error(`[auth] callback server error: ${err.code} ${err.message}`)
+        })
+    }
+
+    private htmlPage(message: string): string {
+        return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<p style="font-family:sans-serif;text-align:center;margin-top:100px">${message}</p>
+</body></html>`
+    }
+
+    getCallbackUrl(): string {
+        return `http://127.0.0.1:${CALLBACK_PORT}/auth/callback`
     }
 
     // ── Session persistence via safeStorage ─────────────────────────────────
@@ -98,7 +206,7 @@ class AuthService {
         const { data, error } = await this.client.auth.signInWithOAuth({
             provider,
             options: {
-                redirectTo: 'anthracite://auth/callback',
+                redirectTo: this.getCallbackUrl(),
                 skipBrowserRedirect: true, // we open manually with shell.openExternal
             },
         })
@@ -106,49 +214,75 @@ class AuthService {
         return data.url
     }
 
-    /** Sends a magic-link email. Returns true on success. */
+    /**
+     * Sends a sign-in email containing a 6-digit OTP code.
+     * The user reads the code from their email (on any device) and types it into the app.
+     * No link-clicking or protocol registration needed.
+     */
     async signInWithEmail(email: string): Promise<{ success: boolean; error?: string }> {
         if (!this.client) return { success: false, error: 'Auth not configured' }
-        const { error } = await this.client.auth.signInWithOtp({
-            email,
-            options: { emailRedirectTo: 'anthracite://auth/callback' },
-        })
+        const { error } = await this.client.auth.signInWithOtp({ email })
         if (error) return { success: false, error: error.message }
         return { success: true }
     }
 
-    /**
-     * Called when the OS fires an anthracite://auth/callback deep link.
-     * Extracts access_token + refresh_token from the URL hash and establishes
-     * a Supabase session, then broadcasts the updated AuthUser to all windows.
-     */
-    async handleCallback(url: string): Promise<void> {
-        if (!this.client) return
-
-        // anthracite://auth/callback#access_token=...&refresh_token=...
-        // Normalize to a parseable URL by replacing the custom scheme
-        const normalized = url.replace(/^anthracite:\/\//, 'https://anthracite.app/')
-        let params: URLSearchParams
-        try {
-            const parsed = new URL(normalized)
-            // Supabase puts tokens in the hash fragment
-            params = new URLSearchParams(parsed.hash.slice(1) || parsed.search)
-        } catch {
-            return
-        }
-
-        const access_token = params.get('access_token')
-        const refresh_token = params.get('refresh_token')
-
-        if (!access_token || !refresh_token) return
-
-        const { data, error } = await this.client.auth.setSession({ access_token, refresh_token })
-        if (error || !data.session) return
-
+    /** Verifies the 6-digit OTP code the user received by email. */
+    async verifyOtp(email: string, token: string): Promise<{ success: boolean; error?: string }> {
+        if (!this.client) return { success: false, error: 'Auth not configured' }
+        const { data, error } = await this.client.auth.verifyOtp({ email, token, type: 'email' })
+        if (error) return { success: false, error: error.message }
+        if (!data.session) return { success: false, error: 'No session returned' }
         this.session = data.session
         this.user = this.buildUser(data.session)
         this.saveSession(data.session)
         this.broadcast()
+        return { success: true }
+    }
+
+    // ── Token exchange ───────────────────────────────────────────────────────
+
+    /** PKCE: exchange auth code for session (called by local server callback). */
+    private async handleCode(code: string): Promise<void> {
+        if (!this.client) return
+        const { data, error } = await this.client.auth.exchangeCodeForSession(code)
+        if (error || !data.session) return
+        this.session = data.session
+        this.user = this.buildUser(data.session)
+        this.saveSession(data.session)
+        this.broadcast()
+    }
+
+    /** Implicit fallback: set session directly from access + refresh tokens. */
+    private async handleTokens(access_token: string, refresh_token: string): Promise<void> {
+        if (!this.client) return
+        const { data, error } = await this.client.auth.setSession({ access_token, refresh_token })
+        if (error || !data.session) return
+        this.session = data.session
+        this.user = this.buildUser(data.session)
+        this.saveSession(data.session)
+        this.broadcast()
+    }
+
+    /**
+     * Deep-link fallback for production packaged builds.
+     * Called when the OS fires an anthracite://auth/callback deep link.
+     */
+    async handleCallback(url: string): Promise<void> {
+        if (!this.client) return
+
+        const normalized = url.replace(/^anthracite:\/\//, 'https://anthracite.internal/')
+        let params: URLSearchParams
+        try {
+            const parsed = new URL(normalized)
+            params = new URLSearchParams(parsed.hash.slice(1) || parsed.search)
+        } catch { return }
+
+        const code = params.get('code')
+        if (code) { await this.handleCode(code); return }
+
+        const access_token = params.get('access_token')
+        const refresh_token = params.get('refresh_token')
+        if (access_token && refresh_token) { await this.handleTokens(access_token, refresh_token) }
     }
 
     async signOut(): Promise<void> {

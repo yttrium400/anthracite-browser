@@ -201,7 +201,7 @@ const SERVICE_COLORS: Record<string, string> = {
 
 export function SettingsPage({ className }: SettingsPageProps) {
     const [settings, setSettings] = useState<AppSettings | null>(null);
-    const [activeSection, setActiveSection] = useState<SettingsSection>('browser');
+    const [activeSection, setActiveSection] = useState<SettingsSection>('account');
     const [isSaving, setIsSaving] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
     const [showAnthropicKey, setShowAnthropicKey] = useState(false);
@@ -218,6 +218,8 @@ export function SettingsPage({ className }: SettingsPageProps) {
     const [authEmail, setAuthEmail] = useState('');
     const [emailSent, setEmailSent] = useState(false);
     const [emailSending, setEmailSending] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
+    const [otpVerifying, setOtpVerifying] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
 
     // Load settings on mount
@@ -542,7 +544,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                         <div className="flex-1 h-px bg-white/[0.06]" />
                                     </div>
 
-                                    {/* Email magic link */}
+                                    {/* Email OTP */}
                                     {!emailSent ? (
                                         <div className="flex gap-2">
                                             <input
@@ -561,8 +563,9 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                                     setEmailSending(false);
                                                     if (result?.success) {
                                                         setEmailSent(true);
+                                                        setOtpCode('');
                                                     } else {
-                                                        setAuthError(result?.error ?? 'Failed to send link');
+                                                        setAuthError(result?.error ?? 'Failed to send code');
                                                     }
                                                 }}
                                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-brand text-white hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -572,25 +575,57 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                                 ) : (
                                                     <Mail className="h-4 w-4" />
                                                 )}
-                                                <span>Send link</span>
+                                                <span>Send code</span>
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="flex items-start gap-3 p-4 rounded-xl bg-brand/5 border border-brand/20">
-                                            <Check className="h-4 w-4 text-brand-light mt-0.5 shrink-0" />
-                                            <div>
-                                                <p className="text-sm font-medium text-text-primary">Check your email</p>
-                                                <p className="text-xs text-text-secondary mt-0.5">
-                                                    We sent a sign-in link to <span className="text-text-primary">{authEmail}</span>.
-                                                    Click it to sign in — the link opens this app automatically.
-                                                </p>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3 p-4 rounded-xl bg-brand/5 border border-brand/20">
+                                                <Check className="h-4 w-4 text-brand-light mt-0.5 shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-text-primary">Check your email</p>
+                                                    <p className="text-xs text-text-secondary mt-0.5">
+                                                        We sent a code to <span className="text-text-primary">{authEmail}</span>. Enter it below.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={8}
+                                                    value={otpCode}
+                                                    onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setAuthError(null); }}
+                                                    placeholder="12345678"
+                                                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand/30 tracking-widest"
+                                                />
                                                 <button
-                                                    onClick={() => { setEmailSent(false); setAuthEmail(''); }}
-                                                    className="text-xs text-brand-light hover:text-brand mt-2 transition-colors"
+                                                    disabled={otpCode.length < 6 || otpVerifying}
+                                                    onClick={async () => {
+                                                        setOtpVerifying(true);
+                                                        setAuthError(null);
+                                                        const result = await (window.electron as any)?.auth?.verifyOtp(authEmail, otpCode);
+                                                        setOtpVerifying(false);
+                                                        if (result?.success) {
+                                                            setEmailSent(false);
+                                                            setAuthEmail('');
+                                                            setOtpCode('');
+                                                        } else {
+                                                            setAuthError(result?.error ?? 'Invalid code');
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-brand text-white hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                                 >
-                                                    Use a different email
+                                                    {otpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                                    <span>Verify</span>
                                                 </button>
                                             </div>
+                                            <button
+                                                onClick={() => { setEmailSent(false); setAuthEmail(''); setOtpCode(''); setAuthError(null); }}
+                                                className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                                            >
+                                                Use a different email
+                                            </button>
                                         </div>
                                     )}
 

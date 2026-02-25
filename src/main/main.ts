@@ -1,5 +1,7 @@
 import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents, shell } from 'electron'
 import path from 'node:path'
+import * as dotenv from 'dotenv'
+dotenv.config({ path: path.join(__dirname, '../.env') })
 import { authService } from './authService'
 
 import { autoUpdater } from 'electron-updater'
@@ -1426,6 +1428,10 @@ function setupIPC(): void {
         if (!url) return { success: false, error: 'Auth not configured' }
         await shell.openExternal(url)
         return { success: true }
+    })
+
+    ipcMain.handle('auth-verify-otp', async (_event, email: string, token: string) => {
+        return authService.verifyOtp(email, token)
     })
 
     ipcMain.handle('auth-sign-out', async () => {

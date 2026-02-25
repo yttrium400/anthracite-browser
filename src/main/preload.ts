@@ -258,6 +258,7 @@ contextBridge.exposeInMainWorld('electron', {
     auth: {
         getUser: () => ipcRenderer.invoke('auth-get-user'),
         signInWithEmail: (email: string) => ipcRenderer.invoke('auth-sign-in-email', email),
+        verifyOtp: (email: string, token: string) => ipcRenderer.invoke('auth-verify-otp', email, token),
         signInWithOAuth: (provider: 'google' | 'github') => ipcRenderer.invoke('auth-sign-in-oauth', provider),
         signOut: () => ipcRenderer.invoke('auth-sign-out'),
         onStateChanged: (callback: (data: { user: AuthUserPublic | null }) => void) => {
@@ -436,6 +437,7 @@ declare global {
             auth: {
                 getUser: () => Promise<AuthUserPublic | null>
                 signInWithEmail: (email: string) => Promise<{ success: boolean; error?: string }>
+                verifyOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>
                 signInWithOAuth: (provider: 'google' | 'github') => Promise<{ success: boolean; error?: string }>
                 signOut: () => Promise<{ success: boolean }>
                 onStateChanged: (callback: (data: { user: AuthUserPublic | null }) => void) => () => void
