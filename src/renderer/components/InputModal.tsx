@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import { X } from '@phosphor-icons/react';
 
@@ -55,23 +56,32 @@ export function InputModal({
         }
     };
 
-    if (!isOpen) return null;
-
     return (
+        <AnimatePresence>
+        {isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center">
             {/* Backdrop */}
-            <div
+            <motion.div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
                 onClick={onClose}
             />
 
             {/* Modal */}
-            <div className={cn(
-                "relative w-full max-w-sm mx-4",
-                "bg-[#1A1A1D] rounded-2xl shadow-2xl",
-                "border border-white/[0.08]",
-                "animate-in fade-in zoom-in-95 duration-200"
-            )}>
+            <motion.div
+                className={cn(
+                    "relative w-full max-w-sm mx-4",
+                    "bg-[#1A1A1D] rounded-2xl shadow-2xl",
+                    "border border-white/[0.08]"
+                )}
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 4 }}
+                transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
                     <h2 className="text-base font-semibold text-text-primary">
@@ -130,7 +140,9 @@ export function InputModal({
                         </button>
                     </div>
                 </form>
-            </div>
+            </motion.div>
         </div>
+        )}
+        </AnimatePresence>
     );
 }

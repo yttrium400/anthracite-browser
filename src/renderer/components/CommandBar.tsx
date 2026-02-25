@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import {
     ArrowRight,
@@ -491,15 +492,23 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                 </div>
 
                 {/* Autocomplete Suggestions Dropdown */}
+                <AnimatePresence>
                 {showSuggestions && suggestions.length > 0 && (
-                    <div
+                    <motion.div
                         ref={suggestionsRef}
                         className="absolute z-50 w-full bg-[#1A1A1D]/95 backdrop-blur-xl border border-t-0 border-white/[0.08] rounded-b-2xl shadow-large overflow-hidden"
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.14, ease: 'easeOut' }}
                     >
                         {suggestions.map((suggestion, index) => (
-                            <button
+                            <motion.button
                                 key={`${suggestion.type}-${suggestion.url || suggestion.title}`}
                                 type="button"
+                                initial={{ opacity: 0, x: -4 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.12, delay: index * 0.03 }}
                                 onClick={() => handleSelectSuggestion(suggestion)}
                                 className={cn(
                                     "flex items-center gap-3 w-full px-4 py-3 text-left transition-colors",
@@ -548,10 +557,11 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                                         Search
                                     </span>
                                 )}
-                            </button>
+                            </motion.button>
                         ))}
-                    </div>
+                    </motion.div>
                 )}
+                </AnimatePresence>
             </form>
 
             {/* Hints */}

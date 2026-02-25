@@ -1168,23 +1168,32 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                                 strategy={verticalListSortingStrategy}
                             >
                                 <ul className="space-y-0.5">
-                                    {looseTabs.map((tab, index) => (
-                                        <li key={tab.id}>
-                                            <SortableTab
-                                                tab={tab}
-                                                isActive={activeTabId === tab.id}
-                                                containerId="loose"
-                                                showDropIndicator={
-                                                    dropTarget?.containerId === 'loose' &&
-                                                    dropTarget?.index === index &&
-                                                    draggedTab?.id !== tab.id
-                                                }
-                                                onTabClick={handleSwitchTab}
-                                                onTabClose={handleCloseTab}
-                                                onContextMenu={handleTabContextMenu}
-                                            />
-                                        </li>
-                                    ))}
+                                    <AnimatePresence initial={false}>
+                                        {looseTabs.map((tab, index) => (
+                                            <motion.li
+                                                key={tab.id}
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                                style={{ overflow: 'hidden' }}
+                                            >
+                                                <SortableTab
+                                                    tab={tab}
+                                                    isActive={activeTabId === tab.id}
+                                                    containerId="loose"
+                                                    showDropIndicator={
+                                                        dropTarget?.containerId === 'loose' &&
+                                                        dropTarget?.index === index &&
+                                                        draggedTab?.id !== tab.id
+                                                    }
+                                                    onTabClick={handleSwitchTab}
+                                                    onTabClose={handleCloseTab}
+                                                    onContextMenu={handleTabContextMenu}
+                                                />
+                                            </motion.li>
+                                        ))}
+                                    </AnimatePresence>
                                     {/* End-of-list drop indicator */}
                                     {dropTarget?.containerId === 'loose' &&
                                         dropTarget?.index === looseTabs.length &&

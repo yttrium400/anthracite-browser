@@ -152,7 +152,16 @@
         @apply flex items-center justify-center w-9 h-9 rounded-xl
                text-text-secondary transition-all duration-200 ease-smooth
                hover:bg-white/[0.06] hover:text-text-primary
-               active:scale-[0.95];
+               active:scale-[0.92];
+    }
+
+    /* ============================================
+       Global micro-interaction press feedback
+       ============================================ */
+
+    /* Any plain button not already styled gets subtle press feedback */
+    button:not(.btn-primary):not(.btn-secondary):not(.btn-ghost):not(.btn-icon):active:not(:disabled) {
+        transform: scale(0.97);
     }
 
     /* ============================================

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import {
     Shield,
@@ -455,6 +456,14 @@ export function SettingsPage({ className }: SettingsPageProps) {
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto p-8 bg-[#0A0A0B]">
                 <div className="max-w-xl mx-auto">
+                    <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                        key={activeSection}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                    >
                     {/* My Account Section */}
                     {activeSection === 'account' && (
                         <section>
@@ -1334,6 +1343,9 @@ export function SettingsPage({ className }: SettingsPageProps) {
                             </div>
                         </section>
                     )}
+
+                    </motion.div>
+                    </AnimatePresence>
 
                     {/* Saving indicator */}
                     {isSaving && (

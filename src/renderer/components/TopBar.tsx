@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import {
     ArrowLeft,
@@ -368,15 +369,23 @@ export function TopBar({
                 </div>
 
                 {/* Autocomplete Suggestions */}
+                <AnimatePresence>
                 {showSuggestions && suggestions.length > 0 && (
-                    <div
+                    <motion.div
                         ref={suggestionsRef}
                         className="absolute z-[9999] w-full bg-[#1A1A1D]/97 backdrop-blur-xl border border-t-0 border-white/[0.08] rounded-b-xl shadow-large overflow-hidden"
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.12, ease: 'easeOut' }}
                     >
                         {suggestions.map((suggestion, index) => (
-                            <button
+                            <motion.button
                                 key={`${suggestion.type}-${suggestion.url || suggestion.title}-${index}`}
                                 type="button"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.1, delay: index * 0.025 }}
                                 onMouseDown={(e) => { e.preventDefault(); handleSelectSuggestion(suggestion); }}
                                 className={cn(
                                     "flex items-center gap-3 w-full px-3 py-2.5 text-left transition-colors",
@@ -403,10 +412,11 @@ export function TopBar({
                                 {suggestion.type === 'search' && (
                                     <span className="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded shrink-0">Search</span>
                                 )}
-                            </button>
+                            </motion.button>
                         ))}
-                    </div>
+                    </motion.div>
                 )}
+                </AnimatePresence>
             </form>
 
             {/* Right Spacer */}
