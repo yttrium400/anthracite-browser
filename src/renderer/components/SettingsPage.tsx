@@ -78,18 +78,20 @@ function Toggle({
     return (
         <button
             onClick={() => !disabled && onChange(!enabled)}
+            aria-checked={enabled}
+            role="switch"
             className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent",
-                "transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 focus:ring-offset-[#1A1A1D]",
-                enabled ? "bg-brand" : "bg-white/[0.12]",
-                disabled && "opacity-50 cursor-not-allowed"
+                "relative inline-flex h-[22px] w-[38px] shrink-0 cursor-pointer rounded-full border-2 border-transparent",
+                "transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1A1A1D]",
+                enabled ? "bg-brand" : "bg-white/[0.14]",
+                disabled && "opacity-40 cursor-not-allowed"
             )}
         >
             <span
                 className={cn(
-                    "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0",
-                    "transition duration-200 ease-in-out",
-                    enabled ? "translate-x-5" : "translate-x-0"
+                    "pointer-events-none inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow ring-0",
+                    "transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    enabled ? "translate-x-[16px]" : "translate-x-0"
                 )}
             />
         </button>
@@ -107,11 +109,11 @@ function SettingRow({
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex items-center justify-between py-4 border-b border-white/[0.06] last:border-0">
-            <div className="flex-1 pr-4">
-                <h4 className="text-sm font-medium text-text-primary">{label}</h4>
+        <div className="flex items-center justify-between py-3.5 border-b border-white/[0.04] last:border-0">
+            <div className="flex-1 pr-6">
+                <h4 className="text-sm font-medium text-text-primary leading-snug">{label}</h4>
                 {description && (
-                    <p className="text-xs text-text-tertiary mt-0.5">{description}</p>
+                    <p className="text-[11.5px] text-text-tertiary mt-0.5 leading-relaxed">{description}</p>
                 )}
             </div>
             <div className="shrink-0">{children}</div>
@@ -159,13 +161,10 @@ function SectionHeader({
     description?: string;
 }) {
     return (
-        <div className="mb-4">
-            <div className="flex items-center gap-2 mb-1">
-                <Icon className="h-5 w-5 text-brand" />
-                <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
-            </div>
+        <div className="mb-5">
+            <h3 className="text-base font-semibold text-text-primary tracking-tight">{title}</h3>
             {description && (
-                <p className="text-sm text-text-tertiary">{description}</p>
+                <p className="text-xs text-text-tertiary mt-1 leading-relaxed">{description}</p>
             )}
         </div>
     );
@@ -411,30 +410,33 @@ export function SettingsPage({ className }: SettingsPageProps) {
             className
         )}>
             {/* Sidebar Navigation */}
-            <nav className="w-64 border-r border-white/[0.06] bg-[#111113]/50 p-4 flex flex-col">
+            <nav className="w-56 border-r border-white/[0.06] bg-[#0D0D0F] p-3 flex flex-col">
                 <button
                     onClick={handleBack}
-                    className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary mb-6 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-text-tertiary hover:text-text-secondary mb-5 mt-1 ml-1 transition-colors"
                 >
-                    <CaretLeft className="h-4 w-4" />
+                    <CaretLeft className="h-3.5 w-3.5" />
                     Back
                 </button>
 
-                <h1 className="text-xl font-bold text-text-primary mb-6">Settings</h1>
+                <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest px-2 mb-2">Settings</p>
 
-                <ul className="space-y-1 flex-1">
+                <ul className="space-y-0.5 flex-1">
                     {sections.map((section) => (
                         <li key={section.id}>
                             <button
                                 onClick={() => setActiveSection(section.id)}
                                 className={cn(
-                                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150",
                                     activeSection === section.id
-                                        ? "bg-brand/10 text-brand-light"
-                                        : "text-text-secondary hover:bg-white/[0.06] hover:text-text-primary"
+                                        ? "bg-white/[0.08] text-text-primary"
+                                        : "text-text-tertiary hover:bg-white/[0.04] hover:text-text-secondary"
                                 )}
                             >
-                                <section.icon className="h-4 w-4" />
+                                <section.icon className={cn(
+                                    "h-4 w-4 shrink-0 transition-colors",
+                                    activeSection === section.id ? "text-text-primary" : "text-text-tertiary"
+                                )} />
                                 {section.label}
                             </button>
                         </li>
@@ -443,16 +445,16 @@ export function SettingsPage({ className }: SettingsPageProps) {
 
                 <button
                     onClick={handleReset}
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-error hover:bg-error/5 rounded-lg transition-colors"
+                    className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-text-tertiary hover:text-error hover:bg-error/5 rounded-lg transition-colors mt-2"
                 >
-                    <ArrowCounterClockwise className="h-4 w-4" />
+                    <ArrowCounterClockwise className="h-3.5 w-3.5" />
                     Reset All
                 </button>
             </nav>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto p-8">
-                <div className="max-w-2xl mx-auto">
+            <main className="flex-1 overflow-y-auto p-8 bg-[#0A0A0B]">
+                <div className="max-w-xl mx-auto">
                     {/* My Account Section */}
                     {activeSection === 'account' && (
                         <section>
@@ -742,7 +744,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 title="Browser"
                                 description="Core browser settings and defaults"
                             />
-                            <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4">
+                            <div className="bg-white/[0.025] rounded-xl border border-white/[0.05] px-4 py-1">
                                 <SettingRow
                                     label="Default Search Engine"
                                     description="Used when searching from the address bar"
@@ -790,7 +792,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 title="Appearance"
                                 description="Customize how Anthracite looks"
                             />
-                            <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4">
+                            <div className="bg-white/[0.025] rounded-xl border border-white/[0.05] px-4 py-1">
                                 <SettingRow
                                     label="Theme"
                                     description="Choose your preferred color scheme"
@@ -954,7 +956,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 title="Privacy & Security"
                                 description="Control your privacy and data"
                             />
-                            <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4">
+                            <div className="bg-white/[0.025] rounded-xl border border-white/[0.05] px-4 py-1">
                                 <SettingRow
                                     label="Save Browsing History"
                                     description="Remember sites you visit for autocomplete and suggestions"
@@ -1036,7 +1038,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 title="Tabs & Navigation"
                                 description="Configure tab behavior and navigation"
                             />
-                            <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4">
+                            <div className="bg-white/[0.025] rounded-xl border border-white/[0.05] px-4 py-1">
                                 <SettingRow
                                     label="Open Links in New Tab"
                                     description="Open external links in a new tab instead of the current one"
@@ -1186,7 +1188,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 title="Developer"
                                 description="Advanced settings for developers"
                             />
-                            <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4">
+                            <div className="bg-white/[0.025] rounded-xl border border-white/[0.05] px-4 py-1">
                                 <SettingRow
                                     label="Enable DevTools"
                                     description="Allow opening Chrome DevTools for web pages (F12 or Cmd+Option+I)"
