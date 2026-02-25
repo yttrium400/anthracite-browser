@@ -897,12 +897,12 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                                 )}
                                                 {bg.id === 'gradient-mesh' && (
                                                     <div className="w-full h-full" style={{
-                                                        background: 'radial-gradient(at 20% 20%, rgba(99,102,241,0.15) 0%, transparent 50%), radial-gradient(at 80% 80%, rgba(139,92,246,0.1) 0%, transparent 50%)'
+                                                        background: 'radial-gradient(at 20% 20%, rgba(200,169,126,0.15) 0%, transparent 50%), radial-gradient(at 80% 80%, rgba(200,169,126,0.08) 0%, transparent 50%)'
                                                     }} />
                                                 )}
                                                 {bg.id === 'aurora' && (
                                                     <div className="w-full h-full" style={{
-                                                        background: 'radial-gradient(ellipse 80% 50% at 30% 20%, rgba(16,185,129,0.12) 0%, transparent 50%), radial-gradient(ellipse 60% 40% at 70% 30%, rgba(99,102,241,0.10) 0%, transparent 50%)'
+                                                        background: 'radial-gradient(ellipse 80% 50% at 30% 20%, rgba(16,185,129,0.12) 0%, transparent 50%), radial-gradient(ellipse 60% 40% at 70% 30%, rgba(200,169,126,0.08) 0%, transparent 50%)'
                                                     }} />
                                                 )}
                                             </div>

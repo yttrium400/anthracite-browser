@@ -94,7 +94,7 @@ export function HomePage({ className }: HomePageProps) {
                 <motion.div
                     className="absolute top-[15%] left-[30%] w-[600px] h-[600px] rounded-full"
                     style={{
-                        background: 'radial-gradient(circle, rgba(99,102,241,0.03) 0%, transparent 70%)',
+                        background: 'radial-gradient(circle, rgba(200,169,126,0.04) 0%, transparent 70%)',
                     }}
                     animate={{
                         x: [0, 20, -15, 0],
