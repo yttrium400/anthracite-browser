@@ -253,6 +253,19 @@ contextBridge.exposeInMainWorld('electron', {
 
     // System shell — opens URLs in the default system browser
     openExternal: (url: string) => ipcRenderer.invoke('open-external-url', url),
+
+    // User Auth (Supabase) — SECURITY: raw tokens never leave the main process
+    auth: {
+        getUser: () => ipcRenderer.invoke('auth-get-user'),
+        signInWithEmail: (email: string) => ipcRenderer.invoke('auth-sign-in-email', email),
+        signInWithOAuth: (provider: 'google' | 'github') => ipcRenderer.invoke('auth-sign-in-oauth', provider),
+        signOut: () => ipcRenderer.invoke('auth-sign-out'),
+        onStateChanged: (callback: (data: { user: AuthUserPublic | null }) => void) => {
+            const sub = (_event: any, data: any) => callback(data)
+            ipcRenderer.on('auth-state-changed', sub)
+            return () => ipcRenderer.removeListener('auth-state-changed', sub)
+        },
+    },
 })
 
 // ============================================
@@ -261,6 +274,15 @@ contextBridge.exposeInMainWorld('electron', {
 
 // Import shared types for type definitions
 import type { Realm, Dock, ThemeColor, IconName, SidebarSnapshot } from '../shared/types'
+
+/** Public user object sent to the renderer — never contains raw tokens. */
+interface AuthUserPublic {
+    id: string
+    email: string | null
+    name: string | null
+    avatarUrl: string | null
+    plan: 'free' | 'pro'
+}
 
 // Extended Tab info with organization
 interface OrganizedTabInfo extends TabInfo {
@@ -411,6 +433,13 @@ declare global {
                 disconnect: (domain: string) => Promise<{ success: boolean }>
             }
             openExternal: (url: string) => Promise<{ success: boolean }>
+            auth: {
+                getUser: () => Promise<AuthUserPublic | null>
+                signInWithEmail: (email: string) => Promise<{ success: boolean; error?: string }>
+                signInWithOAuth: (provider: 'google' | 'github') => Promise<{ success: boolean; error?: string }>
+                signOut: () => Promise<{ success: boolean }>
+                onStateChanged: (callback: (data: { user: AuthUserPublic | null }) => void) => () => void
+            }
         }
     }
 }
