@@ -3,15 +3,15 @@ import { cn } from '../lib/utils';
 import {
     ArrowLeft,
     ArrowRight,
-    RotateCw,
+    ArrowClockwise,
     X,
     Lock,
-    Unlock,
+    LockOpen,
     Globe,
-    Loader2,
-    History,
-    Search,
-} from 'lucide-react';
+    CircleNotch,
+    ClockCounterClockwise,
+    MagnifyingGlass,
+} from '@phosphor-icons/react';
 
 interface TopBarProps {
     className?: string;
@@ -315,11 +315,11 @@ export function TopBar({
                     {/* Security Icon */}
                     <div className="flex items-center justify-center w-9 h-full shrink-0">
                         {isLoading ? (
-                            <Loader2 className="h-4 w-4 text-brand animate-spin" />
+                            <CircleNotch className="h-4 w-4 text-brand animate-spin" />
                         ) : isSecure ? (
                             <Lock className="h-3.5 w-3.5 text-success" />
                         ) : activeTab?.url && !activeTab.url.startsWith('about:') ? (
-                            <Unlock className="h-3.5 w-3.5 text-text-tertiary" />
+                            <LockOpen className="h-3.5 w-3.5 text-text-tertiary" />
                         ) : (
                             <Globe className="h-4 w-4 text-text-tertiary" />
                         )}
@@ -362,7 +362,7 @@ export function TopBar({
                         </button>
                         <button type="button" onClick={onReload}
                             className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors active:scale-90">
-                            {isLoading ? <X size={16} /> : <RotateCw size={16} />}
+                            {isLoading ? <X size={16} /> : <ArrowClockwise size={16} />}
                         </button>
                     </div>
                 </div>
@@ -389,9 +389,9 @@ export function TopBar({
                                         <img src={suggestion.favicon} alt="" className="h-4 w-4 rounded"
                                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                     ) : suggestion.type === 'history' ? (
-                                        <History className="h-3.5 w-3.5 text-text-tertiary" />
+                                        <ClockCounterClockwise className="h-3.5 w-3.5 text-text-tertiary" />
                                     ) : (
-                                        <Search className="h-3.5 w-3.5 text-text-tertiary" />
+                                        <MagnifyingGlass className="h-3.5 w-3.5 text-text-tertiary" />
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">

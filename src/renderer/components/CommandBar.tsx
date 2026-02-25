@@ -3,15 +3,15 @@ import { cn } from '../lib/utils';
 import {
     ArrowRight,
     StopCircle,
-    Loader2,
-    Mic,
+    CircleNotch,
+    Microphone,
     Paperclip,
-    ChevronDown,
+    CaretDown,
     Globe,
-    History,
-    Search,
-    KeyRound,
-} from 'lucide-react';
+    ClockCounterClockwise,
+    MagnifyingGlass,
+    Key,
+} from '@phosphor-icons/react';
 
 interface ModelOption {
     id: string;
@@ -292,14 +292,14 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                 return {
                     text: 'Thinking...',
                     color: 'text-brand',
-                    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+                    icon: <CircleNotch className="h-3.5 w-3.5 animate-spin" />,
                     dot: 'status-running',
                 };
             case 'running':
                 return {
                     text: 'Browsing the web...',
                     color: 'text-accent-blue',
-                    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+                    icon: <CircleNotch className="h-3.5 w-3.5 animate-spin" />,
                     dot: 'status-running',
                 };
             case 'done':
@@ -396,7 +396,7 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                                 className="btn-icon h-8 w-8"
                                 title="Voice input"
                             >
-                                <Mic className="h-4 w-4" />
+                                <Microphone className="h-4 w-4" />
                             </button>
                             <div className="h-5 w-px bg-white/[0.08] mx-1" />
                             {/* Model selector */}
@@ -413,7 +413,7 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                                     title={availableModels.length === 0 ? "Add an API key in Settings to enable the AI agent" : undefined}
                                 >
                                     <span>{selectedModel?.name ?? 'No model'}</span>
-                                    {availableModels.length > 0 && <ChevronDown className="h-3 w-3" />}
+                                    {availableModels.length > 0 && <CaretDown className="h-3 w-3" />}
                                 </button>
 
                                 {showModelMenu && (
@@ -519,9 +519,9 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                                             }}
                                         />
                                     ) : suggestion.type === 'history' ? (
-                                        <History className="h-4 w-4 text-text-tertiary" />
+                                        <ClockCounterClockwise className="h-4 w-4 text-text-tertiary" />
                                     ) : (
-                                        <Search className="h-4 w-4 text-text-tertiary" />
+                                        <MagnifyingGlass className="h-4 w-4 text-text-tertiary" />
                                     )}
                                 </div>
 
@@ -571,7 +571,7 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
             {/* No-model hint — only shown after a failed run attempt */}
             {showNoModelHint && (
                 <div className="mt-3 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-text-tertiary">
-                    <KeyRound className="h-3.5 w-3.5 shrink-0 text-text-tertiary/50" />
+                    <Key className="h-3.5 w-3.5 shrink-0 text-text-tertiary/50" />
                     <span>Add an API key to run agent tasks.</span>
                     <button
                         type="button"

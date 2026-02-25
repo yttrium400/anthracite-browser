@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '../lib/utils';
-import { X, Folder } from 'lucide-react';
+import { X, Folder } from '@phosphor-icons/react';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { ColorPicker } from './ColorPicker';
 import type { IconName, ThemeColor, Dock } from '../../shared/types';

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { cn } from '../lib/utils';
 
 interface SwipeNavigatorProps {
@@ -154,8 +154,8 @@ export const SwipeNavigator = forwardRef<SwipeNavigatorHandle, SwipeNavigatorPro
                     style={{ transform: `scale(${scale})` }}
                 >
                     {side === 'left'
-                        ? <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
-                        : <ArrowRight className="h-5 w-5" strokeWidth={2.5} />}
+                        ? <ArrowLeft className="h-5 w-5" weight="bold" />
+                        : <ArrowRight className="h-5 w-5" weight="bold" />}
                 </div>
             </div>
         );

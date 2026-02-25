@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '../lib/utils';
-import { X, ArrowLeft, Check, LayoutGrid } from 'lucide-react';
+import { X, ArrowLeft, Check, GridFour } from '@phosphor-icons/react';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { ColorPicker } from './ColorPicker';
 import type { IconName, ThemeColor, Realm } from '../../shared/types';
@@ -161,7 +161,7 @@ export function RealmModal({
                                     )}
                                 >
                                     <div className="h-12 w-12 rounded-xl bg-white/[0.06] flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                                        <LayoutGrid className="h-6 w-6 text-text-secondary" />
+                                        <GridFour className="h-6 w-6 text-text-secondary" />
                                     </div>
                                     <h3 className="font-semibold text-text-primary mb-1">Start from Blank</h3>
                                     <p className="text-sm text-text-tertiary">Create a clean slate with no pre-configured docks.</p>

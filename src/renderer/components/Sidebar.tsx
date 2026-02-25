@@ -20,22 +20,22 @@ import {
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../lib/utils';
 import {
-    Settings,
+    GearSix,
     Plus,
     Globe,
-    Pin,
-    PinOff,
-    ShieldOff,
-    ShieldCheck,
+    PushPin,
+    PushPinSlash,
+    ShieldSlash,
+    ShieldCheckered,
     X,
-    Loader2,
+    CircleNotch,
     FolderPlus,
-    Trash2,
-    Edit3,
-    FolderInput,
-    ArrowRightCircle,
+    Trash,
+    PencilSimpleLine,
+    FolderOpen,
+    ArrowCircleRight,
     Copy,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { RealmSwitcher } from './RealmSwitcher';
 import { SortableDock, DockDragOverlay } from './SortableDock';
 import { RealmModal } from './RealmModal';
@@ -821,7 +821,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             {
                 id: isPinned ? 'unpin' : 'pin',
                 label: isPinned ? 'Unpin Tab' : 'Pin Tab',
-                icon: isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />,
+                icon: isPinned ? <PushPinSlash className="h-4 w-4" /> : <PushPin className="h-4 w-4" />,
             },
             { id: 'divider-1', label: '', divider: true },
             {
@@ -852,7 +852,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                 items.push({
                     id: 'move-to-dock',
                     label: 'Move to Dock',
-                    icon: <FolderInput className="h-4 w-4" />,
+                    icon: <FolderOpen className="h-4 w-4" />,
                     submenu: dockSubmenu,
                 });
             }
@@ -871,7 +871,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                 items.push({
                     id: 'move-to-realm',
                     label: 'Move to Realm',
-                    icon: <ArrowRightCircle className="h-4 w-4" />,
+                    icon: <ArrowCircleRight className="h-4 w-4" />,
                     submenu: realmSubmenu,
                 });
             }
@@ -900,7 +900,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             {
                 id: 'edit',
                 label: 'Edit Dock',
-                icon: <Edit3 className="h-4 w-4" />,
+                icon: <PencilSimpleLine className="h-4 w-4" />,
             },
         ];
 
@@ -917,7 +917,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                 items.push({
                     id: 'move-to-realm',
                     label: 'Move to Realm',
-                    icon: <ArrowRightCircle className="h-4 w-4" />,
+                    icon: <ArrowCircleRight className="h-4 w-4" />,
                     submenu: realmSubmenu,
                 });
             }
@@ -928,7 +928,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             {
                 id: 'delete',
                 label: 'Delete Dock',
-                icon: <Trash2 className="h-4 w-4" />,
+                icon: <Trash className="h-4 w-4" />,
                 danger: true,
             }
         );
@@ -945,13 +945,13 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             {
                 id: 'edit',
                 label: 'Edit Realm',
-                icon: <Edit3 className="h-4 w-4" />,
+                icon: <PencilSimpleLine className="h-4 w-4" />,
             },
             { id: 'divider-1', label: '', divider: true },
             {
                 id: 'delete',
                 label: 'Delete Realm',
-                icon: <Trash2 className="h-4 w-4" />,
+                icon: <Trash className="h-4 w-4" />,
                 danger: true,
                 disabled: realms.length <= 1,
             },
@@ -1031,7 +1031,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                             )}
                             title={isPinned ? "Unpin (⌘\\)" : "Pin (⌘\\)"}
                         >
-                            {isPinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
+                            {isPinned ? <PushPinSlash className="h-4 w-4" /> : <PushPin className="h-4 w-4" />}
                         </button>
                     </header>
 
@@ -1067,8 +1067,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                         {/* Pinned Tabs Section */}
                         {pinnedTabs.length > 0 && (
                             <section>
-                                <h2 className="px-3 mb-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider flex items-center gap-1.5">
-                                    <Pin className="h-3 w-3" />
+                                <h2 className="px-3 mb-1 text-[10px] font-semibold text-white/30 uppercase tracking-widest">
                                     Pinned
                                 </h2>
                                 <ul className="space-y-0.5">
@@ -1078,30 +1077,30 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                                                 onClick={() => handleSwitchTab(tab.id)}
                                                 onContextMenu={(e) => handleTabContextMenu(e, tab)}
                                                 className={cn(
-                                                    "flex items-center w-full gap-3 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer",
-                                                    "transition-all duration-200 ease-smooth group",
+                                                    "flex items-center w-full gap-2 px-3 h-8 rounded-lg cursor-pointer select-none",
+                                                    "transition-all duration-150 ease-out group",
                                                     activeTabId === tab.id
-                                                        ? "bg-white/[0.08] text-text-primary border-l-2 border-brand"
-                                                        : "text-text-secondary hover:bg-white/[0.06] hover:text-text-primary"
+                                                        ? "bg-white/[0.07] border-l-2 border-brand text-text-primary pl-[10px]"
+                                                        : "text-text-tertiary hover:bg-white/[0.05] hover:text-text-secondary"
                                                 )}
                                             >
-                                                <div className="h-5 w-5 rounded shrink-0 flex items-center justify-center bg-white/[0.06] overflow-hidden">
+                                                <div className="h-3.5 w-3.5 shrink-0 flex items-center justify-center overflow-hidden">
                                                     {tab.isLoading ? (
-                                                        <Loader2 className="h-3 w-3 text-brand animate-spin" />
+                                                        <CircleNotch className="h-3 w-3 text-brand animate-spin" />
                                                     ) : getFaviconUrl(tab) ? (
                                                         <img
                                                             src={getFaviconUrl(tab)!}
                                                             alt=""
-                                                            className="h-4 w-4 object-contain"
+                                                            className="h-3.5 w-3.5 object-contain rounded-[2px]"
                                                         />
                                                     ) : (
                                                         <Globe className="h-3 w-3 text-text-tertiary" />
                                                     )}
                                                 </div>
-                                                <span className="truncate flex-1 text-left">
+                                                <span className="truncate flex-1 text-left text-[12.5px] font-medium leading-none">
                                                     {tab.title || 'New Tab'}
                                                 </span>
-                                                <Pin className="h-3 w-3 text-text-tertiary shrink-0" />
+                                                <PushPin weight="fill" className="h-2.5 w-2.5 text-brand/60 shrink-0" />
                                             </div>
                                         </li>
                                     ))}
@@ -1111,15 +1110,15 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
                         {/* Docks Section */}
                         {activeRealmDocks.length > 0 && (
-                            <section className="space-y-2">
+                            <section className="space-y-1.5">
                                 <div className="flex items-center justify-between px-3">
-                                    <h2 className="text-[11px] font-semibold text-white/40 uppercase tracking-wider">
-                                        Docks
+                                    <h2 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest">
+                                        Groups
                                     </h2>
                                     <button
                                         onClick={handleCreateDock}
                                         className="text-text-tertiary hover:text-brand transition-colors"
-                                        title="Create dock"
+                                        title="Create group"
                                     >
                                         <FolderPlus className="h-3.5 w-3.5" />
                                     </button>
@@ -1150,15 +1149,15 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
                         {/* Loose Tabs Section */}
                         <LooseTabsDropZone looseTabs={looseTabs} activeRealmDocks={activeRealmDocks}>
-                            <div className="flex items-center justify-between px-3 mb-2">
-                                <h2 className="text-[11px] font-semibold text-white/40 uppercase tracking-wider">
-                                    Tabs ({looseTabs.length})
+                            <div className="flex items-center justify-between px-3 mb-1">
+                                <h2 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest">
+                                    Tabs
                                 </h2>
                                 {activeRealmDocks.length === 0 && (
                                     <button
                                         onClick={handleCreateDock}
                                         className="text-text-tertiary hover:text-brand transition-colors"
-                                        title="Create dock"
+                                        title="Create group"
                                     >
                                         <FolderPlus className="h-3.5 w-3.5" />
                                     </button>
@@ -1236,9 +1235,9 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                             )}
                         >
                             {adBlockEnabled ? (
-                                <ShieldCheck className="h-[18px] w-[18px] shrink-0 text-success" />
+                                <ShieldCheckered className="h-[18px] w-[18px] shrink-0 text-success" />
                             ) : (
-                                <ShieldOff className="h-[18px] w-[18px] shrink-0" />
+                                <ShieldSlash className="h-[18px] w-[18px] shrink-0" />
                             )}
                             <span className="font-semibold">{adBlockEnabled ? "Shields UP" : "Shields DOWN"}</span>
                             <span className={cn(
@@ -1264,7 +1263,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                             onClick={() => window.electron?.navigation.navigate('anthracite://settings')}
                             className="flex items-center w-full gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-text-secondary hover:bg-white/[0.06] hover:text-text-primary transition-all duration-200"
                         >
-                            <Settings className="h-[18px] w-[18px] shrink-0" />
+                            <GearSix className="h-[18px] w-[18px] shrink-0" />
                             <span>Settings</span>
                         </button>
                     </footer>

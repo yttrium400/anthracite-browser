@@ -3,10 +3,10 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { cn } from '../lib/utils';
 import {
-    ChevronDown,
-    ChevronRight,
+    CaretDown,
+    CaretRight,
     Plus,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { getIconComponent } from './IconPicker';
 import { SortableTab } from './SortableTab';
 import type { Dock as DockType, ThemeColor } from '../../shared/types';
@@ -124,9 +124,9 @@ export function Dock({
                 {/* Collapse icon */}
                 <span className={cn("transition-transform duration-200", textColor)}>
                     {dock.isCollapsed ? (
-                        <ChevronRight className="h-4 w-4" />
+                        <CaretRight className="h-4 w-4" />
                     ) : (
-                        <ChevronDown className="h-4 w-4" />
+                        <CaretDown className="h-4 w-4" />
                     )}
                 </span>
 

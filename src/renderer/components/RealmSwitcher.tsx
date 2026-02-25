@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { cn } from '../lib/utils';
 import {
     Plus,
-    ChevronLeft,
-    ChevronRight,
-} from 'lucide-react';
+    CaretLeft,
+    CaretRight,
+} from '@phosphor-icons/react';
 import { getIconComponent } from './IconPicker';
 import type { Realm, ThemeColor, IconName } from '../../shared/types';
 
@@ -131,7 +131,7 @@ export function RealmSwitcher({
                     onClick={() => scroll('left')}
                     className="absolute left-0 z-10 h-8 w-8 flex items-center justify-center bg-gradient-to-r from-[#111113] via-[#111113] to-transparent"
                 >
-                    <ChevronLeft className="h-4 w-4 text-text-secondary" />
+                    <CaretLeft className="h-4 w-4 text-text-secondary" />
                 </button>
             )}
 
@@ -195,7 +195,7 @@ export function RealmSwitcher({
                     onClick={() => scroll('right')}
                     className="absolute right-0 z-10 h-8 w-8 flex items-center justify-center bg-gradient-to-l from-[#111113] via-[#111113] to-transparent"
                 >
-                    <ChevronRight className="h-4 w-4 text-text-secondary" />
+                    <CaretRight className="h-4 w-4 text-text-secondary" />
                 </button>
             )}
         </div>

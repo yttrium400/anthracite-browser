@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '../lib/utils';
-import { Check } from 'lucide-react';
+import { Check } from '@phosphor-icons/react';
 import type { ThemeColor } from '../../shared/types';
 
 // Color definitions with Tailwind classes

@@ -5,25 +5,25 @@ import {
     Globe,
     Palette,
     Lock,
-    Layout,
+    AppWindow,
     Code,
-    ChevronLeft,
-    RotateCcw,
+    CaretLeft,
+    ArrowCounterClockwise,
     Check,
-    Search,
+    MagnifyingGlass,
     UserCircle,
-    LogOut,
-    RefreshCw,
+    SignOut,
+    ArrowsClockwise,
     CreditCard,
-    Zap,
-    CheckCircle2,
-    User2,
-    Mail,
-    Github,
-    Loader2,
-    BadgeCheck,
-    ExternalLink,
-} from 'lucide-react';
+    Lightning,
+    CheckCircle,
+    User,
+    Envelope,
+    GithubLogo,
+    CircleNotch,
+    SealCheck,
+    ArrowSquareOut,
+} from '@phosphor-icons/react';
 
 interface AppSettings {
     adBlockerEnabled: boolean;
@@ -395,13 +395,13 @@ export function SettingsPage({ className }: SettingsPageProps) {
     }
 
     const sections: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
-        { id: 'account', label: 'My Account', icon: User2 },
+        { id: 'account', label: 'My Account', icon: User },
         { id: 'subscription', label: 'Plan & Billing', icon: CreditCard },
         { id: 'accounts', label: 'Connected Accounts', icon: UserCircle },
         { id: 'browser', label: 'Browser', icon: Globe },
         { id: 'appearance', label: 'Appearance', icon: Palette },
         { id: 'privacy', label: 'Privacy & Security', icon: Lock },
-        { id: 'tabs', label: 'Tabs & Navigation', icon: Layout },
+        { id: 'tabs', label: 'Tabs & Navigation', icon: AppWindow },
         { id: 'developer', label: 'Developer', icon: Code },
     ];
 
@@ -416,7 +416,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                     onClick={handleBack}
                     className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary mb-6 transition-colors"
                 >
-                    <ChevronLeft className="h-4 w-4" />
+                    <CaretLeft className="h-4 w-4" />
                     Back
                 </button>
 
@@ -445,7 +445,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                     onClick={handleReset}
                     className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-error hover:bg-error/5 rounded-lg transition-colors"
                 >
-                    <RotateCcw className="h-4 w-4" />
+                    <ArrowCounterClockwise className="h-4 w-4" />
                     Reset All
                 </button>
             </nav>
@@ -457,7 +457,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                     {activeSection === 'account' && (
                         <section>
                             <SectionHeader
-                                icon={User2}
+                                icon={User}
                                 title="My Account"
                                 description="Manage your Anthracite account and sign-in options."
                             />
@@ -474,7 +474,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                             />
                                         ) : (
                                             <div className="h-14 w-14 rounded-full bg-brand/20 flex items-center justify-center">
-                                                <User2 className="h-7 w-7 text-brand-light" />
+                                                <User className="h-7 w-7 text-brand-light" />
                                             </div>
                                         )}
                                         <div className="flex-1 min-w-0">
@@ -489,7 +489,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                             <div className="mt-1.5 flex items-center gap-1.5">
                                                 {authUser.plan === 'pro' ? (
                                                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-400">
-                                                        <BadgeCheck className="h-3 w-3" />
+                                                        <SealCheck className="h-3 w-3" />
                                                         Pro
                                                     </span>
                                                 ) : (
@@ -507,7 +507,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                         }}
                                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-error bg-error/5 hover:bg-error/10 border border-error/20 transition-colors"
                                     >
-                                        <LogOut className="h-4 w-4" />
+                                        <SignOut className="h-4 w-4" />
                                         Sign out
                                     </button>
                                 </div>
@@ -533,7 +533,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                             onClick={() => (window.electron as any)?.auth?.signInWithOAuth('github')}
                                             className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-text-secondary hover:bg-white/[0.08] hover:text-text-primary transition-colors"
                                         >
-                                            <Github className="h-4 w-4" />
+                                            <GithubLogo className="h-4 w-4" />
                                             Continue with GitHub
                                         </button>
                                     </div>
@@ -571,9 +571,9 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-brand text-white hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                             >
                                                 {emailSending ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    <CircleNotch className="h-4 w-4 animate-spin" />
                                                 ) : (
-                                                    <Mail className="h-4 w-4" />
+                                                    <Envelope className="h-4 w-4" />
                                                 )}
                                                 <span>Send code</span>
                                             </button>
@@ -616,7 +616,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                                     }}
                                                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-brand text-white hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                                 >
-                                                    {otpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                                    {otpVerifying ? <CircleNotch className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                                     <span>Verify</span>
                                                 </button>
                                             </div>
@@ -656,14 +656,14 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                     disabled={accountsLoading}
                                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.08] rounded-lg transition-colors disabled:opacity-50"
                                 >
-                                    <RefreshCw className={cn("h-3.5 w-3.5", accountsLoading && "animate-spin")} />
+                                    <ArrowsClockwise className={cn("h-3.5 w-3.5", accountsLoading && "animate-spin")} />
                                     Refresh
                                 </button>
                             </div>
 
                             {accountsLoading ? (
                                 <div className="flex items-center justify-center py-12 text-text-tertiary">
-                                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                                    <ArrowsClockwise className="h-5 w-5 animate-spin mr-2" />
                                     <span className="text-sm">Scanning for logged-in accounts...</span>
                                 </div>
                             ) : connectedAccounts.length === 0 ? (
@@ -709,7 +709,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                                 title={`Disconnect ${account.service}`}
                                                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-text-tertiary hover:text-error hover:bg-error/5 rounded-lg transition-colors shrink-0"
                                             >
-                                                <LogOut className="h-3.5 w-3.5" />
+                                                <SignOut className="h-3.5 w-3.5" />
                                                 Disconnect
                                             </button>
                                         </div>
@@ -1032,7 +1032,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                     {activeSection === 'tabs' && (
                         <section>
                             <SectionHeader
-                                icon={Layout}
+                                icon={AppWindow}
                                 title="Tabs & Navigation"
                                 description="Configure tab behavior and navigation"
                             />
@@ -1103,7 +1103,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                         'Local Ollama models',
                                     ].map(f => (
                                         <li key={f} className="flex items-start gap-2 text-sm text-text-secondary">
-                                            <CheckCircle2 className="h-4 w-4 text-brand shrink-0 mt-0.5" />
+                                            <CheckCircle className="h-4 w-4 text-brand shrink-0 mt-0.5" />
                                             {f}
                                         </li>
                                     ))}
@@ -1119,7 +1119,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                         <div>
                                             <div className="flex items-center gap-2.5 mb-1.5">
                                                 <span className="text-xl font-bold text-text-primary flex items-center gap-2">
-                                                    <Zap className="h-5 w-5 text-amber-400" />
+                                                    <Lightning className="h-5 w-5 text-amber-400" />
                                                     Pro
                                                 </span>
                                                 <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">Coming soon</span>
@@ -1140,7 +1140,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                             'Priority support',
                                         ].map(f => (
                                             <li key={f} className="flex items-start gap-2 text-sm text-text-secondary">
-                                                <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                                                <CheckCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                                                 {f}
                                             </li>
                                         ))}

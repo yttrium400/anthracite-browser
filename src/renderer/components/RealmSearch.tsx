@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '../lib/utils';
-import { Search, Globe, X, Loader2 } from 'lucide-react';
+import { MagnifyingGlass, Globe, X, CircleNotch } from '@phosphor-icons/react';
 import { getIconComponent } from './IconPicker';
 import type { Realm, Dock as DockType, ThemeColor } from '../../shared/types';
 
@@ -245,7 +245,7 @@ export function RealmSearch({ isOpen, onClose }: RealmSearchProps) {
                 >
                     {/* Search Input */}
                     <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
-                        <Search className="h-5 w-5 text-text-tertiary shrink-0" />
+                        <MagnifyingGlass className="h-5 w-5 text-text-tertiary shrink-0" />
                         <input
                             ref={inputRef}
                             type="text"
@@ -274,7 +274,7 @@ export function RealmSearch({ isOpen, onClose }: RealmSearchProps) {
                     >
                         {isLoading ? (
                             <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-6 w-6 text-brand animate-spin" />
+                                <CircleNotch className="h-6 w-6 text-brand animate-spin" />
                             </div>
                         ) : results.length === 0 ? (
                             <div className="px-4 py-8 text-center text-text-tertiary">
@@ -297,7 +297,7 @@ export function RealmSearch({ isOpen, onClose }: RealmSearchProps) {
                                     {/* Favicon */}
                                     <div className="h-8 w-8 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0 overflow-hidden">
                                         {result.isLoading ? (
-                                            <Loader2 className="h-4 w-4 text-brand animate-spin" />
+                                            <CircleNotch className="h-4 w-4 text-brand animate-spin" />
                                         ) : getFaviconUrl(result) ? (
                                             <img
                                                 src={getFaviconUrl(result)!}
