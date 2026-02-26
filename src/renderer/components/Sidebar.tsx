@@ -33,6 +33,8 @@ import {
     PencilSimpleLine,
     ArrowCircleRight,
     Copy,
+    CaretDown,
+    ClockCounterClockwise,
 } from '@phosphor-icons/react';
 import { RealmSwitcher } from './RealmSwitcher';
 import { RealmModal } from './RealmModal';
@@ -59,6 +61,7 @@ interface Tab {
     url: string;
     favicon: string;
     isLoading: boolean;
+    isArchived?: boolean;
     realmId?: string;
     dockId?: string | null;
     order?: number;
@@ -118,6 +121,9 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
     // Modal state
     const [showRealmModal, setShowRealmModal] = useState(false);
     const [editingRealm, setEditingRealm] = useState<Realm | null>(null);
+
+    // Earlier (archived) section state
+    const [showEarlier, setShowEarlier] = useState(false);
 
     // Context menu state
     const tabContextMenu = useContextMenu();
@@ -515,12 +521,15 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
 
     // Get all unpinned tabs (regardless of dock assignment — docks are hidden in this UI)
-    const looseTabs = activeRealmTabs
+    const allLooseTabs = activeRealmTabs
         .filter(tab => {
             const org = tabOrganizations[tab.id];
             return !org?.isPinned;
         })
         .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
+
+    const looseTabs = allLooseTabs.filter(t => !t.isArchived);
+    const archivedTabs = allLooseTabs.filter(t => t.isArchived);
 
     // Current realm
     const currentRealm = realms.find(r => r.id === activeRealmId);
@@ -807,6 +816,67 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                                 </div>
                             )}
                         </LooseTabsDropZone>
+
+                        {/* Earlier (Archived) Tabs Section */}
+                        {archivedTabs.length > 0 && (
+                            <div className="mt-1">
+                                <button
+                                    onClick={() => setShowEarlier(p => !p)}
+                                    className="flex items-center gap-1.5 w-full px-3 py-1.5 text-[10px] font-semibold text-white/30 uppercase tracking-widest hover:text-white/50 transition-colors"
+                                >
+                                    <ClockCounterClockwise className="h-3 w-3" />
+                                    Earlier
+                                    <span className="ml-1 text-[9px] bg-white/[0.06] px-1.5 py-0.5 rounded-full">
+                                        {archivedTabs.length}
+                                    </span>
+                                    <CaretDown className={cn(
+                                        "h-2.5 w-2.5 ml-auto transition-transform duration-200",
+                                        showEarlier && "rotate-180"
+                                    )} />
+                                </button>
+                                <AnimatePresence>
+                                    {showEarlier && (
+                                        <motion.ul
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.18 }}
+                                            className="overflow-hidden space-y-0.5 px-2"
+                                        >
+                                            {archivedTabs.map(tab => (
+                                                <li key={tab.id}>
+                                                    <button
+                                                        onClick={async () => {
+                                                            await window.electron?.tabs.unarchive(tab.id);
+                                                            window.electron?.tabs.switch(tab.id);
+                                                        }}
+                                                        className="flex items-center gap-2 w-full px-3 h-8 rounded-lg text-text-tertiary hover:bg-white/[0.05] hover:text-text-secondary transition-colors"
+                                                    >
+                                                        <div className="h-3.5 w-3.5 shrink-0 flex items-center justify-center">
+                                                            {tab.favicon ? (
+                                                                <img src={tab.favicon} alt="" className="h-3.5 w-3.5 object-contain rounded-[2px]" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                            ) : (
+                                                                <Globe className="h-3 w-3" />
+                                                            )}
+                                                        </div>
+                                                        <span className="truncate flex-1 text-left text-[12px] font-medium leading-none opacity-60">
+                                                            {tab.title || 'Untitled'}
+                                                        </span>
+                                                        <button
+                                                            onClick={e => { e.stopPropagation(); window.electron?.tabs.close(tab.id); }}
+                                                            onMouseDown={e => e.stopPropagation()}
+                                                            className="h-4 w-4 rounded flex items-center justify-center shrink-0 opacity-0 hover:!opacity-100 hover:bg-white/[0.12] transition-all group-hover:opacity-40"
+                                                        >
+                                                            <X className="h-2.5 w-2.5" />
+                                                        </button>
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </motion.ul>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        )}
                     </nav>
 
                     {/* Realm Switcher */}

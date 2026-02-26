@@ -33,6 +33,7 @@ interface Tab {
     title: string;
     favicon: string;
     isLoading: boolean;
+    isArchived?: boolean;
     canGoBack: boolean;
     canGoForward: boolean;
 }

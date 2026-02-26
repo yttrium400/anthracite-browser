@@ -10,6 +10,7 @@ interface TabInfo {
     url: string
     favicon: string
     isLoading: boolean
+    isArchived?: boolean
 }
 
 interface ActiveTabInfo extends TabInfo {
@@ -41,6 +42,8 @@ contextBridge.exposeInMainWorld('electron', {
         getAll: () => ipcRenderer.invoke('get-tabs'),
         getActive: () => ipcRenderer.invoke('get-active-tab'),
         update: (tabId: string, data: Partial<TabInfo>) => ipcRenderer.invoke('update-tab-state', { tabId, state: data }),
+        archive: (tabId: string) => ipcRenderer.invoke('archive-tab', tabId),
+        unarchive: (tabId: string) => ipcRenderer.invoke('unarchive-tab', tabId),
 
         // Event listeners
         onTabsUpdated: (callback: (tabs: TabInfo[]) => void) => {
@@ -343,6 +346,8 @@ declare global {
                 getAll: () => Promise<TabInfo[]>
                 getActive: () => Promise<ActiveTabInfo | null>
                 update: (tabId: string, data: Partial<TabInfo>) => Promise<{ success: boolean }>
+                archive: (tabId: string) => Promise<{ success: boolean }>
+                unarchive: (tabId: string) => Promise<{ success: boolean }>
                 onTabsUpdated: (callback: (tabs: TabInfo[]) => void) => () => void
                 onTabUpdated: (callback: (tab: TabInfo) => void) => () => void
                 onActiveTabChanged: (callback: (tab: ActiveTabInfo | null) => void) => () => void

@@ -254,6 +254,9 @@ interface Tab {
     url: string
     favicon: string
     isLoading: boolean
+    lastAccessedAt?: number   // ms timestamp — updated on switchToTab
+    isArchived?: boolean      // hidden in 'Earlier' section after inactivity
+    originalUrl?: string      // set on first real navigation for pinned nav-lock
 }
 
 // ============================================
@@ -447,6 +450,31 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
             // Skip all about: navigations; real URL updates come from the webview in renderer.
             if (url.startsWith('about:')) return
 
+            // ── Pinned tab navigation lock (22.3) ──────────────────────────
+            // If this tab is pinned, only allow navigation within the original domain.
+            // External domain navigations get redirected to a new unpinned tab.
+            const org = getTabOrganization(id)
+            if (org?.isPinned && currentTab.originalUrl && !url.startsWith('anthracite://')) {
+                try {
+                    const originalHost = new URL(currentTab.originalUrl).hostname
+                    const newHost = new URL(url).hostname
+                    if (newHost !== originalHost) {
+                        // Revert the pinned tab to its original URL
+                        view.webContents.goBack()
+                        // Open the external URL in a new unpinned tab
+                        const newTab = createTab(url)
+                        switchToTab(newTab.id)
+                        sendTabsUpdate()
+                        return
+                    }
+                } catch { /* URL parse failure — allow navigation */ }
+            }
+
+            // Record original URL on first real navigation (used for nav-lock above)
+            if (!currentTab.originalUrl && !url.startsWith('anthracite://') && !url.startsWith('about:')) {
+                currentTab.originalUrl = url
+            }
+
             currentTab.url = url
             sendActiveTabUpdate()
             sendTabsUpdate()
@@ -572,6 +600,14 @@ function switchToTab(tabId: string): void {
     // Just update active tab - webview in renderer handles display
     activeTabId = tabId
 
+    // Track access time for auto-archive
+    tab.lastAccessedAt = Date.now()
+    // Un-archive when user opens the tab
+    if (tab.isArchived) {
+        tab.isArchived = false
+        sendTabsUpdate()
+    }
+
     // Send updates to renderer
     sendActiveTabUpdate()
     sendTabUpdate(tab)
@@ -624,6 +660,30 @@ function navigateTab(tabId: string, url: string): void {
 }
 
 // ============================================
+// Auto-Archive: unpinned tabs inactive > 12h
+// ============================================
+
+const ARCHIVE_AFTER_MS = 12 * 60 * 60 * 1000 // 12 hours
+
+function runAutoArchive(): void {
+    const now = Date.now()
+    let changed = false
+    for (const [tabId, tab] of tabs) {
+        if (tab.isArchived) continue
+        if (tabId === activeTabId) continue
+        const org = getTabOrganization(tabId)
+        if (!org || org.isPinned) continue
+        if (tab.url.startsWith('anthracite://') || tab.url.startsWith('about:')) continue
+        const lastAccess = tab.lastAccessedAt ?? 0
+        if (lastAccess > 0 && now - lastAccess > ARCHIVE_AFTER_MS) {
+            tab.isArchived = true
+            changed = true
+        }
+    }
+    if (changed) sendTabsUpdate()
+}
+
+// ============================================
 // IPC Communication
 // ============================================
 
@@ -636,6 +696,7 @@ function sendTabUpdate(tab: Tab): void {
         url: tab.url,
         favicon: tab.favicon,
         isLoading: tab.isLoading,
+        isArchived: tab.isArchived ?? false,
         realmId: org?.realmId,
         dockId: org?.dockId,
         order: org?.order,
@@ -653,6 +714,7 @@ function sendTabsUpdate(): void {
             url: tab.url,
             favicon: tab.favicon,
             isLoading: tab.isLoading,
+            isArchived: tab.isArchived ?? false,
             realmId: org?.realmId,
             dockId: org?.dockId,
             order: org?.order,
@@ -1417,6 +1479,24 @@ function setupIPC(): void {
         }
     })
 
+    // ── Tab archive / unarchive ──────────────────────────────────────────────
+    ipcMain.handle('archive-tab', (_event, tabId: string) => {
+        const tab = tabs.get(tabId)
+        if (!tab) return { success: false }
+        tab.isArchived = true
+        sendTabsUpdate()
+        return { success: true }
+    })
+
+    ipcMain.handle('unarchive-tab', (_event, tabId: string) => {
+        const tab = tabs.get(tabId)
+        if (!tab) return { success: false }
+        tab.isArchived = false
+        tab.lastAccessedAt = Date.now()
+        sendTabsUpdate()
+        return { success: true }
+    })
+
     // ── Open external URL in system browser ──────────────────────────────────
     ipcMain.handle('open-external-url', async (_event, url: string) => {
         if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
@@ -1760,4 +1840,7 @@ app.whenReady().then(async () => {
     await initAdBlocker()
     startPythonBackend()
     createWindow()
+
+    // Run auto-archive check every 30 minutes
+    setInterval(runAutoArchive, 30 * 60 * 1000)
 })
