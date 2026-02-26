@@ -7,6 +7,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { RealmSearch } from './components/RealmSearch';
 import { SwipeNavigator, type SwipeNavigatorHandle } from './components/SwipeNavigator';
 import { AgentPanel, type AgentStatus, type AgentStep } from './components/AgentPanel';
+import { CommandPalette } from './components/CommandPalette';
 import { useAdaptiveTheme } from './hooks/useAdaptiveTheme';
 import { cn } from './lib/utils';
 
@@ -174,6 +175,8 @@ function App() {
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const [webviewPreloadPath, setWebviewPreloadPath] = useState<string>('');
     const [showRealmSearch, setShowRealmSearch] = useState(false);
+    const [showCommandPalette, setShowCommandPalette] = useState(false);
+    const [adBlockEnabled, setAdBlockEnabled] = useState(true);
 
     // Agent state
     const [agentStatus, setAgentStatus] = useState<AgentStatus>('idle');
@@ -257,12 +260,16 @@ function App() {
     // Adaptive brand color — shifts accent to match the active site's palette
     useAdaptiveTheme(activeTab?.url);
 
-    // ... existing keyboard shortcut ...
+    // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 setShowRealmSearch(prev => !prev);
+            }
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setShowCommandPalette(prev => !prev);
             }
         };
 
@@ -279,6 +286,14 @@ function App() {
                 if (path) {
                     setWebviewPreloadPath(`file://${path}`);
                 }
+            });
+
+            // Sync adBlock status for command palette
+            window.electron.adBlock?.getStatus().then((s: any) => {
+                if (s) setAdBlockEnabled(s.enabled);
+            });
+            window.electron.adBlock?.onStatusChange((s: any) => {
+                setAdBlockEnabled(s.enabled);
             });
 
             // Get initial tabs
@@ -775,6 +790,30 @@ function App() {
             <RealmSearch
                 isOpen={showRealmSearch}
                 onClose={() => setShowRealmSearch(false)}
+            />
+
+            {/* Command Palette */}
+            <CommandPalette
+                isOpen={showCommandPalette}
+                onClose={() => setShowCommandPalette(false)}
+                tabs={tabs}
+                activeTabId={activeTabId}
+                canGoBack={activeTab?.canGoBack || (!!activeTabId && !isHomePage && tabsWithWebview.has(activeTabId))}
+                canGoForward={activeTab?.canGoForward || (isHomePage && !!activeTabId && tabsWithWebview.has(activeTabId))}
+                isSidebarPinned={isSidebarPinned}
+                adBlockEnabled={adBlockEnabled}
+                onNewTab={() => window.electron?.tabs.create()}
+                onCloseTab={(tabId) => window.electron?.tabs.close(tabId)}
+                onSwitchTab={(tabId) => window.electron?.tabs.switch(tabId)}
+                onBack={handleBack}
+                onForward={handleForward}
+                onReload={handleReload}
+                onNavigate={handleNavigate}
+                onToggleSidebarPin={() => setIsSidebarPinned(p => !p)}
+                onToggleAdBlock={async () => {
+                    const result = await window.electron?.adBlock.toggle(!adBlockEnabled);
+                    if (result) setAdBlockEnabled(result.enabled);
+                }}
             />
 
             {/* Agent Activity Panel */}
