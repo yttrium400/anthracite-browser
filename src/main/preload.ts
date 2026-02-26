@@ -281,6 +281,14 @@ contextBridge.exposeInMainWorld('electron', {
         complete: () => ipcRenderer.invoke('onboarding-complete'),
     },
 
+    // Saved workflows — reusable agent task templates
+    workflows: {
+        save: (name: string, instruction: string) => ipcRenderer.invoke('workflow-save', name, instruction),
+        getAll: () => ipcRenderer.invoke('workflow-get-all'),
+        delete: (id: number) => ipcRenderer.invoke('workflow-delete', id),
+        touch: (id: number) => ipcRenderer.invoke('workflow-touch', id),
+    },
+
     // Agent memory — user profile for personalised agent runs
     agentMemory: {
         get: () => ipcRenderer.invoke('agent-memory-get'),
@@ -486,6 +494,15 @@ declare global {
             onboarding: {
                 isFirstRun: () => Promise<boolean>
                 complete: () => Promise<{ success: boolean }>
+            }
+            workflows: {
+                save: (name: string, instruction: string) => Promise<{ success: boolean; id: number }>
+                getAll: () => Promise<Array<{
+                    id: number; name: string; instruction: string;
+                    createdAt: number; lastRunAt: number | null;
+                }>>
+                delete: (id: number) => Promise<{ success: boolean }>
+                touch: (id: number) => Promise<{ success: boolean }>
             }
             agentMemory: {
                 get: () => Promise<{

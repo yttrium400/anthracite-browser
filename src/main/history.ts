@@ -89,6 +89,15 @@ function getDatabase(): Database.Database {
         );
 
         CREATE INDEX IF NOT EXISTS idx_agent_tasks_completed ON agent_tasks(completed_at DESC);
+
+        -- Saved agent workflows
+        CREATE TABLE IF NOT EXISTS saved_workflows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            instruction TEXT NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+            last_run_at INTEGER
+        );
     `)
 
     return db
@@ -372,6 +381,65 @@ export function clearAgentTasks(): void {
         database.prepare(`DELETE FROM agent_tasks`).run()
     } catch (err) {
         console.error('Failed to clear agent tasks:', err)
+    }
+}
+
+// ============================================
+// Saved Workflows
+// ============================================
+
+export interface SavedWorkflow {
+    id: number
+    name: string
+    instruction: string
+    createdAt: number
+    lastRunAt: number | null
+}
+
+export function saveWorkflow(name: string, instruction: string): number {
+    const database = getDatabase()
+    try {
+        const result = database.prepare(`
+            INSERT INTO saved_workflows (name, instruction, created_at)
+            VALUES (?, ?, ?)
+        `).run(name, instruction, Date.now())
+        return result.lastInsertRowid as number
+    } catch (err) {
+        console.error('Failed to save workflow:', err)
+        return -1
+    }
+}
+
+export function getWorkflows(): SavedWorkflow[] {
+    const database = getDatabase()
+    try {
+        const rows = database.prepare(`
+            SELECT id, name, instruction, created_at as createdAt, last_run_at as lastRunAt
+            FROM saved_workflows
+            ORDER BY created_at DESC
+        `).all() as SavedWorkflow[]
+        return rows
+    } catch (err) {
+        console.error('Failed to get workflows:', err)
+        return []
+    }
+}
+
+export function deleteWorkflow(id: number): void {
+    const database = getDatabase()
+    try {
+        database.prepare(`DELETE FROM saved_workflows WHERE id = ?`).run(id)
+    } catch (err) {
+        console.error('Failed to delete workflow:', err)
+    }
+}
+
+export function touchWorkflow(id: number): void {
+    const database = getDatabase()
+    try {
+        database.prepare(`UPDATE saved_workflows SET last_run_at = ? WHERE id = ?`).run(Date.now(), id)
+    } catch (err) {
+        console.error('Failed to touch workflow:', err)
     }
 }
 

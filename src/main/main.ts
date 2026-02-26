@@ -190,6 +190,10 @@ import {
     saveAgentTask,
     getAgentTasks,
     clearAgentTasks,
+    saveWorkflow,
+    getWorkflows,
+    deleteWorkflow,
+    touchWorkflow,
 } from './history'
 import { detectBrowsers, importBrowserHistory, importChromiumBookmarks } from './importer'
 import { loadAgentMemory, saveAgentMemory, buildMemoryPrompt } from './agent-memory'
@@ -1192,6 +1196,26 @@ function setupIPC(): void {
 
     ipcMain.handle('agent-history-clear', () => {
         clearAgentTasks()
+        return { success: true }
+    })
+
+    // ── Saved Workflows ───────────────────────────────────────────────────────
+    ipcMain.handle('workflow-save', (_event, name: string, instruction: string) => {
+        const id = saveWorkflow(name, instruction)
+        return { success: id >= 0, id }
+    })
+
+    ipcMain.handle('workflow-get-all', () => {
+        return getWorkflows()
+    })
+
+    ipcMain.handle('workflow-delete', (_event, id: number) => {
+        deleteWorkflow(id)
+        return { success: true }
+    })
+
+    ipcMain.handle('workflow-touch', (_event, id: number) => {
+        touchWorkflow(id)
         return { success: true }
     })
 

@@ -65,7 +65,7 @@ interface SettingsPageProps {
     className?: string;
 }
 
-type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history' | 'import' | 'agent-profile';
+type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history' | 'import' | 'agent-profile' | 'workflows';
 
 interface AuthUserPublic {
     id: string;
@@ -227,6 +227,12 @@ export function SettingsPage({ className }: SettingsPageProps) {
     const [agentTasksLoading, setAgentTasksLoading] = useState(false);
     const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
 
+    // Saved workflows
+    const [workflows, setWorkflows] = useState<Array<{
+        id: number; name: string; instruction: string; createdAt: number; lastRunAt: number | null;
+    }>>([]);
+    const [workflowsLoading, setWorkflowsLoading] = useState(false);
+
     // Agent memory / user profile
     const [agentMemory, setAgentMemory] = useState<{
         userName: string;
@@ -342,6 +348,13 @@ export function SettingsPage({ className }: SettingsPageProps) {
         if (activeSection === 'agent-history') {
             loadAgentTasks();
         }
+        if (activeSection === 'workflows') {
+            setWorkflowsLoading(true);
+            (window.electron as any)?.workflows?.getAll().then((wfs: any[]) => {
+                setWorkflows(wfs || []);
+                setWorkflowsLoading(false);
+            }).catch(() => setWorkflowsLoading(false));
+        }
         if (activeSection === 'agent-profile' && !agentMemory) {
             (window.electron as any)?.agentMemory?.get().then((mem: any) => {
                 setAgentMemory(mem);
@@ -452,6 +465,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
         { id: 'accounts', label: 'Connected Accounts', icon: UserCircle },
         { id: 'agent-history', label: 'Task History', icon: Robot },
         { id: 'agent-profile', label: 'Agent Profile', icon: Robot },
+        { id: 'workflows', label: 'Saved Workflows', icon: Play },
         { id: 'import', label: 'Import Data', icon: DownloadSimple },
         { id: 'browser', label: 'Browser', icon: Globe },
         { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -1715,6 +1729,66 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                             </span>
                                         )}
                                     </div>
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {/* Saved Workflows Section */}
+                    {activeSection === 'workflows' && (
+                        <section>
+                            <SectionHeader
+                                icon={Play}
+                                title="Saved Workflows"
+                                description="Reusable agent tasks you can run with one click. Save any completed task from the Agent Panel."
+                            />
+
+                            {workflowsLoading ? (
+                                <div className="flex items-center gap-2 text-text-muted text-xs py-8 justify-center">
+                                    <Spinner className="h-4 w-4 animate-spin" />
+                                    Loading workflows…
+                                </div>
+                            ) : workflows.length === 0 ? (
+                                <div className="flex flex-col items-center py-12 text-center">
+                                    <Play className="h-8 w-8 text-text-muted mb-3" weight="duotone" />
+                                    <p className="text-sm text-text-secondary">No saved workflows yet.</p>
+                                    <p className="text-xs text-text-muted mt-1">Run an agent task and click "Save as workflow" to add one.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {workflows.map(wf => (
+                                        <div key={wf.id} className="flex items-start gap-3 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06] hover:border-white/[0.1] transition-colors group">
+                                            <Play className="h-4 w-4 text-brand shrink-0 mt-0.5" weight="fill" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-text-primary font-medium truncate">{wf.name}</p>
+                                                <p className="text-xs text-text-muted mt-0.5">
+                                                    {wf.lastRunAt
+                                                        ? `Last run ${new Date(wf.lastRunAt).toLocaleDateString()}`
+                                                        : `Saved ${new Date(wf.createdAt).toLocaleDateString()}`}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                <button
+                                                    onClick={() => {
+                                                        localStorage.setItem('settings-pending-section', 'none');
+                                                        window.dispatchEvent(new CustomEvent('run-workflow', { detail: { instruction: wf.instruction } }));
+                                                    }}
+                                                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-brand bg-brand/10 hover:bg-brand/20 transition-colors"
+                                                >
+                                                    Run
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        await (window.electron as any)?.workflows?.delete(wf.id);
+                                                        setWorkflows(prev => prev.filter(w => w.id !== wf.id));
+                                                    }}
+                                                    className="p-1 rounded-lg text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                                                >
+                                                    <Trash className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </section>

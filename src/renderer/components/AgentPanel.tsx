@@ -17,6 +17,7 @@ import {
     Warning,
     LockKey,
     ArrowsClockwise,
+    FloppyDisk,
 } from '@phosphor-icons/react';
 
 export type AgentStatus = 'idle' | 'thinking' | 'running' | 'done' | 'error' | 'stopped' | 'auth';
@@ -129,6 +130,7 @@ export function AgentPanel({
     onFollowUp,
 }: AgentPanelProps) {
     const [followUp, setFollowUp] = useState('');
+    const [workflowSaved, setWorkflowSaved] = useState(false);
     const stepsEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -139,10 +141,13 @@ export function AgentPanel({
         }
     }, [steps.length]);
 
-    // Focus follow-up input when done
+    // Focus follow-up input when done; reset workflow saved flag on new run
     useEffect(() => {
         if (status === 'done' || status === 'stopped') {
             setTimeout(() => inputRef.current?.focus(), 300);
+        }
+        if (status === 'thinking' || status === 'running') {
+            setWorkflowSaved(false);
         }
     }, [status]);
 
@@ -309,28 +314,47 @@ export function AgentPanel({
 
                         {/* Follow-up input — when done */}
                         {isDone && (
-                            <form onSubmit={handleFollowUp} className="flex items-center gap-2">
-                                <input
-                                    ref={inputRef}
-                                    value={followUp}
-                                    onChange={e => setFollowUp(e.target.value)}
-                                    placeholder="Follow up..."
-                                    className={cn(
-                                        'flex-1 h-9 px-3 rounded-xl text-sm',
-                                        'bg-white/[0.05] border border-white/[0.08]',
-                                        'text-text-primary placeholder:text-text-tertiary',
-                                        'focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/30',
-                                        'transition-all duration-150'
-                                    )}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!followUp.trim()}
-                                    className="btn-icon h-9 w-9 bg-brand/10 hover:bg-brand/20 text-brand disabled:opacity-30 disabled:hover:bg-brand/10"
-                                >
-                                    <PaperPlaneTilt className="h-4 w-4" weight="fill" />
-                                </button>
-                            </form>
+                            <>
+                                <form onSubmit={handleFollowUp} className="flex items-center gap-2">
+                                    <input
+                                        ref={inputRef}
+                                        value={followUp}
+                                        onChange={e => setFollowUp(e.target.value)}
+                                        placeholder="Follow up..."
+                                        className={cn(
+                                            'flex-1 h-9 px-3 rounded-xl text-sm',
+                                            'bg-white/[0.05] border border-white/[0.08]',
+                                            'text-text-primary placeholder:text-text-tertiary',
+                                            'focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/30',
+                                            'transition-all duration-150'
+                                        )}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!followUp.trim()}
+                                        className="btn-icon h-9 w-9 bg-brand/10 hover:bg-brand/20 text-brand disabled:opacity-30 disabled:hover:bg-brand/10"
+                                    >
+                                        <PaperPlaneTilt className="h-4 w-4" weight="fill" />
+                                    </button>
+                                </form>
+
+                                {/* Save as workflow */}
+                                {status === 'done' && instruction && (
+                                    <button
+                                        onClick={async () => {
+                                            await (window.electron as any)?.workflows?.save(instruction, instruction);
+                                            setWorkflowSaved(true);
+                                        }}
+                                        disabled={workflowSaved}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-text-muted hover:text-text-secondary bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-colors disabled:opacity-50 w-full justify-center"
+                                    >
+                                        {workflowSaved
+                                            ? <><CheckCircle className="h-3 w-3 text-success" weight="fill" /> Saved to workflows</>
+                                            : <><FloppyDisk className="h-3 w-3" /> Save as workflow</>
+                                        }
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </motion.aside>

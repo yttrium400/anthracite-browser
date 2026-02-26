@@ -714,6 +714,16 @@ function App() {
         return () => { /* listener cleanup handled by preload */ };
     }, [handleForward]);
 
+    // Listen for run-workflow events from Settings page
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const { instruction } = (e as CustomEvent).detail;
+            if (instruction) handleRunAgent(instruction);
+        };
+        window.addEventListener('run-workflow', handler);
+        return () => window.removeEventListener('run-workflow', handler);
+    }, [handleRunAgent]);
+
     // Listen for navigate-to-url from main process (triggered by TopBar URL bar)
     useEffect(() => {
         if (window.electron?.navigation?.onNavigateToUrl) {
