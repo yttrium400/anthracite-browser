@@ -11,13 +11,13 @@ import {
     DragStartEvent,
     DragEndEvent,
     DragOverEvent,
+    useDroppable,
 } from '@dnd-kit/core';
 import {
     SortableContext,
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../lib/utils';
 import {
     GearSix,
@@ -29,20 +29,16 @@ import {
     ShieldCheckered,
     X,
     CircleNotch,
-    FolderPlus,
     Trash,
     PencilSimpleLine,
-    FolderOpen,
     ArrowCircleRight,
     Copy,
 } from '@phosphor-icons/react';
 import { RealmSwitcher } from './RealmSwitcher';
-import { SortableDock, DockDragOverlay } from './SortableDock';
 import { RealmModal } from './RealmModal';
-import { DockModal } from './DockModal';
 import { ContextMenu, useContextMenu, ContextMenuItem } from './ContextMenu';
 import { SortableTab, TabDragOverlay } from './SortableTab';
-import type { Realm, Dock as DockType, IconName, ThemeColor } from '../../shared/types';
+import type { Realm, IconName, ThemeColor } from '../../shared/types';
 import type { RealmTemplate } from '../../shared/templates';
 
 interface SidebarProps {
@@ -79,11 +75,10 @@ interface TabOrganization {
 // Droppable zone for loose tabs section
 interface LooseTabsDropZoneProps {
     looseTabs: Tab[];
-    activeRealmDocks: any[];
     children: React.ReactNode;
 }
 
-function LooseTabsDropZone({ looseTabs, activeRealmDocks, children }: LooseTabsDropZoneProps) {
+function LooseTabsDropZone({ looseTabs, children }: LooseTabsDropZoneProps) {
     const { isOver, setNodeRef } = useDroppable({
         id: 'loose-tabs-dropzone',
         data: {
@@ -104,28 +99,6 @@ function LooseTabsDropZone({ looseTabs, activeRealmDocks, children }: LooseTabsD
     );
 }
 
-function CreateDockDropZone({ children }: { children: React.ReactNode }) {
-    const { isOver, setNodeRef } = useDroppable({
-        id: 'create-dock-dropzone',
-        data: {
-            type: 'create-dock',
-        },
-    });
-
-    return (
-        <div
-            ref={setNodeRef}
-            className={cn(
-                "mt-2 border-2 border-dashed rounded-xl transition-all duration-200 flex items-center justify-center",
-                isOver
-                    ? "border-brand bg-brand/5 h-24 opacity-100 scale-105"
-                    : "border-border/40 hover:border-brand/50 h-16 opacity-80"
-            )}
-        >
-            {children}
-        </div>
-    );
-}
 
 export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId }: SidebarProps) {
     const [isVisible, setIsVisible] = useState(false);
@@ -135,9 +108,8 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
     const [blockedCount, setBlockedCount] = useState(0);
     const [httpsUpgradeCount, setHttpsUpgradeCount] = useState(0);
 
-    // Realms & Docks state
+    // Realms state
     const [realms, setRealms] = useState<Realm[]>([]);
-    const [docks, setDocks] = useState<DockType[]>([]);
     const [activeRealmId, setActiveRealmId] = useState<string>('');
     const [tabOrganizations, setTabOrganizations] = useState<Record<string, TabOrganization>>({});
 
@@ -145,19 +117,15 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
     // Modal state
     const [showRealmModal, setShowRealmModal] = useState(false);
-    const [showDockModal, setShowDockModal] = useState(false);
     const [editingRealm, setEditingRealm] = useState<Realm | null>(null);
-    const [editingDock, setEditingDock] = useState<DockType | null>(null);
 
     // Context menu state
     const tabContextMenu = useContextMenu();
-    const dockContextMenu = useContextMenu();
     const realmContextMenu = useContextMenu();
 
     // Drag and Drop state
     const [activeId, setActiveId] = useState<string | null>(null);
     const [draggedTab, setDraggedTab] = useState<Tab | null>(null);
-    const [draggedDock, setDraggedDock] = useState<DockType | null>(null);
     const [dropTarget, setDropTarget] = useState<{ containerId: string; index: number } | null>(null);
 
     // DnD sensors
@@ -177,8 +145,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
         if (!window.electron) return;
         try {
             const state = await window.electron.sidebarState.get();
-            setDocks(state.docks);
-
             const orgs: Record<string, TabOrganization> = {};
             state.tabs.forEach((tab: Tab) => {
                 orgs[tab.id] = {
@@ -201,7 +167,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             // Get full sidebar state
             const state = await window.electron.sidebarState.get();
             setRealms(state.realms);
-            setDocks(state.docks);
             setActiveRealmId(state.activeRealmId);
 
             // Build organization map from tabs
@@ -273,30 +238,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             setActiveRealmId(realmId);
         });
 
-        // Dock subscriptions
-        const unsubscribeDockCreated = window.electron.docks.onCreated((dock) => {
-            setDocks(prev => [...prev, dock].sort((a, b) => a.order - b.order));
-        });
-        const unsubscribeDockUpdated = window.electron.docks.onUpdated((dock) => {
-            setDocks(prev => prev.map(d => d.id === dock.id ? dock : d));
-        });
-        const unsubscribeDockDeleted = window.electron.docks.onDeleted(({ dockId }) => {
-            setDocks(prev => prev.filter(d => d.id !== dockId));
-        });
-        const unsubscribeDockReordered = window.electron.docks.onReordered(({ dockIds }) => {
-            // Update dock order based on the new order
-            setDocks(prev => {
-                const updated = prev.map(dock => {
-                    const newOrder = dockIds.indexOf(dock.id);
-                    if (newOrder !== -1) {
-                        return { ...dock, order: newOrder };
-                    }
-                    return dock;
-                });
-                return updated.sort((a, b) => a.order - b.order);
-            });
-        });
-
         // Tab organization subscription
         const unsubscribeTabOrg = window.electron.tabOrganization.onChanged((data) => {
             setTabOrganizations(prev => ({
@@ -319,10 +260,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             unsubscribeRealmUpdated();
             unsubscribeRealmDeleted();
             unsubscribeActiveRealmChanged();
-            unsubscribeDockCreated();
-            unsubscribeDockUpdated();
-            unsubscribeDockDeleted();
-            unsubscribeDockReordered();
             unsubscribeTabOrg();
         };
     }, [loadState]);
@@ -335,7 +272,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
         // Don't close if any context menu is open
         if (tabContextMenu.contextMenu.position ||
-            dockContextMenu.contextMenu.position ||
             realmContextMenu.contextMenu.position) {
             return;
         }
@@ -357,7 +293,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
         }
 
         setIsVisible(false);
-    }, [isPinned, activeId, tabContextMenu.contextMenu.position, dockContextMenu.contextMenu.position, realmContextMenu.contextMenu.position]);
+    }, [isPinned, activeId, tabContextMenu.contextMenu.position, realmContextMenu.contextMenu.position]);
 
     // Keyboard shortcut (Cmd/Ctrl + \)
     useEffect(() => {
@@ -376,8 +312,8 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
     }, [isPinned, onPinnedChange]);
 
     // Tab actions
-    const handleCreateTab = useCallback((dockId?: string) => {
-        window.electron?.tabs.create(undefined, dockId ? { dockId } : undefined);
+    const handleCreateTab = useCallback(() => {
+        window.electron?.tabs.create();
     }, []);
 
     const handleSwitchTab = useCallback((tabId: string) => {
@@ -413,48 +349,12 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
         setEditingRealm(null);
     }, []);
 
-    // Dock actions
-    const handleCreateDock = useCallback(() => {
-        setShowDockModal(true);
-    }, []);
-
-    const handleDockModalSubmit = useCallback(async (data: { name: string; icon: IconName; color: ThemeColor }) => {
-        if (editingDock) {
-            await window.electron?.docks.update(editingDock.id, data);
-            setEditingDock(null);
-        } else if (activeRealmId) {
-            await window.electron?.docks.create(data.name, activeRealmId, data.icon, data.color);
-        }
-    }, [activeRealmId, editingDock]);
-
-    const handleDockModalClose = useCallback(() => {
-        setShowDockModal(false);
-        setEditingDock(null);
-    }, []);
-
-    const handleToggleDockCollapse = useCallback((dockId: string) => {
-        window.electron?.docks.toggleCollapse(dockId);
-    }, []);
-
     // DnD Event Handlers
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const { active } = event;
         setActiveId(active.id as string);
-
-        // Check if dragging a dock
-        const activeData = active.data.current;
-        if (activeData?.type === 'dock' && activeData.dock) {
-            setDraggedDock(activeData.dock as DockType);
-            setDraggedTab(null);
-            return;
-        }
-
-        // Find the tab being dragged
         const tab = tabs.find(t => t.id === active.id);
-        if (tab) {
-            setDraggedTab(tab);
-            setDraggedDock(null);
-        }
+        if (tab) setDraggedTab(tab);
     }, [tabs]);
 
     const handleDragOver = useCallback((event: DragOverEvent) => {
@@ -466,59 +366,23 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
         }
 
         const overData = over.data.current;
-        let containerId: string | null = null;
         let index = 0;
 
-        if (overData?.type === 'dock' || overData?.type === 'dock-drop') {
-            containerId = overData.dockId as string;
-            // Dropping on dock itself means end of list
-            const dockTabs = tabs.filter(t => tabOrganizations[t.id]?.dockId === containerId);
-            index = dockTabs.length;
-        } else if (overData?.type === 'tab') {
-            containerId = (overData.containerId as string) || 'loose';
-            // Find the index of the tab we're hovering over
-            const containerTabs = containerId === 'loose'
-                ? tabs.filter(t => {
-                    const org = tabOrganizations[t.id];
-                    return org?.realmId === activeRealmId && !org?.dockId && !org?.isPinned;
-                }).sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0))
-                : tabs.filter(t => tabOrganizations[t.id]?.dockId === containerId)
-                    .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
-
-            index = containerTabs.findIndex(t => t.id === over.id);
-            if (index === -1) index = containerTabs.length;
-        } else if ((over.id as string) === 'loose-tabs-dropzone') {
-            containerId = 'loose';
+        if (overData?.type === 'tab') {
             const looseTabs = tabs.filter(t => {
                 const org = tabOrganizations[t.id];
-                return org?.realmId === activeRealmId && !org?.dockId && !org?.isPinned;
+                return org?.realmId === activeRealmId && !org?.isPinned;
+            }).sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
+
+            index = looseTabs.findIndex(t => t.id === over.id);
+            if (index === -1) index = looseTabs.length;
+            setDropTarget({ containerId: 'loose', index });
+        } else if ((over.id as string) === 'loose-tabs-dropzone') {
+            const looseTabs = tabs.filter(t => {
+                const org = tabOrganizations[t.id];
+                return org?.realmId === activeRealmId && !org?.isPinned;
             });
-            index = looseTabs.length;
-        }
-
-        if (containerId) {
-            // Check if the dragged tab is from the same container
-            const sourceContainerId = tabOrganizations[active.id as string]?.dockId || 'loose';
-            const isSameContainer = (sourceContainerId === containerId) ||
-                (sourceContainerId === null && containerId === 'loose');
-
-            // Adjust index if moving within same container and source is before target
-            if (isSameContainer) {
-                const containerTabs = containerId === 'loose'
-                    ? tabs.filter(t => {
-                        const org = tabOrganizations[t.id];
-                        return org?.realmId === activeRealmId && !org?.dockId && !org?.isPinned;
-                    }).sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0))
-                    : tabs.filter(t => tabOrganizations[t.id]?.dockId === containerId)
-                        .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
-
-                const sourceIndex = containerTabs.findIndex(t => t.id === active.id);
-                if (sourceIndex !== -1 && sourceIndex < index) {
-                    index = index; // Keep as is, indicator shows after the hovered item
-                }
-            }
-
-            setDropTarget({ containerId, index });
+            setDropTarget({ containerId: 'loose', index: looseTabs.length });
         } else {
             setDropTarget(null);
         }
@@ -529,157 +393,48 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
         setActiveId(null);
         setDraggedTab(null);
-        setDraggedDock(null);
         setDropTarget(null);
 
         if (!over) return;
-        if (active.id === over.id) return; // No change needed
+        if (active.id === over.id) return;
 
         const activeData = active.data.current;
         const overData = over.data.current;
-
         if (!activeData) return;
 
-        // Handle dock reordering
-        if (activeData.type === 'dock') {
-            const activeDockId = (active.id as string).replace('dock-', '');
-            const overDockId = (over.id as string).replace('dock-', '');
-
-            // Only reorder if dropped on another dock
-            if (overData?.type === 'dock' || (over.id as string).startsWith('dock-')) {
-                const currentDocks = docks
-                    .filter(d => d.realmId === activeRealmId)
-                    .sort((a, b) => a.order - b.order);
-
-                const oldIndex = currentDocks.findIndex(d => d.id === activeDockId);
-                const newIndex = currentDocks.findIndex(d => d.id === overDockId);
-
-                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                    const newOrder = [...currentDocks];
-                    const [movedItem] = newOrder.splice(oldIndex, 1);
-                    newOrder.splice(newIndex, 0, movedItem);
-                    const dockIds = newOrder.map(d => d.id);
-
-                    // Optimistic update
-                    setDocks(prev => {
-                        const updated = prev.map((dock, idx) => {
-                            const newIdx = dockIds.indexOf(dock.id);
-                            return newIdx !== -1 ? { ...dock, order: newIdx } : dock;
-                        });
-                        return updated.sort((a, b) => a.order - b.order);
-                    });
-
-                    await window.electron?.docks.reorder(activeRealmId, dockIds);
-                }
-            }
-            return;
-        }
-
-        // Handle tab dragging
         const activeTabId = active.id as string;
         const overId = over.id as string;
 
-        // Default to 'loose' if containerId is undefined (for legacy tabs)
-        const sourceContainerId = (activeData.containerId as string) || 'loose';
+        // Only reorder if dropped on another tab
+        if (overData?.type === 'tab') {
+            const containerTabs = tabs
+                .filter(t => {
+                    const org = tabOrganizations[t.id];
+                    return org?.realmId === activeRealmId && !org?.isPinned;
+                })
+                .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
 
-        // Determine target container
-        let targetContainerId: string | null = null;
+            const oldIndex = containerTabs.findIndex(t => t.id === activeTabId);
+            const newIndex = containerTabs.findIndex(t => t.id === overId);
 
-        if (overData?.type === 'dock' || overData?.type === 'dock-drop') {
-            // Dropped directly on a dock (either sortable or droppable zone)
-            targetContainerId = overData.dockId as string;
-        } else if (overData?.type === 'tab') {
-            // Dropped on another tab - use the tab's container
-            targetContainerId = (overData.containerId as string) || 'loose';
-        } else if (overId === 'loose-tabs-dropzone') {
-            // Dropped on loose tabs section
-            targetContainerId = 'loose';
-        } else if (overId === 'create-dock-dropzone') {
-            // Create new dock from tab
-            const newDockName = draggedTab?.title ? `Group: ${draggedTab.title.slice(0, 15)}...` : 'New Group';
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                const newOrder = [...containerTabs];
+                const [movedItem] = newOrder.splice(oldIndex, 1);
+                newOrder.splice(newIndex, 0, movedItem);
+                const tabIds = newOrder.map(t => t.id);
 
-            // 1. Create the dock
-            const newDock = await window.electron?.docks.create(newDockName, activeRealmId, 'folder', 'blue');
-
-            if (newDock) {
-                // 2. Move tab to the new dock
-                await window.electron?.tabOrganization.moveToDock(activeTabId, newDock.id);
-                await refreshState();
-            }
-            return;
-        }
-
-        if (!targetContainerId) return;
-
-        // Handle cross-container moves
-        if (sourceContainerId !== targetContainerId) {
-            // Optimistic update for cross-container move
-            setTabOrganizations(prev => ({
-                ...prev,
-                [activeTabId]: {
-                    ...prev[activeTabId],
-                    dockId: targetContainerId === 'loose' ? null : targetContainerId,
-                    order: 0,
-                },
-            }));
-
-            if (targetContainerId === 'loose') {
-                await window.electron?.tabOrganization.moveToLoose(activeTabId);
-            } else {
-                await window.electron?.tabOrganization.moveToDock(activeTabId, targetContainerId);
-            }
-            // Refresh to get correct order
-            await refreshState();
-        } else {
-            // Reorder within same container - only if dropped on a tab
-            if (overData?.type === 'tab') {
-                // Get tabs in this container, SORTED by order (critical!)
-                const getContainerTabs = () => {
-                    if (targetContainerId === 'loose') {
-                        return tabs
-                            .filter(tab => {
-                                const org = tabOrganizations[tab.id];
-                                return org?.realmId === activeRealmId && !org?.dockId && !org?.isPinned;
-                            })
-                            .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
-                    } else {
-                        return tabs
-                            .filter(t => tabOrganizations[t.id]?.dockId === targetContainerId)
-                            .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
-                    }
-                };
-
-                const containerTabs = getContainerTabs();
-                const oldIndex = containerTabs.findIndex(t => t.id === activeTabId);
-                const newIndex = containerTabs.findIndex(t => t.id === overId);
-
-                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                    // Use arrayMove pattern for correct reordering
-                    const newOrder = [...containerTabs];
-                    const [movedItem] = newOrder.splice(oldIndex, 1);
-                    newOrder.splice(newIndex, 0, movedItem);
-                    const tabIds = newOrder.map(t => t.id);
-
-                    // Optimistic update for reorder
-                    setTabOrganizations(prev => {
-                        const updated = { ...prev };
-                        tabIds.forEach((id, idx) => {
-                            if (updated[id]) {
-                                updated[id] = { ...updated[id], order: idx };
-                            }
-                        });
-                        return updated;
+                setTabOrganizations(prev => {
+                    const updated = { ...prev };
+                    tabIds.forEach((id, idx) => {
+                        if (updated[id]) updated[id] = { ...updated[id], order: idx };
                     });
+                    return updated;
+                });
 
-                    if (targetContainerId === 'loose') {
-                        await window.electron?.tabOrganization.reorderLoose(activeRealmId, tabIds);
-                    } else {
-                        await window.electron?.tabOrganization.reorderInDock(targetContainerId, tabIds);
-                    }
-                }
+                await window.electron?.tabOrganization.reorderLoose(activeRealmId, tabIds);
             }
         }
-    }, [tabs, tabOrganizations, activeRealmId, docks, refreshState]);
+    }, [tabs, tabOrganizations, activeRealmId]);
 
 
     const handleToggleAdBlock = useCallback(async () => {
@@ -705,10 +460,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
         tabContextMenu.openContextMenu(e, tab);
     }, [tabContextMenu]);
 
-    const handleDockContextMenu = useCallback((e: React.MouseEvent, dock: DockType) => {
-        dockContextMenu.openContextMenu(e, dock);
-    }, [dockContextMenu]);
-
     const handleRealmContextMenu = useCallback((e: React.MouseEvent, realm: Realm) => {
         realmContextMenu.openContextMenu(e, realm);
     }, [realmContextMenu]);
@@ -726,32 +477,11 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
             await window.electron?.tabOrganization.unpin(tab.id);
         } else if (actionId === 'copy-url') {
             navigator.clipboard.writeText(tab.url);
-        } else if (actionId === 'move-to-loose') {
-            await window.electron?.tabOrganization.moveToLoose(tab.id);
-        } else if (actionId.startsWith('move-to-dock:')) {
-            const dockId = actionId.replace('move-to-dock:', '');
-            await window.electron?.tabOrganization.moveToDock(tab.id, dockId);
         } else if (actionId.startsWith('move-to-realm:')) {
             const realmId = actionId.replace('move-to-realm:', '');
             await window.electron?.tabOrganization.moveToRealm(tab.id, realmId);
         }
     }, [tabContextMenu.contextMenu.data, handleCloseTab]);
-
-    // Dock context menu action handler
-    const handleDockContextAction = useCallback(async (actionId: string) => {
-        const dock = dockContextMenu.contextMenu.data as DockType;
-        if (!dock) return;
-
-        if (actionId === 'edit') {
-            setEditingDock(dock);
-            setShowDockModal(true);
-        } else if (actionId === 'delete') {
-            await window.electron?.docks.delete(dock.id);
-        } else if (actionId.startsWith('move-to-realm:')) {
-            const realmId = actionId.replace('move-to-realm:', '');
-            await window.electron?.docks.moveToRealm(dock.id, realmId);
-        }
-    }, [dockContextMenu.contextMenu.data]);
 
     // Realm context menu action handler
     const handleRealmContextAction = useCallback(async (actionId: string) => {
@@ -783,24 +513,12 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
     // Get pinned tabs for active realm
     const pinnedTabs = activeRealmTabs.filter(tab => tabOrganizations[tab.id]?.isPinned);
 
-    // Get docks for active realm
-    const activeRealmDocks = docks.filter(d => d.realmId === activeRealmId);
 
-    // Get tabs for a specific dock
-    const getTabsForDock = (dockId: string) => {
-        return activeRealmTabs
-            .filter(tab => {
-                const org = tabOrganizations[tab.id];
-                return org?.dockId === dockId;
-            })
-            .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
-    };
-
-    // Get loose tabs (not in any dock, not pinned)
+    // Get all unpinned tabs (regardless of dock assignment — docks are hidden in this UI)
     const looseTabs = activeRealmTabs
         .filter(tab => {
             const org = tabOrganizations[tab.id];
-            return !org?.dockId && !org?.isPinned;
+            return !org?.isPinned;
         })
         .sort((a, b) => (tabOrganizations[a.id]?.order || 0) - (tabOrganizations[b.id]?.order || 0));
 
@@ -815,7 +533,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
         const org = tabOrganizations[tab.id];
         const isPinned = org?.isPinned;
-        const currentDockId = org?.dockId;
 
         const items: ContextMenuItem[] = [
             {
@@ -831,32 +548,6 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                 shortcut: '⌘C',
             },
         ];
-
-        // Move to dock submenu
-        if (activeRealmDocks.length > 0) {
-            const dockSubmenu: ContextMenuItem[] = activeRealmDocks
-                .filter(d => d.id !== currentDockId)
-                .map(d => ({
-                    id: `move-to-dock:${d.id}`,
-                    label: d.name,
-                }));
-
-            if (currentDockId) {
-                dockSubmenu.unshift({
-                    id: 'move-to-loose',
-                    label: 'Remove from Dock',
-                });
-            }
-
-            if (dockSubmenu.length > 0) {
-                items.push({
-                    id: 'move-to-dock',
-                    label: 'Move to Dock',
-                    icon: <FolderOpen className="h-4 w-4" />,
-                    submenu: dockSubmenu,
-                });
-            }
-        }
 
         // Move to realm submenu (only if there are multiple realms)
         if (realms.length > 1) {
@@ -889,52 +580,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
         );
 
         return items;
-    }, [tabContextMenu.contextMenu.data, tabOrganizations, activeRealmDocks, realms, activeRealmId]);
-
-    // Build dock context menu items
-    const buildDockContextMenuItems = useCallback((): ContextMenuItem[] => {
-        const dock = dockContextMenu.contextMenu.data as DockType;
-        if (!dock) return [];
-
-        const items: ContextMenuItem[] = [
-            {
-                id: 'edit',
-                label: 'Edit Dock',
-                icon: <PencilSimpleLine className="h-4 w-4" />,
-            },
-        ];
-
-        // Move to realm submenu (only if there are multiple realms)
-        if (realms.length > 1) {
-            const realmSubmenu: ContextMenuItem[] = realms
-                .filter(r => r.id !== dock.realmId)
-                .map(r => ({
-                    id: `move-to-realm:${r.id}`,
-                    label: r.name,
-                }));
-
-            if (realmSubmenu.length > 0) {
-                items.push({
-                    id: 'move-to-realm',
-                    label: 'Move to Realm',
-                    icon: <ArrowCircleRight className="h-4 w-4" />,
-                    submenu: realmSubmenu,
-                });
-            }
-        }
-
-        items.push(
-            { id: 'divider-1', label: '', divider: true },
-            {
-                id: 'delete',
-                label: 'Delete Dock',
-                icon: <Trash className="h-4 w-4" />,
-                danger: true,
-            }
-        );
-
-        return items;
-    }, [dockContextMenu.contextMenu.data, realms]);
+    }, [tabContextMenu.contextMenu.data, tabOrganizations, realms, activeRealmId]);
 
     // Build realm context menu items
     const buildRealmContextMenuItems = useCallback((): ContextMenuItem[] => {
@@ -1108,60 +754,12 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                             </section>
                         )}
 
-                        {/* Docks Section */}
-                        {activeRealmDocks.length > 0 && (
-                            <section className="space-y-1.5">
-                                <div className="flex items-center justify-between px-3">
-                                    <h2 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest">
-                                        Groups
-                                    </h2>
-                                    <button
-                                        onClick={handleCreateDock}
-                                        className="text-text-tertiary hover:text-brand transition-colors"
-                                        title="Create group"
-                                    >
-                                        <FolderPlus className="h-3.5 w-3.5" />
-                                    </button>
-                                </div>
-                                <SortableContext
-                                    items={activeRealmDocks.map(d => `dock-${d.id}`)}
-                                    strategy={verticalListSortingStrategy}
-                                >
-                                    {activeRealmDocks.map((dock) => (
-                                        <SortableDock
-                                            key={dock.id}
-                                            dock={dock}
-                                            tabs={getTabsForDock(dock.id)}
-                                            activeTabId={activeTabId}
-                                            draggedTabId={draggedTab?.id}
-                                            dropTarget={dropTarget}
-                                            onToggleCollapse={() => handleToggleDockCollapse(dock.id)}
-                                            onTabClick={handleSwitchTab}
-                                            onTabClose={handleCloseTab}
-                                            onAddTab={() => handleCreateTab(dock.id)}
-                                            onContextMenu={(e) => handleDockContextMenu(e, dock)}
-                                            onTabContextMenu={handleTabContextMenu}
-                                        />
-                                    ))}
-                                </SortableContext>
-                            </section>
-                        )}
-
-                        {/* Loose Tabs Section */}
-                        <LooseTabsDropZone looseTabs={looseTabs} activeRealmDocks={activeRealmDocks}>
+                        {/* Tabs Section */}
+                        <LooseTabsDropZone looseTabs={looseTabs}>
                             <div className="flex items-center justify-between px-3 mb-1">
                                 <h2 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest">
                                     Tabs
                                 </h2>
-                                {activeRealmDocks.length === 0 && (
-                                    <button
-                                        onClick={handleCreateDock}
-                                        className="text-text-tertiary hover:text-brand transition-colors"
-                                        title="Create group"
-                                    >
-                                        <FolderPlus className="h-3.5 w-3.5" />
-                                    </button>
-                                )}
                             </div>
                             <SortableContext
                                 items={looseTabs.map(t => t.id)}
@@ -1203,22 +801,12 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                                 </ul>
                             </SortableContext>
 
-                            {looseTabs.length === 0 && activeRealmDocks.length === 0 && (
+                            {looseTabs.length === 0 && (
                                 <div className="px-3 py-6 text-center text-sm text-text-tertiary">
                                     No tabs open
                                 </div>
                             )}
                         </LooseTabsDropZone>
-
-                        {/* Create Dock Drop Zone (only visible when dragging a tab) */}
-                        {activeId && draggedTab && !activeRealmDocks.some(d => d.id === 'create-dock-dropzone') && (
-                            <CreateDockDropZone>
-                                <div className="flex flex-col items-center gap-1 text-text-tertiary">
-                                    <FolderPlus className="h-5 w-5" />
-                                    <span className="text-xs font-medium">Drop to Create Dock</span>
-                                </div>
-                            </CreateDockDropZone>
-                        )}
                     </nav>
 
                     {/* Realm Switcher */}
@@ -1287,27 +875,12 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                     onClose={handleRealmModalClose}
                 />
 
-                {/* Dock Modal (Create/Edit) */}
-                <DockModal
-                    isOpen={showDockModal}
-                    mode={editingDock ? 'edit' : 'create'}
-                    dock={editingDock}
-                    onSubmit={handleDockModalSubmit}
-                    onClose={handleDockModalClose}
-                />
-
                 {/* Context Menus */}
                 <ContextMenu
                     items={buildTabContextMenuItems()}
                     position={tabContextMenu.contextMenu.position}
                     onSelect={handleTabContextAction}
                     onClose={tabContextMenu.closeContextMenu}
-                />
-                <ContextMenu
-                    items={buildDockContextMenuItems()}
-                    position={dockContextMenu.contextMenu.position}
-                    onSelect={handleDockContextAction}
-                    onClose={dockContextMenu.closeContextMenu}
                 />
                 <ContextMenu
                     items={buildRealmContextMenuItems()}
@@ -1319,11 +892,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
             {/* Drag Overlay */}
             <DragOverlay dropAnimation={null}>
-                {activeId && draggedTab ? (
-                    <TabDragOverlay tab={draggedTab} />
-                ) : activeId && draggedDock ? (
-                    <DockDragOverlay dock={draggedDock} tabCount={getTabsForDock(draggedDock.id).length} />
-                ) : null}
+                {activeId && draggedTab ? <TabDragOverlay tab={draggedTab} /> : null}
             </DragOverlay>
         </DndContext>
     );
