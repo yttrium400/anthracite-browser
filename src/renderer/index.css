@@ -3,6 +3,45 @@
 @tailwind utilities;
 
 /* ============================================
+   ADAPTIVE BRAND COLOR — CSS Custom Properties
+   ============================================ */
+
+/* Register brand hue for CSS transitions */
+@property --brand-h {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 33;
+}
+@property --brand-s {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 42%;
+}
+@property --brand-l {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 63%;
+}
+
+:root {
+    /* Default: warm brushed gold */
+    --brand-h: 33;
+    --brand-s: 42%;
+    --brand-l: 63%;
+
+    /* Derived brand tokens (all computed from the three primitives above) */
+    --color-brand: hsl(var(--brand-h), var(--brand-s), var(--brand-l));
+    --color-brand-light: hsl(var(--brand-h), calc(var(--brand-s) - 4%), calc(var(--brand-l) + 9%));
+    --color-brand-dark: hsl(var(--brand-h), calc(var(--brand-s) + 4%), calc(var(--brand-l) - 12%));
+    --color-brand-muted: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.12);
+    --color-brand-shadow: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.35);
+    --color-brand-shadow-strong: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.50);
+
+    /* Smooth hue/saturation/lightness transitions */
+    transition: --brand-h 0.6s ease, --brand-s 0.6s ease, --brand-l 0.6s ease;
+}
+
+/* ============================================
    ANTHRACITE - Dark & Moody Premium Theme
    ============================================ */
 
@@ -26,7 +65,7 @@
 
     /* Selection styling — brand glow */
     ::selection {
-        background: rgba(200, 169, 126, 0.25);
+        background: var(--color-brand-muted);
         color: #FAFAFA;
     }
 
@@ -213,7 +252,7 @@
 
     .status-running {
         @apply bg-brand animate-pulse-soft;
-        box-shadow: 0 0 8px rgba(200, 169, 126, 0.3);
+        box-shadow: 0 0 8px var(--color-brand-shadow);
     }
 
     .status-error {
@@ -325,8 +364,8 @@
     .bg-mesh-dark {
         background-color: #0A0A0B;
         background-image:
-            radial-gradient(at 0% 0%, rgba(200, 169, 126, 0.06) 0%, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(200, 169, 126, 0.04) 0%, transparent 50%),
+            radial-gradient(at 0% 0%, hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.06) 0%, transparent 50%),
+            radial-gradient(at 100% 0%, hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.04) 0%, transparent 50%),
             radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
     }
 
@@ -352,7 +391,7 @@
         border: 1px solid transparent;
         background:
             linear-gradient(#111113, #111113) padding-box,
-            linear-gradient(135deg, rgba(200, 169, 126, 0.25), rgba(200, 169, 126, 0.2)) border-box;
+            linear-gradient(135deg, var(--color-brand-muted), hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.20)) border-box;
     }
 
     /* ============================================
@@ -390,11 +429,11 @@
        ============================================ */
 
     .shadow-brand {
-        box-shadow: 0 4px 14px -4px rgba(200, 169, 126, 0.3);
+        box-shadow: 0 4px 14px -4px var(--color-brand-shadow);
     }
 
     .shadow-brand-lg {
-        box-shadow: 0 8px 24px -4px rgba(200, 169, 126, 0.35);
+        box-shadow: 0 8px 24px -4px var(--color-brand-shadow);
     }
 
     /* ============================================
@@ -443,7 +482,7 @@
     content: '';
     position: absolute;
     inset: -2px;
-    background: linear-gradient(135deg, rgba(200, 169, 126, 0.1), rgba(200, 169, 126, 0.08));
+    background: linear-gradient(135deg, hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.10), hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.08));
     border-radius: inherit;
     filter: blur(20px);
     opacity: 0;
@@ -559,8 +598,8 @@
     position: fixed;
     inset: 0;
     background:
-        radial-gradient(at 0% 0%, rgba(200, 169, 126, 0.15) 0%, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(200, 169, 126, 0.12) 0%, transparent 50%),
+        radial-gradient(at 0% 0%, hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.15) 0%, transparent 50%),
+        radial-gradient(at 100% 0%, var(--color-brand-muted) 0%, transparent 50%),
         radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.12) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
@@ -587,8 +626,8 @@
     height: 60%;
     background:
         radial-gradient(ellipse 80% 50% at 30% 50%, rgba(16, 185, 129, 0.22) 0%, transparent 50%),
-        radial-gradient(ellipse 60% 40% at 70% 40%, rgba(200, 169, 126, 0.12) 0%, transparent 50%),
-        radial-gradient(ellipse 90% 60% at 50% 30%, rgba(200, 169, 126, 0.08) 0%, transparent 60%);
+        radial-gradient(ellipse 60% 40% at 70% 40%, var(--color-brand-muted) 0%, transparent 50%),
+        radial-gradient(ellipse 90% 60% at 50% 30%, hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.08) 0%, transparent 60%);
     animation: auroraDrift 20s ease-in-out infinite alternate;
 }
 

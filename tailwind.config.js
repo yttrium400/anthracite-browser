@@ -41,12 +41,12 @@ module.exports = {
                     tertiary: '#71717A',
                     inverted: '#0A0A0B',
                 },
-                // Brand — warm brushed gold (Anthracite: coal-dark with mineral lustre)
+                // Brand — adaptive accent color (CSS variable, defaults to warm gold)
                 brand: {
-                    DEFAULT: '#C8A97E',
-                    light: '#DFC4A0',
-                    dark: '#A8895A',
-                    muted: 'rgba(200,169,126,0.12)',
+                    DEFAULT: 'var(--color-brand)',
+                    light: 'var(--color-brand-light)',
+                    dark: 'var(--color-brand-dark)',
+                    muted: 'var(--color-brand-muted)',
                 },
                 // Accent colors
                 accent: {
@@ -66,9 +66,9 @@ module.exports = {
                 'soft': '0 2px 8px -2px rgba(0,0,0,0.3), 0 4px 16px -4px rgba(0,0,0,0.2)',
                 'medium': '0 4px 12px -2px rgba(0,0,0,0.4), 0 8px 24px -4px rgba(0,0,0,0.3)',
                 'large': '0 8px 24px -4px rgba(0,0,0,0.5), 0 16px 48px -8px rgba(0,0,0,0.4)',
-                'glow': '0 0 20px -4px rgba(200,169,126,0.35)',
-                'glow-lg': '0 0 40px -8px rgba(200,169,126,0.4)',
-                'glow-brand': '0 0 20px rgba(200,169,126,0.35)',
+                'glow': '0 0 20px -4px var(--color-brand-shadow)',
+                'glow-lg': '0 0 40px -8px var(--color-brand-shadow)',
+                'glow-brand': '0 0 20px var(--color-brand-shadow)',
                 'inner-soft': 'inset 0 1px 2px rgba(0,0,0,0.2)',
                 'inner-glow': 'inset 0 1px 0 rgba(255,255,255,0.05)',
             },
@@ -135,8 +135,8 @@ module.exports = {
                     '50%': { backgroundPosition: '100% 50%' },
                 },
                 glowPulse: {
-                    '0%, 100%': { boxShadow: '0 0 20px rgba(200,169,126,0.25)' },
-                    '50%': { boxShadow: '0 0 30px rgba(200,169,126,0.5)' },
+                    '0%, 100%': { boxShadow: '0 0 20px var(--color-brand-shadow)' },
+                    '50%': { boxShadow: '0 0 30px var(--color-brand-shadow-strong)' },
                 },
                 float: {
                     '0%, 100%': { transform: 'translateY(0px)' },

@@ -7,6 +7,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { RealmSearch } from './components/RealmSearch';
 import { SwipeNavigator, type SwipeNavigatorHandle } from './components/SwipeNavigator';
 import { AgentPanel, type AgentStatus, type AgentStep } from './components/AgentPanel';
+import { useAdaptiveTheme } from './hooks/useAdaptiveTheme';
 import { cn } from './lib/utils';
 
 const BACKEND_URL = 'http://localhost:8000';
@@ -252,6 +253,9 @@ function App() {
     // Agent tabs are bootstrapped with 'data:text/html,' until the agent navigates to a real URL.
     // Show the home page overlay during this window so the user doesn't see a black screen.
     const isAgentStartingPage = activeTab?.url === 'data:text/html,';
+
+    // Adaptive brand color — shifts accent to match the active site's palette
+    useAdaptiveTheme(activeTab?.url);
 
     // ... existing keyboard shortcut ...
     useEffect(() => {
