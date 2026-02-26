@@ -41,6 +41,9 @@ export interface AppSettings {
     anthropicApiKey?: string;
     googleApiKey?: string;
     selectedModel?: string; // e.g. "claude-sonnet-4-6", "gpt-4o", "gemini-2.0-flash"
+
+    // Onboarding
+    hasCompletedOnboarding: boolean;
 }
 
 // Default settings
@@ -73,6 +76,9 @@ const DEFAULT_SETTINGS: AppSettings = {
 
     // Developer
     enableDevTools: false,
+
+    // Onboarding
+    hasCompletedOnboarding: false,
 };
 
 // ============================================

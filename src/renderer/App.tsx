@@ -8,6 +8,7 @@ import { RealmSearch } from './components/RealmSearch';
 import { SwipeNavigator, type SwipeNavigatorHandle } from './components/SwipeNavigator';
 import { AgentPanel, type AgentStatus, type AgentStep } from './components/AgentPanel';
 import { CommandPalette } from './components/CommandPalette';
+import OnboardingWizard from './components/OnboardingWizard';
 import { useAdaptiveTheme } from './hooks/useAdaptiveTheme';
 import { cn } from './lib/utils';
 
@@ -179,6 +180,9 @@ function App() {
     const [showCommandPalette, setShowCommandPalette] = useState(false);
     const [adBlockEnabled, setAdBlockEnabled] = useState(true);
 
+    // Onboarding wizard
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
     // Agent state
     const [agentStatus, setAgentStatus] = useState<AgentStatus>('idle');
     const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
@@ -282,6 +286,11 @@ function App() {
     useEffect(() => {
         if (typeof window !== 'undefined' && window.electron) {
             setIsReady(true);
+
+            // Check first-run onboarding
+            window.electron.onboarding?.isFirstRun().then((isFirst: boolean) => {
+                if (isFirst) setShowOnboarding(true);
+            }).catch(() => {});
 
             // Fetch preload paths
             window.electron.getWebviewPreloadPath().then(path => {
@@ -906,6 +915,11 @@ function App() {
                 onResume={handleResumeAgent}
                 onFollowUp={handleRunAgent}
             />
+
+            {/* First-run onboarding wizard */}
+            {showOnboarding && (
+                <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
+            )}
         </div>
     );
 }

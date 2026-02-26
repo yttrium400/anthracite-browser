@@ -1619,6 +1619,16 @@ function setupIPC(): void {
         await authService.signOut()
         return { success: true }
     })
+
+    // ── Onboarding ────────────────────────────────────────────────────────────
+    ipcMain.handle('onboarding-is-first-run', () => {
+        return !settingsStore.get('hasCompletedOnboarding')
+    })
+
+    ipcMain.handle('onboarding-complete', () => {
+        settingsStore.set('hasCompletedOnboarding', true)
+        return { success: true }
+    })
 }
 
 // ============================================

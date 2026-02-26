@@ -275,6 +275,12 @@ contextBridge.exposeInMainWorld('electron', {
     // System shell — opens URLs in the default system browser
     openExternal: (url: string) => ipcRenderer.invoke('open-external-url', url),
 
+    // Onboarding — first-run wizard
+    onboarding: {
+        isFirstRun: () => ipcRenderer.invoke('onboarding-is-first-run'),
+        complete: () => ipcRenderer.invoke('onboarding-complete'),
+    },
+
     // User Auth (Supabase) — SECURITY: raw tokens never leave the main process
     auth: {
         getUser: () => ipcRenderer.invoke('auth-get-user'),
@@ -470,6 +476,10 @@ declare global {
                 clear: () => Promise<{ success: boolean }>
             }
             openExternal: (url: string) => Promise<{ success: boolean }>
+            onboarding: {
+                isFirstRun: () => Promise<boolean>
+                complete: () => Promise<{ success: boolean }>
+            }
             auth: {
                 getUser: () => Promise<AuthUserPublic | null>
                 signInWithEmail: (email: string) => Promise<{ success: boolean; error?: string }>
