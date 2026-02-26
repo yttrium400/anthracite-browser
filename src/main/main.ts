@@ -664,6 +664,55 @@ function navigateTab(tabId: string, url: string): void {
 }
 
 // ============================================
+// Tab Session Save / Restore (12.3)
+// ============================================
+
+const SESSION_FILE = 'tab-session.json'
+
+function getSessionPath(): string {
+    return path.join(app.getPath('userData'), SESSION_FILE)
+}
+
+function saveTabSession(): void {
+    if (!settingsStore.get('restoreTabsOnStartup')) return
+    try {
+        const session = Array.from(tabs.values())
+            .filter(t => !t.url.startsWith('about:'))
+            .map(t => ({
+                url: t.url,
+                title: t.title,
+                isActive: t.id === activeTabId,
+            }))
+        const fs = require('fs')
+        fs.writeFileSync(getSessionPath(), JSON.stringify({ tabs: session, savedAt: Date.now() }))
+    } catch { /* non-fatal */ }
+}
+
+function loadAndRestoreSession(): boolean {
+    if (!settingsStore.get('restoreTabsOnStartup')) return false
+    try {
+        const fs = require('fs')
+        const sessionPath = getSessionPath()
+        if (!fs.existsSync(sessionPath)) return false
+        const raw = fs.readFileSync(sessionPath, 'utf-8')
+        const session: { tabs: Array<{ url: string; title: string; isActive: boolean }>; savedAt: number } = JSON.parse(raw)
+        if (!session.tabs || session.tabs.length === 0) return false
+        let lastActiveTab: string | null = null
+        for (const entry of session.tabs) {
+            if (!entry.url || entry.url.startsWith('about:')) continue
+            const tab = createTab(entry.url)
+            if (entry.title) tab.title = entry.title
+            if (entry.isActive) lastActiveTab = tab.id
+        }
+        if (lastActiveTab) switchToTab(lastActiveTab)
+        else if (tabs.size > 0) switchToTab(Array.from(tabs.keys())[tabs.size - 1])
+        return tabs.size > 0
+    } catch {
+        return false
+    }
+}
+
+// ============================================
 // Auto-Archive: unpinned tabs inactive > 12h
 // ============================================
 
@@ -1808,8 +1857,11 @@ function createWindow(): void {
     win.webContents.on('did-finish-load', () => {
         // Guard: only create a tab on first load, not on renderer reload
         if (tabs.size === 0) {
-            const tab = createTab('anthracite://newtab')
-            switchToTab(tab.id)
+            const restored = loadAndRestoreSession()
+            if (!restored) {
+                const tab = createTab('anthracite://newtab')
+                switchToTab(tab.id)
+            }
         } else {
             // Renderer reloaded - resync existing tabs
             sendTabsUpdate()
@@ -1924,6 +1976,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+    // Save tab session for restore-on-startup
+    saveTabSession()
     killPythonBackend()
     closeDatabase()
     closeStore()
