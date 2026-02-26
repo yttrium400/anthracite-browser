@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
 import { CommandBar } from './CommandBar';
+import type { AgentStatus } from './AgentPanel';
 
 type HomeBackground = 'earth-horizon' | 'gradient-mesh' | 'aurora' | 'minimal' | 'custom';
 
 interface HomePageProps {
     className?: string;
+    onRun?: (instruction: string) => void;
+    agentStatus?: AgentStatus;
 }
 
 function getGreeting(): string {
@@ -16,7 +19,7 @@ function getGreeting(): string {
     return 'Good evening';
 }
 
-export function HomePage({ className }: HomePageProps) {
+export function HomePage({ className, onRun, agentStatus }: HomePageProps) {
     const [greeting] = useState(getGreeting);
     const [background, setBackground] = useState<HomeBackground>('earth-horizon');
     const [customUrl, setCustomUrl] = useState('');
@@ -58,7 +61,11 @@ export function HomePage({ className }: HomePageProps) {
     const handleSearch = (instruction: string) => {
         const input = instruction.trim();
         if (!input) return;
-        window.electron?.navigation.navigate(input);
+        if (onRun) {
+            onRun(input);
+        } else {
+            window.electron?.navigation.navigate(input);
+        }
     };
 
     return (
@@ -151,8 +158,8 @@ export function HomePage({ className }: HomePageProps) {
                 >
                     <CommandBar
                         onRun={handleSearch}
-                        isRunning={false}
-                        status={'idle'}
+                        isRunning={agentStatus === 'thinking' || agentStatus === 'running'}
+                        status={agentStatus === 'thinking' ? 'thinking' : agentStatus === 'running' ? 'running' : agentStatus === 'done' ? 'done' : agentStatus === 'error' ? 'error' : 'idle'}
                     />
                 </motion.div>
             </motion.div>

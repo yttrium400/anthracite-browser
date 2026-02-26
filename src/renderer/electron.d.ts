@@ -45,6 +45,10 @@ declare global {
                 onRemoved: (callback: (data: any) => void) => () => void;
                 onActivated: (callback: (data: any) => void) => () => void;
             };
+            agent: {
+                createAgentTab: () => Promise<{ tabId: string; cdpUrl: string; targetId: string }>;
+                getActiveWebviewTarget: () => Promise<string | null>;
+            };
             getAppVersion: () => Promise<string>;
             [key: string]: any; // Allow other properties
         };

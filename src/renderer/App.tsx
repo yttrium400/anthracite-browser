@@ -6,7 +6,24 @@ import { HomePage } from './components/HomePage';
 import { SettingsPage } from './components/SettingsPage';
 import { RealmSearch } from './components/RealmSearch';
 import { SwipeNavigator, type SwipeNavigatorHandle } from './components/SwipeNavigator';
+import { AgentPanel, type AgentStatus, type AgentStep } from './components/AgentPanel';
 import { cn } from './lib/utils';
+
+const BACKEND_URL = 'http://localhost:8000';
+
+// Simple heuristic: is this a URL or search query (not an agent instruction)?
+function isSimpleNavigation(input: string): boolean {
+    const trimmed = input.trim();
+    // Explicit URL
+    if (/^https?:\/\//i.test(trimmed)) return true;
+    // www. prefix
+    if (/^www\./i.test(trimmed)) return true;
+    // Looks like a hostname/domain (no spaces, has a dot)
+    if (!trimmed.includes(' ') && /\.[a-z]{2,}(\/|$)/i.test(trimmed)) return true;
+    // Short phrase (≤ 3 words) → treat as search query
+    if (trimmed.split(/\s+/).length <= 3) return true;
+    return false;
+}
 
 interface Tab {
     id: string;
@@ -156,6 +173,15 @@ function App() {
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const [webviewPreloadPath, setWebviewPreloadPath] = useState<string>('');
     const [showRealmSearch, setShowRealmSearch] = useState(false);
+
+    // Agent state
+    const [agentStatus, setAgentStatus] = useState<AgentStatus>('idle');
+    const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
+    const [agentInstruction, setAgentInstruction] = useState('');
+    const [agentResult, setAgentResult] = useState<string | undefined>();
+    const [agentAuthService, setAgentAuthService] = useState<string | undefined>();
+    const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
+    const agentAbortRef = useRef<AbortController | null>(null);
 
     // Swipe gesture state
     const swipeAccumulated = useRef(0);
@@ -356,6 +382,158 @@ function App() {
         window.electron?.navigation.navigate(url);
     }, [activeTabId]);
 
+    // Run an agent task — opens panel, streams SSE from backend
+    const handleRunAgent = useCallback(async (instruction: string) => {
+        const input = instruction.trim();
+        if (!input) return;
+
+        // Fast path: URL or short search query
+        if (isSimpleNavigation(input)) {
+            window.electron?.navigation.navigate(input);
+            return;
+        }
+
+        // Abort any running agent
+        agentAbortRef.current?.abort();
+
+        // Reset agent state
+        setAgentInstruction(input);
+        setAgentSteps([]);
+        setAgentResult(undefined);
+        setAgentAuthService(undefined);
+        setAgentStatus('thinking');
+        setIsAgentPanelOpen(true);
+
+        // Get API keys from settings
+        let anthropicKey = '';
+        let openaiKey = '';
+        let googleKey = '';
+        let selectedModel = '';
+        try {
+            const settings = await window.electron?.settings.getAll();
+            anthropicKey = settings?.anthropicApiKey || '';
+            openaiKey = settings?.openaiApiKey || '';
+            googleKey = settings?.googleApiKey || '';
+            selectedModel = settings?.selectedModel || '';
+        } catch { /* no keys configured */ }
+
+        // Create agent tab so the backend has a CDP target to control
+        let targetId = '';
+        try {
+            const agentTab = await window.electron?.agent.createAgentTab();
+            targetId = agentTab?.targetId || '';
+        } catch (err) {
+            console.error('Failed to create agent tab:', err);
+            setAgentStatus('error');
+            setAgentResult('Could not create browser tab for agent.');
+            return;
+        }
+
+        const abort = new AbortController();
+        agentAbortRef.current = abort;
+
+        try {
+            const response = await fetch(`${BACKEND_URL}/agent/stream`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    instruction: input,
+                    cdp_url: 'http://127.0.0.1:9222',
+                    target_id: targetId,
+                    anthropic_api_key: anthropicKey || undefined,
+                    api_key: openaiKey || undefined,
+                    google_api_key: googleKey || undefined,
+                    model: selectedModel || undefined,
+                }),
+                signal: abort.signal,
+            });
+
+            if (!response.ok || !response.body) {
+                setAgentStatus('error');
+                setAgentResult(`Server error: ${response.status}`);
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() ?? '';
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const event = JSON.parse(line.slice(6));
+                        switch (event.type) {
+                            case 'classifying':
+                                setAgentStatus('thinking');
+                                break;
+                            case 'classified':
+                                if (event.action !== 'fast_navigate') setAgentStatus('running');
+                                break;
+                            case 'fast_action':
+                                if (event.action === 'navigate' && event.url) {
+                                    window.electron?.navigation.navigate(event.url);
+                                    setIsAgentPanelOpen(false);
+                                }
+                                break;
+                            case 'agent_starting':
+                                setAgentStatus('running');
+                                break;
+                            case 'step':
+                                setAgentSteps(prev => {
+                                    // Avoid duplicates
+                                    if (prev.some(s => s.step === event.step)) return prev;
+                                    return [...prev, {
+                                        step: event.step,
+                                        action: event.actions?.[0]?.action || 'action',
+                                        goal: event.next_goal || '',
+                                    }];
+                                });
+                                break;
+                            case 'auth_required':
+                                setAgentStatus('auth');
+                                setAgentAuthService(event.service);
+                                break;
+                            case 'done':
+                                setAgentStatus('done');
+                                setAgentResult(event.result || 'Task completed.');
+                                break;
+                            case 'stopped':
+                                setAgentStatus('stopped');
+                                setAgentResult(event.result || 'Agent stopped.');
+                                break;
+                            case 'error':
+                                setAgentStatus('error');
+                                setAgentResult(event.message || 'An error occurred.');
+                                break;
+                        }
+                    } catch { /* malformed SSE line */ }
+                }
+            }
+        } catch (err: any) {
+            if (err?.name === 'AbortError') return;
+            console.error('Agent stream error:', err);
+            setAgentStatus('error');
+            setAgentResult('Could not connect to the AI backend. Make sure the server is running.');
+        }
+    }, []);
+
+    const handleStopAgent = useCallback(async () => {
+        agentAbortRef.current?.abort();
+        try {
+            await fetch(`${BACKEND_URL}/agent/stop`, { method: 'POST' });
+        } catch { /* ignore */ }
+        setAgentStatus('stopped');
+        setAgentResult('Agent stopped by user.');
+    }, []);
+
     // Navigation handlers
     const handleBack = useCallback(() => {
         if (!activeTabId) return;
@@ -531,7 +709,10 @@ function App() {
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
                                 >
-                                    <HomePage />
+                                    <HomePage
+                                        onRun={handleRunAgent}
+                                        agentStatus={agentStatus}
+                                    />
                                 </motion.div>
                             )}
                             {isInternalPage && !isHomePage && !isSettingsPage && (
@@ -543,7 +724,10 @@ function App() {
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
                                 >
-                                    <HomePage />
+                                    <HomePage
+                                        onRun={handleRunAgent}
+                                        agentStatus={agentStatus}
+                                    />
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -587,6 +771,19 @@ function App() {
             <RealmSearch
                 isOpen={showRealmSearch}
                 onClose={() => setShowRealmSearch(false)}
+            />
+
+            {/* Agent Activity Panel */}
+            <AgentPanel
+                isOpen={isAgentPanelOpen}
+                onClose={() => setIsAgentPanelOpen(false)}
+                status={agentStatus}
+                instruction={agentInstruction}
+                steps={agentSteps}
+                result={agentResult}
+                authService={agentAuthService}
+                onStop={handleStopAgent}
+                onFollowUp={handleRunAgent}
             />
         </div>
     );

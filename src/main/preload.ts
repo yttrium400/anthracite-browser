@@ -442,6 +442,10 @@ declare global {
                 signOut: () => Promise<{ success: boolean }>
                 onStateChanged: (callback: (data: { user: AuthUserPublic | null }) => void) => () => void
             }
+            agent: {
+                createAgentTab: () => Promise<{ tabId: string; cdpUrl: string; targetId: string }>
+                getActiveWebviewTarget: () => Promise<string | null>
+            }
         }
     }
 }
