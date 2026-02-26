@@ -18,6 +18,7 @@ import {
     LockKey,
     ArrowsClockwise,
     FloppyDisk,
+    Info,
 } from '@phosphor-icons/react';
 
 export type AgentStatus = 'idle' | 'thinking' | 'running' | 'done' | 'error' | 'stopped' | 'auth';
@@ -76,6 +77,20 @@ function StatusBadge({ status }: { status: AgentStatus }) {
 }
 
 function StepCard({ step, isLast, isRunning }: { step: AgentStep; isLast: boolean; isRunning: boolean }) {
+    // Special: session warning (shown before agent starts)
+    if (step.action === 'session_warning') {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-start gap-2 px-3 py-2.5 rounded-xl border bg-amber-400/5 border-amber-400/15"
+            >
+                <Info className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-300/80 leading-snug">{step.goal}</p>
+            </motion.div>
+        );
+    }
+
     const Icon = getStepIcon(step.action);
     const active = isLast && isRunning;
 

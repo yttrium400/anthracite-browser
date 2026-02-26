@@ -450,6 +450,40 @@ function App() {
             selectedModel = settings?.selectedModel || '';
         } catch { /* no keys configured */ }
 
+        // Session health check (Task 5.5): if instruction mentions a service that
+        // needs auth, verify the user has an active session in Anthracite's browser.
+        // We only warn — never block — so the agent can still attempt the task.
+        const AUTH_KEYWORDS: Array<{ patterns: string[]; service: string }> = [
+            { patterns: ['gmail', 'my email', 'my inbox', 'google mail'], service: 'Google' },
+            { patterns: ['my calendar', 'google calendar', 'gcal'], service: 'Google' },
+            { patterns: ['my drive', 'google drive'], service: 'Google' },
+            { patterns: ['github', 'my repo', 'my pull request'], service: 'GitHub' },
+            { patterns: ['my amazon', 'my orders', 'amazon order'], service: 'Amazon' },
+            { patterns: ['linkedin', 'my linkedin'], service: 'LinkedIn' },
+            { patterns: ['my microsoft', 'outlook', 'teams'], service: 'Microsoft' },
+        ];
+        const lowerInput = input.toLowerCase();
+        const matchedService = AUTH_KEYWORDS.find(({ patterns }) =>
+            patterns.some(p => lowerInput.includes(p))
+        );
+        if (matchedService) {
+            try {
+                const accounts = await window.electron?.accounts?.getConnected() || [];
+                const hasSession = accounts.some(
+                    (a: any) => a.service === matchedService.service && a.isActive
+                );
+                if (!hasSession) {
+                    // Inject a warning step so the user sees it in the panel
+                    const warningStep = {
+                        step: 0,
+                        action: 'session_warning',
+                        goal: `No active ${matchedService.service} session detected. The agent may hit a login page — you can sign in when prompted.`,
+                    };
+                    setAgentSteps([warningStep]);
+                }
+            } catch { /* non-fatal */ }
+        }
+
         // Create agent tab so the backend has a CDP target to control
         let targetId = '';
         try {

@@ -1410,6 +1410,19 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                     <p>Version: {appVersion}</p>
                                 </div>
                             </div>
+
+                            {/* Report a Problem */}
+                            <div className="mt-4 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                <h4 className="text-sm font-medium text-text-primary mb-1">Help & Feedback</h4>
+                                <p className="text-xs text-text-tertiary mb-3">Found a bug or have a suggestion? Let us know on GitHub.</p>
+                                <button
+                                    onClick={() => window.electron?.openExternal('https://github.com/yttrium400/anthracite/issues/new')}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-text-secondary bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.1] transition-colors"
+                                >
+                                    <ArrowSquareOut className="h-3.5 w-3.5" />
+                                    Report a Problem
+                                </button>
+                            </div>
                         </section>
                     )}
 
