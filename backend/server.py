@@ -88,6 +88,7 @@ class TaskRequest(BaseModel):
     anthropic_api_key: str | None = None  # Anthropic key from frontend
     google_api_key: str | None = None     # Google AI key from frontend
     model: str | None = None              # Selected model ID (e.g. "claude-sonnet-4-6")
+    memory_prompt: str | None = None      # User profile context injected into system prompt
 
 class TestApiKeyRequest(BaseModel):
     api_key: str
@@ -314,6 +315,7 @@ async def stream_agent(task: TaskRequest):
                             anthropic_api_key=anthropic_key,
                             google_api_key=google_key,
                             model=task.model,
+                            memory_prompt=task.memory_prompt,
                             step_callback=step_callback,
                             should_stop=agent_control.should_stop,
                         )

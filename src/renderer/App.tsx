@@ -469,6 +469,9 @@ function App() {
         const collectedSteps: Array<{ step: number; action: string; goal: string }> = [];
 
         try {
+            // Fetch user memory prompt to personalise the agent run
+            const memoryPrompt = await window.electron?.agentMemory?.getPrompt().catch(() => '') || '';
+
             const response = await fetch(`${BACKEND_URL}/agent/stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -480,6 +483,7 @@ function App() {
                     api_key: openaiKey || undefined,
                     google_api_key: googleKey || undefined,
                     model: selectedModel || undefined,
+                    memory_prompt: memoryPrompt || undefined,
                 }),
                 signal: abort.signal,
             });

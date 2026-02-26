@@ -32,6 +32,7 @@ import {
     Play,
     DownloadSimple,
     CheckCircle as CheckCircleFill,
+    Spinner,
 } from '@phosphor-icons/react';
 
 interface AppSettings {
@@ -64,7 +65,7 @@ interface SettingsPageProps {
     className?: string;
 }
 
-type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history' | 'import';
+type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history' | 'import' | 'agent-profile';
 
 interface AuthUserPublic {
     id: string;
@@ -226,6 +227,16 @@ export function SettingsPage({ className }: SettingsPageProps) {
     const [agentTasksLoading, setAgentTasksLoading] = useState(false);
     const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
 
+    // Agent memory / user profile
+    const [agentMemory, setAgentMemory] = useState<{
+        userName: string;
+        preferredServices: Record<string, string>;
+        customNotes: string;
+        topDomains: string[];
+    } | null>(null);
+    const [agentMemorySaving, setAgentMemorySaving] = useState(false);
+    const [agentMemorySaved, setAgentMemorySaved] = useState(false);
+
     // Browser import
     const [detectedBrowsers, setDetectedBrowsers] = useState<any[]>([]);
     const [importingId, setImportingId] = useState<string | null>(null);
@@ -331,12 +342,17 @@ export function SettingsPage({ className }: SettingsPageProps) {
         if (activeSection === 'agent-history') {
             loadAgentTasks();
         }
+        if (activeSection === 'agent-profile' && !agentMemory) {
+            (window.electron as any)?.agentMemory?.get().then((mem: any) => {
+                setAgentMemory(mem);
+            }).catch(() => {});
+        }
         if (activeSection === 'import' && detectedBrowsers.length === 0) {
             (window.electron as any)?.importer?.detectBrowsers().then((browsers: any[]) => {
                 setDetectedBrowsers(browsers || []);
             }).catch(() => {});
         }
-    }, [activeSection, loadConnectedAccounts, detectedBrowsers.length]);
+    }, [activeSection, loadConnectedAccounts, detectedBrowsers.length, agentMemory]);
 
     const loadAgentTasks = useCallback(async () => {
         setAgentTasksLoading(true);
@@ -435,6 +451,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
         { id: 'subscription', label: 'Plan & Billing', icon: CreditCard },
         { id: 'accounts', label: 'Connected Accounts', icon: UserCircle },
         { id: 'agent-history', label: 'Task History', icon: Robot },
+        { id: 'agent-profile', label: 'Agent Profile', icon: Robot },
         { id: 'import', label: 'Import Data', icon: DownloadSimple },
         { id: 'browser', label: 'Browser', icon: Globe },
         { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -1586,6 +1603,118 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                             </div>
                                         );
                                     })}
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {/* Agent Profile Section */}
+                    {activeSection === 'agent-profile' && (
+                        <section>
+                            <SectionHeader
+                                icon={Robot}
+                                title="Agent Profile"
+                                description="Context the AI agent uses to personalise its actions. Stored locally — never shared."
+                            />
+
+                            {!agentMemory ? (
+                                <div className="flex items-center gap-2 text-text-muted text-xs py-8 justify-center">
+                                    <Spinner className="h-4 w-4 animate-spin" />
+                                    Loading profile…
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {/* Name */}
+                                    <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-medium text-text-secondary">Your name</label>
+                                            <input
+                                                type="text"
+                                                value={agentMemory.userName}
+                                                onChange={e => setAgentMemory(m => m ? { ...m, userName: e.target.value } : m)}
+                                                placeholder="e.g. Alex"
+                                                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-brand/50 transition-colors"
+                                            />
+                                            <p className="text-[11px] text-text-muted">The agent will address you by this name.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Preferred services */}
+                                    <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                        <p className="text-xs font-medium text-text-secondary mb-3">Preferred services</p>
+                                        <div className="space-y-2">
+                                            {Object.entries(agentMemory.preferredServices).map(([category, url]) => (
+                                                <div key={category} className="flex items-center gap-2">
+                                                    <span className="text-xs text-text-muted w-20 capitalize shrink-0">{category}</span>
+                                                    <input
+                                                        type="text"
+                                                        value={url}
+                                                        onChange={e => setAgentMemory(m => m ? {
+                                                            ...m,
+                                                            preferredServices: { ...m.preferredServices, [category]: e.target.value }
+                                                        } : m)}
+                                                        placeholder={`e.g. gmail.com`}
+                                                        className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-brand/50 transition-colors"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Custom notes */}
+                                    <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-medium text-text-secondary">Custom notes</label>
+                                            <textarea
+                                                value={agentMemory.customNotes}
+                                                onChange={e => setAgentMemory(m => m ? { ...m, customNotes: e.target.value } : m)}
+                                                rows={4}
+                                                placeholder="e.g. I'm based in Sydney, Australia. I prefer vegetarian options. My default airport is SYD."
+                                                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-brand/50 transition-colors resize-none"
+                                            />
+                                            <p className="text-[11px] text-text-muted">Free-form context injected into every agent run. Mention your location, preferences, timezone, etc.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Top domains (read-only) */}
+                                    {agentMemory.topDomains.length > 0 && (
+                                        <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                            <p className="text-xs font-medium text-text-secondary mb-2">Frequently visited sites</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {agentMemory.topDomains.map(d => (
+                                                    <span key={d} className="px-2 py-0.5 rounded-md text-[11px] bg-white/[0.04] border border-white/[0.08] text-text-secondary">{d}</span>
+                                                ))}
+                                            </div>
+                                            <p className="text-[11px] text-text-muted mt-2">Auto-detected from your browsing history.</p>
+                                        </div>
+                                    )}
+
+                                    {/* Save button */}
+                                    <div className="flex items-center gap-3 pt-1">
+                                        <button
+                                            onClick={async () => {
+                                                setAgentMemorySaving(true);
+                                                setAgentMemorySaved(false);
+                                                try {
+                                                    await (window.electron as any)?.agentMemory?.save(agentMemory);
+                                                    setAgentMemorySaved(true);
+                                                    setTimeout(() => setAgentMemorySaved(false), 2000);
+                                                } catch { /* ignore */ } finally {
+                                                    setAgentMemorySaving(false);
+                                                }
+                                            }}
+                                            disabled={agentMemorySaving}
+                                            className="px-4 py-2 rounded-lg text-xs font-semibold bg-brand text-black hover:bg-brand/90 transition-colors disabled:opacity-50"
+                                        >
+                                            {agentMemorySaving ? 'Saving…' : 'Save Profile'}
+                                        </button>
+                                        {agentMemorySaved && (
+                                            <span className="text-xs text-success flex items-center gap-1">
+                                                <CheckCircle className="h-3.5 w-3.5" weight="fill" />
+                                                Saved
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </section>

@@ -192,6 +192,7 @@ import {
     clearAgentTasks,
 } from './history'
 import { detectBrowsers, importBrowserHistory, importChromiumBookmarks } from './importer'
+import { loadAgentMemory, saveAgentMemory, buildMemoryPrompt } from './agent-memory'
 import {
     // Realm operations
     getRealms,
@@ -1628,6 +1629,19 @@ function setupIPC(): void {
     ipcMain.handle('onboarding-complete', () => {
         settingsStore.set('hasCompletedOnboarding', true)
         return { success: true }
+    })
+
+    // ── Agent memory (user profile for personalised agent runs) ──────────────
+    ipcMain.handle('agent-memory-get', () => {
+        return loadAgentMemory()
+    })
+
+    ipcMain.handle('agent-memory-save', (_event, updates: Record<string, any>) => {
+        return saveAgentMemory(updates)
+    })
+
+    ipcMain.handle('agent-memory-get-prompt', () => {
+        return buildMemoryPrompt(loadAgentMemory())
     })
 }
 

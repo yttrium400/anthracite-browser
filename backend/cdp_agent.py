@@ -208,6 +208,7 @@ async def run_agent_task_streaming(
     anthropic_api_key: str | None = None,
     google_api_key: str | None = None,
     model: str | None = None,
+    memory_prompt: str | None = None,
     step_callback=None,
     should_stop=None,
 ) -> str:
@@ -425,6 +426,13 @@ async def run_agent_task_streaming(
             logger.warning(f"[Agent] Could not enable lifecycle monitoring: {e}")
 
         # ── Run agent ─────────────────────────────────────────────────────────
+        # Build system message — prepend user memory if available
+        _memory_block = (
+            f"{memory_prompt}\n\n"
+            if memory_prompt and memory_prompt.strip()
+            else ""
+        )
+
         agent = Agent(
             task=instruction,
             llm=llm,
@@ -436,7 +444,7 @@ async def run_agent_task_streaming(
             max_failures=5,
             max_actions_per_step=1,    # One action per step so agent sees autocomplete/state changes between actions
             use_judge=False,           # Disable post-run judge (saves 2 API calls, avoids false failures)
-            extend_system_message=(
+            extend_system_message=(_memory_block +
                 "Site selection — navigate directly to the right site first:\n"
                 "- Flights: https://www.google.com/flights\n"
                 "- Hotels/accommodation: https://www.booking.com\n"

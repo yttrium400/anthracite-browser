@@ -281,6 +281,13 @@ contextBridge.exposeInMainWorld('electron', {
         complete: () => ipcRenderer.invoke('onboarding-complete'),
     },
 
+    // Agent memory — user profile for personalised agent runs
+    agentMemory: {
+        get: () => ipcRenderer.invoke('agent-memory-get'),
+        save: (updates: Record<string, any>) => ipcRenderer.invoke('agent-memory-save', updates),
+        getPrompt: () => ipcRenderer.invoke('agent-memory-get-prompt'),
+    },
+
     // User Auth (Supabase) — SECURITY: raw tokens never leave the main process
     auth: {
         getUser: () => ipcRenderer.invoke('auth-get-user'),
@@ -479,6 +486,23 @@ declare global {
             onboarding: {
                 isFirstRun: () => Promise<boolean>
                 complete: () => Promise<{ success: boolean }>
+            }
+            agentMemory: {
+                get: () => Promise<{
+                    userName: string
+                    preferredServices: Record<string, string>
+                    customNotes: string
+                    topDomains: string[]
+                    updatedAt: string
+                }>
+                save: (updates: Record<string, any>) => Promise<{
+                    userName: string
+                    preferredServices: Record<string, string>
+                    customNotes: string
+                    topDomains: string[]
+                    updatedAt: string
+                }>
+                getPrompt: () => Promise<string>
             }
             auth: {
                 getUser: () => Promise<AuthUserPublic | null>
