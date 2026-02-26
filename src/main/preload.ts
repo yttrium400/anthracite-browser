@@ -260,6 +260,7 @@ contextBridge.exposeInMainWorld('electron', {
         detectBrowsers: () => ipcRenderer.invoke('import-detect-browsers'),
         importHistory: (profile: any) => ipcRenderer.invoke('import-history', profile),
         importBookmarks: (bookmarksPath: string) => ipcRenderer.invoke('import-bookmarks', bookmarksPath),
+        importBookmarksToRealms: (bookmarksPath: string) => ipcRenderer.invoke('import-bookmarks-to-realms', bookmarksPath),
     },
 
     // Agent task history

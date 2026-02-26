@@ -1508,6 +1508,52 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 </div>
                             )}
 
+                            {/* Bookmark import → Realms */}
+                            {detectedBrowsers.some((p: any) => p.bookmarksPath) && (
+                                <div className="mt-4 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                    <h4 className="text-sm font-medium text-text-primary mb-1">Import Bookmarks as Realms</h4>
+                                    <p className="text-xs text-text-tertiary mb-3">
+                                        Chrome/Brave bookmark folders become Anthracite Realms. Each bookmark becomes a pinned tab.
+                                    </p>
+                                    <div className="space-y-2">
+                                        {detectedBrowsers.filter((p: any) => p.bookmarksPath).map((profile: any) => {
+                                            const key = `bookmarks-${profile.browser}-${profile.profileName}`;
+                                            const isImporting = importingId === key;
+                                            const result = importResults[key];
+                                            return (
+                                                <div key={key} className="flex items-center justify-between gap-3">
+                                                    <span className="text-xs text-text-secondary">{profile.browser} {profile.profileName !== 'Default' ? `(${profile.profileName})` : ''}</span>
+                                                    <button
+                                                        disabled={isImporting || !!result}
+                                                        onClick={async () => {
+                                                            setImportingId(key);
+                                                            try {
+                                                                const res = await (window.electron as any)?.importer?.importBookmarksToRealms(profile.bookmarksPath);
+                                                                setImportResults(prev => ({ ...prev, [key]: { imported: res?.imported ?? 0, errors: [] } }));
+                                                            } catch {
+                                                                setImportResults(prev => ({ ...prev, [key]: { imported: 0, errors: ['Import failed'] } }));
+                                                            } finally {
+                                                                setImportingId(null);
+                                                            }
+                                                        }}
+                                                        className={cn(
+                                                            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0',
+                                                            result ? 'text-success bg-success/10 cursor-default'
+                                                                : isImporting ? 'text-text-tertiary bg-white/[0.04] cursor-wait'
+                                                                : 'text-brand bg-brand/10 hover:bg-brand/20'
+                                                        )}
+                                                    >
+                                                        {isImporting ? <><ArrowsClockwise className="h-3.5 w-3.5 animate-spin" /> Importing...</>
+                                                            : result ? <><CheckCircle className="h-3.5 w-3.5" weight="fill" /> {result.imported} tabs</>
+                                                            : <><DownloadSimple className="h-3.5 w-3.5" /> Import</>}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="mt-6 p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
                                 <div className="flex items-start gap-3">
                                     <Shield className="h-4 w-4 text-text-tertiary shrink-0 mt-0.5" />

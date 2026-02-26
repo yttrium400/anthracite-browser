@@ -1232,6 +1232,44 @@ function setupIPC(): void {
         return importChromiumBookmarks(bookmarksPath)
     })
 
+    ipcMain.handle('import-bookmarks-to-realms', async (_event, bookmarksPath: string) => {
+        const entries = importChromiumBookmarks(bookmarksPath)
+        if (!entries.length) return { imported: 0, realms: 0 }
+
+        // Group by top-level folder (first segment of the folder path)
+        const byFolder: Record<string, typeof entries> = {}
+        for (const e of entries) {
+            const topFolder = e.folder ? e.folder.split(' / ')[0].trim() : 'Bookmarks'
+            if (!byFolder[topFolder]) byFolder[topFolder] = []
+            byFolder[topFolder].push(e)
+        }
+
+        let importedCount = 0
+        let realmCount = 0
+
+        for (const [folderName, items] of Object.entries(byFolder)) {
+            if (!items.length) continue
+
+            // Create realm for this folder
+            const realm = createRealmFromParams(folderName)
+            if (!realm) continue
+            realmCount++
+
+            // Create tabs as pinned tabs in this realm (using createTab + pin)
+            for (const item of items.slice(0, 30)) { // cap at 30 per realm
+                try {
+                    const tab = createTab(item.url)
+                    tab.title = item.title || item.url
+                    // Optionally pin it
+                    pinTab(tab.id)
+                    importedCount++
+                } catch { /* skip bad URLs */ }
+            }
+        }
+
+        return { imported: importedCount, realms: realmCount }
+    })
+
     // Google search suggestions (proxy to avoid CORS in renderer)
     ipcMain.handle('search-suggestions', async (_, query: string) => {
         if (!query || query.length < 1) {
