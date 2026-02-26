@@ -46,6 +46,11 @@ export interface AppSettings {
     sentryDsn?: string;     // Sentry DSN for crash reporting (optional, user-provided)
     errorReportingEnabled: boolean;
 
+    // Keyboard shortcuts (key letter only — Cmd/Ctrl modifier always implied)
+    keybindingCommandPalette: string;  // default 'k'  → Cmd+K
+    keybindingRealmSearch: string;     // default 'K'  → Cmd+Shift+K  (uppercase = +Shift)
+    keybindingSidebar: string;         // default '\\' → Cmd+\
+
     // Onboarding
     hasCompletedOnboarding: boolean;
 }
@@ -83,6 +88,11 @@ const DEFAULT_SETTINGS: AppSettings = {
 
     // Error reporting
     errorReportingEnabled: false,
+
+    // Keyboard shortcuts
+    keybindingCommandPalette: 'k',
+    keybindingRealmSearch: 'K',
+    keybindingSidebar: '\\',
 
     // Onboarding
     hasCompletedOnboarding: false,

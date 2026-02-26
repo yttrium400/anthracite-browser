@@ -266,14 +266,45 @@ function App() {
     // Adaptive brand color — shifts accent to match the active site's palette
     useAdaptiveTheme(activeTab?.url);
 
+    // Custom keybindings — loaded once and kept in a ref so the handler closure
+    // always reads the latest value without needing to re-register.
+    const keybindingsRef = useRef({ commandPalette: 'k', realmSearch: 'K', sidebar: '\\' });
+    useEffect(() => {
+        window.electron?.settings.getAll().then((s: any) => {
+            if (s) {
+                keybindingsRef.current = {
+                    commandPalette: s.keybindingCommandPalette ?? 'k',
+                    realmSearch: s.keybindingRealmSearch ?? 'K',
+                    sidebar: s.keybindingSidebar ?? '\\',
+                };
+            }
+        }).catch(() => {});
+        // Re-read on settings changes
+        const unsub = window.electron?.settings.onChanged((data: any) => {
+            if (data?.settings) {
+                keybindingsRef.current = {
+                    commandPalette: data.settings.keybindingCommandPalette ?? keybindingsRef.current.commandPalette,
+                    realmSearch: data.settings.keybindingRealmSearch ?? keybindingsRef.current.realmSearch,
+                    sidebar: data.settings.keybindingSidebar ?? keybindingsRef.current.sidebar,
+                };
+            }
+        });
+        return () => unsub?.();
+    }, []);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
+            const { commandPalette, realmSearch } = keybindingsRef.current;
+            // Uppercase binding key means Shift is required
+            const cpShift = commandPalette !== commandPalette.toLowerCase();
+            const rsShift = realmSearch !== realmSearch.toLowerCase();
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey === rsShift && e.key === (rsShift ? realmSearch : realmSearch.toLowerCase())) {
                 e.preventDefault();
                 setShowRealmSearch(prev => !prev);
+                return;
             }
-            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey === cpShift && e.key === (cpShift ? commandPalette : commandPalette.toLowerCase())) {
                 e.preventDefault();
                 setShowCommandPalette(prev => !prev);
             }

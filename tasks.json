@@ -424,7 +424,7 @@
         {
             "id": "14",
             "title": "Keyboard Shortcuts & Command Palette",
-            "status": "pending",
+            "status": "completed",
             "priority": "medium",
             "context": "Some shortcuts exist (Cmd+R, Cmd+Shift+K for realm search) but there's no command palette and no customization.",
             "created_at": "2026-02-12T12:14:00.000000",
@@ -447,7 +447,7 @@
                 {
                     "id": "14.4",
                     "title": "Add customizable keybindings in settings",
-                    "status": "pending"
+                    "status": "completed"
                 }
             ]
         },

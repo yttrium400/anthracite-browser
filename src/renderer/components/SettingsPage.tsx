@@ -33,6 +33,7 @@ import {
     DownloadSimple,
     CheckCircle as CheckCircleFill,
     Spinner,
+    Keyboard,
 } from '@phosphor-icons/react';
 
 interface AppSettings {
@@ -61,13 +62,16 @@ interface AppSettings {
     selectedModel?: string;
     sentryDsn?: string;
     errorReportingEnabled?: boolean;
+    keybindingCommandPalette?: string;
+    keybindingRealmSearch?: string;
+    keybindingSidebar?: string;
 }
 
 interface SettingsPageProps {
     className?: string;
 }
 
-type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history' | 'import' | 'agent-profile' | 'workflows';
+type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history' | 'import' | 'agent-profile' | 'workflows' | 'shortcuts';
 
 interface AuthUserPublic {
     id: string;
@@ -473,6 +477,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
         { id: 'appearance', label: 'Appearance', icon: Palette },
         { id: 'privacy', label: 'Privacy & Security', icon: Lock },
         { id: 'tabs', label: 'Tabs & Navigation', icon: AppWindow },
+        { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
         { id: 'developer', label: 'Developer', icon: Code },
     ];
 
@@ -1256,6 +1261,79 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 <p className="text-xs text-text-tertiary/70">
                                     Keys are stored locally and never transmitted to Anthracite servers.
                                 </p>
+                            </div>
+                        </section>
+                    )}
+
+                    {/* Keyboard Shortcuts Section */}
+                    {activeSection === 'shortcuts' && (
+                        <section>
+                            <SectionHeader
+                                icon={Keyboard}
+                                title="Keyboard Shortcuts"
+                                description="View and customise keyboard shortcuts. Modifier key (⌘ on Mac, Ctrl on Windows/Linux) is always used."
+                            />
+
+                            {/* Customisable shortcuts */}
+                            <div className="space-y-3 mb-6">
+                                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">Customisable</h4>
+                                {[
+                                    { label: 'Open Command Palette', key: 'keybindingCommandPalette', hint: 'Type a single letter. Uppercase = Shift modifier (e.g. K = ⌘⇧K)' },
+                                    { label: 'Open Realm Search', key: 'keybindingRealmSearch', hint: 'Type a single letter. Uppercase = Shift modifier' },
+                                    { label: 'Toggle Sidebar Pin', key: 'keybindingSidebar', hint: 'Type any single key (e.g. \\)' },
+                                ].map(({ label, key, hint }) => (
+                                    <div key={key} className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-text-primary">{label}</p>
+                                                <p className="text-[11px] text-text-tertiary mt-0.5">{hint}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-xs text-text-tertiary">⌘</span>
+                                                <input
+                                                    type="text"
+                                                    maxLength={2}
+                                                    value={(settings as any)[key] ?? ''}
+                                                    onChange={(e) => {
+                                                        const v = e.target.value.slice(-1); // take last char
+                                                        if (v) updateSetting(key as any, v);
+                                                    }}
+                                                    className="w-10 h-8 text-center rounded-lg text-sm font-mono bg-white/[0.08] border border-white/[0.12] text-text-primary focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/30 transition-all"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Reference table — all shortcuts */}
+                            <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">All Shortcuts</h4>
+                            <div className="bg-white/[0.025] rounded-xl border border-white/[0.05] overflow-hidden">
+                                {[
+                                    { action: 'Open Command Palette', binding: '⌘K' },
+                                    { action: 'Open Realm Search', binding: '⌘⇧K' },
+                                    { action: 'Toggle Sidebar Pin', binding: '⌘\\' },
+                                    { action: 'Switch to Realm 1–9', binding: '⌘1 – ⌘9' },
+                                    { action: 'Previous Realm', binding: '⌘[' },
+                                    { action: 'Next Realm', binding: '⌘]' },
+                                    { action: 'New Tab', binding: '⌘T' },
+                                    { action: 'Close Tab', binding: '⌘W' },
+                                    { action: 'Reload Page', binding: '⌘R' },
+                                    { action: 'Go Back', binding: '⌘[' },
+                                    { action: 'Go Forward', binding: '⌘]' },
+                                    { action: 'Open Settings', binding: '⌘,' },
+                                ].map(({ action, binding }, i, arr) => (
+                                    <div
+                                        key={action}
+                                        className={cn(
+                                            'flex items-center justify-between px-4 py-2.5',
+                                            i < arr.length - 1 && 'border-b border-white/[0.04]'
+                                        )}
+                                    >
+                                        <span className="text-[13px] text-text-secondary">{action}</span>
+                                        <kbd className="text-[11px] font-mono text-text-tertiary bg-white/[0.07] border border-white/[0.1] px-2 py-0.5 rounded-md">{binding}</kbd>
+                                    </div>
+                                ))}
                             </div>
                         </section>
                     )}
