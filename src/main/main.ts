@@ -1584,16 +1584,64 @@ function createWindow(): void {
     // Set up custom menu to prevent Cmd+R from reloading the main window
     // Instead, Cmd+R reloads the active tab's webview content
     const menu = Menu.buildFromTemplate([
+        // ── Anthracite (App) ─────────────────────────────────────────────────
         {
             label: 'Anthracite',
             submenu: [
                 { role: 'about' },
                 { type: 'separator' },
+                {
+                    label: 'Preferences...',
+                    accelerator: 'CmdOrCtrl+,',
+                    click: () => win?.webContents.send('navigate-to-url', { tabId: activeTabId, url: 'anthracite://settings' }),
+                },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
                 { role: 'hide' },
                 { role: 'hideOthers' },
                 { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' },
             ],
         },
+
+        // ── File ─────────────────────────────────────────────────────────────
+        {
+            label: 'File',
+            submenu: [
+                {
+                    label: 'New Tab',
+                    accelerator: 'CmdOrCtrl+T',
+                    click: () => {
+                        const tab = createTab()
+                        switchToTab(tab.id)
+                        sendTabsUpdate()
+                    },
+                },
+                { type: 'separator' },
+                {
+                    label: 'Close Tab',
+                    accelerator: 'CmdOrCtrl+W',
+                    click: () => {
+                        if (activeTabId) closeTab(activeTabId)
+                    },
+                },
+                { type: 'separator' },
+                {
+                    label: 'Print...',
+                    accelerator: 'CmdOrCtrl+P',
+                    click: () => {
+                        if (activeTabId) {
+                            const tab = tabs.get(activeTabId)
+                            tab?.view.webContents.print()
+                        }
+                    },
+                },
+            ],
+        },
+
+        // ── Edit ─────────────────────────────────────────────────────────────
         {
             label: 'Edit',
             submenu: [
@@ -1603,41 +1651,37 @@ function createWindow(): void {
                 { role: 'cut' },
                 { role: 'copy' },
                 { role: 'paste' },
+                { role: 'pasteAndMatchStyle' },
+                { role: 'delete' },
                 { role: 'selectAll' },
+                { type: 'separator' },
+                {
+                    label: 'Find in Page',
+                    accelerator: 'CmdOrCtrl+F',
+                    click: () => win?.webContents.send('trigger-find-in-page'),
+                },
             ],
         },
+
+        // ── View ─────────────────────────────────────────────────────────────
         {
             label: 'View',
             submenu: [
                 {
                     label: 'Reload Page',
                     accelerator: 'CmdOrCtrl+R',
-                    click: () => {
-                        if (activeTabId) {
-                            const tab = tabs.get(activeTabId)
-                            if (tab) {
-                                // Reload the webview in the renderer via IPC
-                                win?.webContents.send('reload-active-tab')
-                            }
-                        }
-                    },
+                    click: () => win?.webContents.send('reload-active-tab'),
                 },
                 {
                     label: 'Force Reload Page',
                     accelerator: 'CmdOrCtrl+Shift+R',
-                    click: () => {
-                        if (activeTabId) {
-                            win?.webContents.send('reload-active-tab')
-                        }
-                    },
+                    click: () => win?.webContents.send('reload-active-tab'),
                 },
                 { type: 'separator' },
                 {
                     label: 'Toggle Developer Tools',
                     accelerator: 'CmdOrCtrl+Alt+I',
-                    click: () => {
-                        win?.webContents.toggleDevTools()
-                    },
+                    click: () => win?.webContents.toggleDevTools(),
                 },
                 { type: 'separator' },
                 { role: 'resetZoom' },
@@ -1647,12 +1691,63 @@ function createWindow(): void {
                 { role: 'togglefullscreen' },
             ],
         },
+
+        // ── History ──────────────────────────────────────────────────────────
+        {
+            label: 'History',
+            submenu: [
+                {
+                    label: 'Back',
+                    accelerator: 'CmdOrCtrl+[',
+                    click: () => win?.webContents.send('go-back-active-tab'),
+                },
+                {
+                    label: 'Forward',
+                    accelerator: 'CmdOrCtrl+]',
+                    click: () => win?.webContents.send('go-forward-active-tab'),
+                },
+                { type: 'separator' },
+                {
+                    label: 'Home',
+                    click: () => {
+                        if (activeTabId) navigateTab(activeTabId, 'anthracite://newtab')
+                    },
+                },
+                { type: 'separator' },
+                {
+                    label: 'Show Full History',
+                    accelerator: 'CmdOrCtrl+Y',
+                    click: () => win?.webContents.send('navigate-to-url', { tabId: activeTabId, url: 'anthracite://history' }),
+                },
+            ],
+        },
+
+        // ── Window ───────────────────────────────────────────────────────────
         {
             label: 'Window',
+            role: 'window',
             submenu: [
                 { role: 'minimize' },
                 { role: 'zoom' },
+                { type: 'separator' },
+                { role: 'front' },
+                { type: 'separator' },
                 { role: 'close' },
+            ],
+        },
+
+        // ── Help ─────────────────────────────────────────────────────────────
+        {
+            role: 'help',
+            submenu: [
+                {
+                    label: 'Report an Issue',
+                    click: () => shell.openExternal('https://github.com/yttrium400/anthracite/issues'),
+                },
+                {
+                    label: 'Keyboard Shortcuts',
+                    click: () => win?.webContents.send('navigate-to-url', { tabId: activeTabId, url: 'anthracite://settings' }),
+                },
             ],
         },
     ])

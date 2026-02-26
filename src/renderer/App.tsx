@@ -637,6 +637,19 @@ function App() {
         }
     }, [handleReload]);
 
+    // Listen for back/forward from native menu
+    useEffect(() => {
+        const handler = () => handleBack();
+        window.electron?.ipc?.on('go-back-active-tab', handler);
+        return () => { /* listener cleanup handled by preload */ };
+    }, [handleBack]);
+
+    useEffect(() => {
+        const handler = () => handleForward();
+        window.electron?.ipc?.on('go-forward-active-tab', handler);
+        return () => { /* listener cleanup handled by preload */ };
+    }, [handleForward]);
+
     // Listen for navigate-to-url from main process (triggered by TopBar URL bar)
     useEffect(() => {
         if (window.electron?.navigation?.onNavigateToUrl) {
