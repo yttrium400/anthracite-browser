@@ -35,7 +35,9 @@ interface AgentPanelProps {
     steps: AgentStep[];
     result?: string;
     authService?: string;
+    authUrl?: string;
     onStop: () => void;
+    onResume: () => void;
     onFollowUp: (instruction: string) => void;
 }
 
@@ -121,7 +123,9 @@ export function AgentPanel({
     steps,
     result,
     authService,
+    authUrl,
     onStop,
+    onResume,
     onFollowUp,
 }: AgentPanelProps) {
     const [followUp, setFollowUp] = useState('');
@@ -226,14 +230,34 @@ export function AgentPanel({
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.97 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="flex gap-3 px-3 py-3 rounded-xl bg-amber-400/5 border border-amber-400/20"
+                                className="rounded-xl bg-amber-400/5 border border-amber-400/20 overflow-hidden"
                             >
-                                <LockKey className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-[12px] font-semibold text-amber-400">Login Required</p>
-                                    <p className="text-[11px] text-text-secondary mt-0.5 leading-snug">
-                                        Please log in to {authService || 'the website'}, then the agent will continue.
-                                    </p>
+                                <div className="flex gap-3 px-3 py-3">
+                                    <LockKey className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-[12px] font-semibold text-amber-400">Login Required</p>
+                                        <p className="text-[11px] text-text-secondary mt-0.5 leading-snug">
+                                            Log in to {authService || 'the website'} to continue. The agent is paused and will resume automatically once you're signed in.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 px-3 pb-3">
+                                    {authUrl && (
+                                        <button
+                                            onClick={() => (window.electron as any)?.accounts?.openLoginPopup(authUrl)}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 transition-colors"
+                                        >
+                                            <ArrowsClockwise className="h-3 w-3" />
+                                            Open Login Page
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={onResume}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-success bg-success/10 hover:bg-success/20 transition-colors"
+                                    >
+                                        <ArrowRight className="h-3 w-3" />
+                                        Resume Agent
+                                    </button>
                                 </div>
                             </motion.div>
                         )}

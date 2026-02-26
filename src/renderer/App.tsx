@@ -184,6 +184,7 @@ function App() {
     const [agentInstruction, setAgentInstruction] = useState('');
     const [agentResult, setAgentResult] = useState<string | undefined>();
     const [agentAuthService, setAgentAuthService] = useState<string | undefined>();
+    const [agentAuthUrl, setAgentAuthUrl] = useState<string | undefined>();
     const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
     const agentAbortRef = useRef<AbortController | null>(null);
 
@@ -420,6 +421,7 @@ function App() {
         setAgentSteps([]);
         setAgentResult(undefined);
         setAgentAuthService(undefined);
+        setAgentAuthUrl(undefined);
         setAgentStatus('thinking');
         setIsAgentPanelOpen(true);
 
@@ -519,6 +521,7 @@ function App() {
                             case 'auth_required':
                                 setAgentStatus('auth');
                                 setAgentAuthService(event.service);
+                                setAgentAuthUrl(event.url);
                                 break;
                             case 'done':
                                 setAgentStatus('done');
@@ -551,6 +554,14 @@ function App() {
         } catch { /* ignore */ }
         setAgentStatus('stopped');
         setAgentResult('Agent stopped by user.');
+    }, []);
+
+    const handleResumeAgent = useCallback(async () => {
+        try {
+            await fetch(`${BACKEND_URL}/agent/resume`, { method: 'POST' });
+            setAgentStatus('running');
+            setAgentAuthUrl(undefined);
+        } catch { /* ignore */ }
     }, []);
 
     // Navigation handlers
@@ -825,7 +836,9 @@ function App() {
                 steps={agentSteps}
                 result={agentResult}
                 authService={agentAuthService}
+                authUrl={agentAuthUrl}
                 onStop={handleStopAgent}
+                onResume={handleResumeAgent}
                 onFollowUp={handleRunAgent}
             />
         </div>

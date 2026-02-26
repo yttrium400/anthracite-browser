@@ -1390,6 +1390,17 @@ function setupIPC(): void {
         return connected
     })
 
+    ipcMain.handle('open-login-popup', async (_event, url: string) => {
+        if (typeof url !== 'string') return { success: false }
+        const safe = url.startsWith('https://') ? url : 'https://accounts.google.com/signin'
+        try {
+            openAuthPopup(safe)
+            return { success: true }
+        } catch {
+            return { success: false }
+        }
+    })
+
     ipcMain.handle('clear-account-cookies', async (_event, domain: string) => {
         // SECURITY: Raw cookie values are classified data.
         const anthraciteSession = session.fromPartition('persist:anthracite')

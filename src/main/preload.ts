@@ -249,6 +249,7 @@ contextBridge.exposeInMainWorld('electron', {
     accounts: {
         getConnected: () => ipcRenderer.invoke('get-connected-accounts'),
         disconnect: (domain: string) => ipcRenderer.invoke('clear-account-cookies', domain),
+        openLoginPopup: (url: string) => ipcRenderer.invoke('open-login-popup', url),
     },
 
     // System shell — opens URLs in the default system browser
@@ -432,6 +433,7 @@ declare global {
             accounts: {
                 getConnected: () => Promise<Array<{ service: string; email: string | null; isActive: boolean }>>
                 disconnect: (domain: string) => Promise<{ success: boolean }>
+                openLoginPopup: (url: string) => Promise<{ success: boolean }>
             }
             openExternal: (url: string) => Promise<{ success: boolean }>
             auth: {
