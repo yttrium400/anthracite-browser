@@ -41,7 +41,7 @@
         {
             "id": "3",
             "title": "Website Waitlist Backend \u2014 Actually Save Signups",
-            "status": "pending",
+            "status": "completed",
             "priority": "high",
             "context": "The signup form on anthracitebrowser.com (website/src/components/Signup.tsx) is purely cosmetic. It shows 'You're on the list' but saves nothing \u2014 no API call, no database, no email service. Need a real backend to collect and manage waitlist signups.",
             "created_at": "2026-02-12T12:03:00.000000",
@@ -49,13 +49,13 @@
                 {
                     "id": "3.4",
                     "title": "Send confirmation email on signup (optional)",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Use Resend or similar. Simple email: 'Thanks for signing up for Anthracite. We'll notify you when it's ready.'"
                 },
                 {
                     "id": "3.5",
                     "title": "Create admin view or export for signups",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "At minimum: ability to export CSV of all signups. Supabase dashboard gives this for free."
                 }
             ]
@@ -95,13 +95,13 @@
                 {
                     "id": "5.5",
                     "title": "Session health check before agent runs",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Before starting an agent task that likely requires auth (detect from instruction keywords: 'my email', 'my account', 'my orders', 'book', 'schedule', 'send'), call get-connected-accounts and check if the relevant service is connected. If not: show a non-blocking warning in CommandBar: 'Tip: Log into Google in any tab so the agent can access your account.' Don't block the task \u2014 just inform. This prevents the agent from starting, trying to log in, failing, and burning API credits on a doomed task. Map intent keywords to services: gmail/google/docs/drive/sheets \u2192 Google, github/repo/PR \u2192 GitHub, amazon/order/shipping \u2192 Amazon."
                 },
                 {
                     "id": "5.6",
                     "title": "Security audit: verify no cookie leakage to LLM or logs",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Audit all code paths: (1) IPC get-connected-accounts must return ONLY {service, email, avatarUrl} \u2014 grep codebase for cookie.value to ensure it's never forwarded. (2) Python cdp_agent.py: the agent's AX tree extraction and action loop must never output raw cookie content \u2014 cookies are in the browser process, not directly accessible to the Python agent anyway, but verify no CDP Runtime.evaluate calls that could extract document.cookie are emitted. (3) server.py logs: ensure step_callback results (which go to SSE stream) never contain auth tokens. (4) Add a comment block in AccountsService.ts: 'SECURITY: Raw cookie values are classified data. Never log, never send to renderer, never include in LLM context.' Follow Electron's security guidelines: use safeStorage for any credentials that need to be stored outside the session."
                 }
             ]
@@ -346,7 +346,7 @@
                 {
                     "id": "11.7",
                     "title": "Handle new tab/window creation during agent tasks",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Some sites open links in new tabs. Agent needs to follow into the new tab, complete the action, and return. Currently handled partially in main.ts setWindowOpenHandler but not integrated with agent flow."
                 }
             ]
@@ -379,7 +379,7 @@
                 {
                     "id": "12.4",
                     "title": "Add 'Report a Problem' in help menu / settings",
-                    "status": "pending"
+                    "status": "completed"
                 }
             ]
         },
@@ -394,7 +394,7 @@
                 {
                     "id": "13.1",
                     "title": "Import bookmarks \u2192 map to Anthracite Realms/Docks",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Chrome bookmarks are folders. Map top-level folders to Realms, sub-folders to Docks, bookmarks to pinned tabs or dock items."
                 },
                 {
@@ -432,17 +432,17 @@
                 {
                     "id": "14.1",
                     "title": "Add Cmd+K / Ctrl+K command palette for all browser actions",
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "14.2",
                     "title": "Add tab quick-switch with fuzzy search",
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "14.3",
                     "title": "Document and audit all existing shortcuts",
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "14.4",

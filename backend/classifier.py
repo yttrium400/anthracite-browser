@@ -19,16 +19,18 @@ class ClassifiedIntent:
     params: dict  # action-specific params
 
 
-# Regex patterns for fast classification (no LLM needed)
+# Regex patterns for fast classification (no LLM needed).
+# Full-URL patterns must come BEFORE domain patterns so that
+# "open https://github.com/org" is not partially matched by the domain pattern.
 _NAVIGATE_PATTERNS = [
-    # "go to youtube.com", "open google.com", "navigate to github.com"
-    r"(?:go\s+to|open|navigate\s+to|visit|load)\s+(.+?)\.(?:com|org|net|io|dev|co|ai|app|edu|gov|me|tv|gg|xyz)(?:\s|$|/.*)",
-    # "youtube.com", "google.com" (bare domain)
-    r"^([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)*)\.(?:com|org|net|io|dev|co|ai|app|edu|gov|me|tv|gg|xyz)(?:\s*$|/.*$)",
-    # Full URLs: "https://youtube.com/watch?v=..."
+    # Full URLs prefixed by a verb: "open https://github.com/anthropics"
     r"(?:go\s+to|open|navigate\s+to|visit|load)\s+(https?://\S+)",
-    # Bare URL
+    # Bare URL: "https://youtube.com/watch?v=..."
     r"^(https?://\S+)$",
+    # Verb + domain: "go to youtube.com", "open google.com"
+    r"(?:go\s+to|open|navigate\s+to|visit|load)\s+(.+?)\.(?:com|org|net|io|dev|co|ai|app|edu|gov|me|tv|gg|xyz)(?:\s|$|/.*)",
+    # Bare domain: "youtube.com", "google.com"
+    r"^([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)*)\.(?:com|org|net|io|dev|co|ai|app|edu|gov|me|tv|gg|xyz)(?:\s*$|/.*$)",
 ]
 
 _SEARCH_PATTERNS = [
