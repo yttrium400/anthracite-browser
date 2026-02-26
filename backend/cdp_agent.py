@@ -20,6 +20,7 @@ Public interface (unchanged for server.py compatibility):
   run_agent_task_streaming(instruction, target_id, api_key, step_callback, should_stop)
 """
 
+import asyncio
 import logging
 import os
 
@@ -285,6 +286,18 @@ async def run_agent_task_streaming(
     # ── Adapt step_callback to browser-use's signature ───────────────────────
     # browser-use: callback(browser_state, agent_output, step_num: int)
     # ours:        callback(step_num, action_name, args_dict, result_str)
+    # CAPTCHA page patterns — block the page from proceeding until user solves it.
+    # We detect these by checking URL fragments and known CAPTCHA provider domains.
+    _CAPTCHA_URL_PATTERNS = [
+        "recaptcha",
+        "hcaptcha.com",
+        "challenges.cloudflare.com",
+        "funcaptcha",
+        "arkoselabs.com",
+        "captcha.g.doubleclick",
+        "cf-chl-bypass",
+    ]
+
     # Login-page patterns that warrant takeover mode.
     # These are credential/password pages only — NOT OAuth consent screens.
     # OAuth consent flows (accounts.google.com/o/oauth2/...) don't need a password;
@@ -334,6 +347,14 @@ async def run_agent_task_streaming(
                 # Detect login/auth pages — emit auth_required and let server.py pause agent
                 if browser_state and getattr(browser_state, "url", None):
                     current_url = browser_state.url
+
+                    # CAPTCHA detection — pause and ask the user to solve it
+                    if any(pat in current_url for pat in _CAPTCHA_URL_PATTERNS):
+                        logger.info(f"[Takeover] CAPTCHA detected at {current_url[:80]} — pausing for user")
+                        await step_callback(step_num, "captcha_required", {"url": current_url}, "")
+                        return
+
+                    # Auth page detection — pause for login takeover
                     if any(pat in current_url for pat in _AUTH_URL_PATTERNS):
                         service = _detect_auth_service(current_url)
                         logger.info(f"[Takeover] Auth page detected at {current_url[:80]} — pausing for {service}")
@@ -423,6 +444,14 @@ async def run_agent_task_streaming(
                 "- General search: https://www.google.com\n"
                 "Do NOT use DuckDuckGo. Do NOT open new tabs.\n"
                 "\n"
+                "Cookie banners and overlay popups:\n"
+                "  When you encounter a cookie consent banner, GDPR notice, or modal overlay blocking\n"
+                "  the page content, dismiss it FIRST before attempting any other action. Look for\n"
+                "  buttons labelled 'Accept', 'Accept All', 'Accept Cookies', 'OK', 'Got it',\n"
+                "  'Agree', 'I Accept', 'Allow All', or 'Close'. Click the most prominent one.\n"
+                "  Similarly close newsletter sign-up popups or notification-permission prompts.\n"
+                "  Only proceed to the main task once the page content is visible and unobstructed.\n"
+                "\n"
                 "Google Flights — follow this EXACT step order, no skipping:\n"
                 "  Step 1. Navigate to https://www.google.com/flights (plain URL, no hash or query string).\n"
                 "  Step 2. Change trip type to 'One way' BEFORE touching any other field.\n"
@@ -442,7 +471,12 @@ async def run_agent_task_streaming(
         )
 
         logger.info(f"[Agent] Starting task: {instruction}")
-        history = await agent.run()
+        try:
+            # Hard per-task timeout: 5 minutes. Prevents stuck agents from running indefinitely.
+            history = await asyncio.wait_for(agent.run(), timeout=300.0)
+        except asyncio.TimeoutError:
+            logger.warning("[Agent] Task timed out after 5 minutes")
+            raise TimeoutError("Agent task timed out after 5 minutes. The task may be too complex — try breaking it into smaller steps.")
 
         result = history.final_result() or "Task completed"
         logger.info(f"[Agent] Done: {result[:200]}")
@@ -450,6 +484,8 @@ async def run_agent_task_streaming(
 
     except InterruptedError:
         raise  # Propagate stop signal to server.py
+    except TimeoutError:
+        raise  # Propagate timeout to server.py
 
     finally:
         try:

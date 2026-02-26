@@ -531,6 +531,11 @@ function App() {
                                 setAgentAuthService(event.service);
                                 setAgentAuthUrl(event.url);
                                 break;
+                            case 'captcha_required':
+                                setAgentStatus('auth');
+                                setAgentAuthService('CAPTCHA');
+                                setAgentAuthUrl(event.url);
+                                break;
                             case 'done': {
                                 const finalResult = event.result || 'Task completed.';
                                 setAgentStatus('done');

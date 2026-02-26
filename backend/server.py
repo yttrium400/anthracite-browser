@@ -284,6 +284,16 @@ async def stream_agent(task: TaskRequest):
                         })
                         return
 
+                    # CAPTCHA-required: pause the agent and prompt user to solve
+                    if action == "captcha_required":
+                        agent_control.pause()
+                        await queue.put({
+                            "type": "captcha_required",
+                            "step": step_num,
+                            "url": args.get("url", ""),
+                        })
+                        return
+
                     # Build a human-readable goal from the action and args
                     goal = args.get("text") or args.get("url") or args.get("result") or action
                     await queue.put({
@@ -310,6 +320,8 @@ async def stream_agent(task: TaskRequest):
                         await queue.put({"type": "done", "result": result})
                     except InterruptedError:
                         await queue.put({"type": "stopped", "result": "Agent stopped by user"})
+                    except TimeoutError as e:
+                        await queue.put({"type": "error", "message": str(e)})
                     except Exception as e:
                         logger.error(f"Agent stream error in background task: {e}", exc_info=True)
                         await queue.put({"type": "error", "message": str(e)})
