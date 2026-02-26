@@ -30,6 +30,8 @@ import {
     CaretRight,
     Trash,
     Play,
+    DownloadSimple,
+    CheckCircle as CheckCircleFill,
 } from '@phosphor-icons/react';
 
 interface AppSettings {
@@ -62,7 +64,7 @@ interface SettingsPageProps {
     className?: string;
 }
 
-type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history';
+type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history' | 'import';
 
 interface AuthUserPublic {
     id: string;
@@ -224,6 +226,11 @@ export function SettingsPage({ className }: SettingsPageProps) {
     const [agentTasksLoading, setAgentTasksLoading] = useState(false);
     const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
 
+    // Browser import
+    const [detectedBrowsers, setDetectedBrowsers] = useState<any[]>([]);
+    const [importingId, setImportingId] = useState<string | null>(null);
+    const [importResults, setImportResults] = useState<Record<string, { imported: number; errors: string[] }>>({});
+
     // Anthracite user account (task 7)
     const [authUser, setAuthUser] = useState<AuthUserPublic | null>(null);
     const [authEmail, setAuthEmail] = useState('');
@@ -324,7 +331,12 @@ export function SettingsPage({ className }: SettingsPageProps) {
         if (activeSection === 'agent-history') {
             loadAgentTasks();
         }
-    }, [activeSection, loadConnectedAccounts]);
+        if (activeSection === 'import' && detectedBrowsers.length === 0) {
+            (window.electron as any)?.importer?.detectBrowsers().then((browsers: any[]) => {
+                setDetectedBrowsers(browsers || []);
+            }).catch(() => {});
+        }
+    }, [activeSection, loadConnectedAccounts, detectedBrowsers.length]);
 
     const loadAgentTasks = useCallback(async () => {
         setAgentTasksLoading(true);
@@ -423,6 +435,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
         { id: 'subscription', label: 'Plan & Billing', icon: CreditCard },
         { id: 'accounts', label: 'Connected Accounts', icon: UserCircle },
         { id: 'agent-history', label: 'Task History', icon: Robot },
+        { id: 'import', label: 'Import Data', icon: DownloadSimple },
         { id: 'browser', label: 'Browser', icon: Globe },
         { id: 'appearance', label: 'Appearance', icon: Palette },
         { id: 'privacy', label: 'Privacy & Security', icon: Lock },
@@ -1364,6 +1377,103 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 <h4 className="text-sm font-medium text-text-primary mb-2">About Anthracite</h4>
                                 <div className="space-y-1 text-xs text-text-tertiary">
                                     <p>Version: {appVersion}</p>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    {/* Import Data Section */}
+                    {activeSection === 'import' && (
+                        <section>
+                            <SectionHeader
+                                icon={DownloadSimple}
+                                title="Import Data"
+                                description="Bring your browsing history from Chrome, Brave, Edge, Firefox, or Safari."
+                            />
+
+                            {detectedBrowsers.length === 0 ? (
+                                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-8 text-center">
+                                    <DownloadSimple className="h-10 w-10 text-text-tertiary mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-text-secondary mb-1">No supported browsers detected</p>
+                                    <p className="text-xs text-text-tertiary max-w-xs mx-auto">
+                                        Chrome, Brave, Edge, Firefox, and Safari are supported. Make sure at least one is installed.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {detectedBrowsers.map((profile: any) => {
+                                        const key = `${profile.browser}-${profile.profileName}`;
+                                        const isImporting = importingId === key;
+                                        const result = importResults[key];
+
+                                        return (
+                                            <div
+                                                key={key}
+                                                className="flex items-center gap-4 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06] hover:border-white/[0.1] transition-colors"
+                                            >
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-medium text-text-primary">{profile.browser}</span>
+                                                        {profile.profileName !== 'Default' && (
+                                                            <span className="text-[10px] text-text-tertiary bg-white/[0.06] px-1.5 py-0.5 rounded-full">{profile.profileName}</span>
+                                                        )}
+                                                    </div>
+                                                    {result ? (
+                                                        <p className="text-xs text-success mt-0.5 flex items-center gap-1">
+                                                            <CheckCircle className="h-3 w-3" weight="fill" />
+                                                            {result.imported.toLocaleString()} entries imported
+                                                            {result.errors.length > 0 && <span className="text-error"> · {result.errors.length} error(s)</span>}
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-xs text-text-tertiary mt-0.5">Browsing history</p>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    disabled={isImporting || !!result}
+                                                    onClick={async () => {
+                                                        setImportingId(key);
+                                                        try {
+                                                            const res = await (window.electron as any)?.importer?.importHistory(profile);
+                                                            setImportResults(prev => ({ ...prev, [key]: res }));
+                                                        } catch {
+                                                            setImportResults(prev => ({ ...prev, [key]: { imported: 0, errors: ['Import failed'] } }));
+                                                        } finally {
+                                                            setImportingId(null);
+                                                        }
+                                                    }}
+                                                    className={cn(
+                                                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                                                        result
+                                                            ? 'text-success bg-success/10 cursor-default'
+                                                            : isImporting
+                                                                ? 'text-text-tertiary bg-white/[0.04] cursor-wait'
+                                                                : 'text-text-primary bg-brand/10 hover:bg-brand/20 text-brand'
+                                                    )}
+                                                >
+                                                    {isImporting ? (
+                                                        <><ArrowsClockwise className="h-3.5 w-3.5 animate-spin" /> Importing...</>
+                                                    ) : result ? (
+                                                        <><CheckCircle className="h-3.5 w-3.5" weight="fill" /> Done</>
+                                                    ) : (
+                                                        <><DownloadSimple className="h-3.5 w-3.5" /> Import</>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div className="mt-6 p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                                <div className="flex items-start gap-3">
+                                    <Shield className="h-4 w-4 text-text-tertiary shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-medium text-text-secondary mb-1">Privacy note</p>
+                                        <p className="text-xs text-text-tertiary leading-relaxed">
+                                            History is read directly from your local disk and imported into Anthracite's local database.
+                                            No data is sent externally. Passwords and cookies are never accessed.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </section>

@@ -255,6 +255,13 @@ contextBridge.exposeInMainWorld('electron', {
         openLoginPopup: (url: string) => ipcRenderer.invoke('open-login-popup', url),
     },
 
+    // Browser data import
+    importer: {
+        detectBrowsers: () => ipcRenderer.invoke('import-detect-browsers'),
+        importHistory: (profile: any) => ipcRenderer.invoke('import-history', profile),
+        importBookmarks: (bookmarksPath: string) => ipcRenderer.invoke('import-bookmarks', bookmarksPath),
+    },
+
     // Agent task history
     agentHistory: {
         save: (task: {

@@ -191,6 +191,7 @@ import {
     getAgentTasks,
     clearAgentTasks,
 } from './history'
+import { detectBrowsers, importBrowserHistory, importChromiumBookmarks } from './importer'
 import {
     // Realm operations
     getRealms,
@@ -1142,6 +1143,19 @@ function setupIPC(): void {
     ipcMain.handle('agent-history-clear', () => {
         clearAgentTasks()
         return { success: true }
+    })
+
+    // ── Browser Data Import ──────────────────────────────────────────────────
+    ipcMain.handle('import-detect-browsers', () => {
+        return detectBrowsers()
+    })
+
+    ipcMain.handle('import-history', (_event, profile: { browser: string; profileName: string; historyPath: string; bookmarksPath?: string; type: string }) => {
+        return importBrowserHistory(profile as any)
+    })
+
+    ipcMain.handle('import-bookmarks', (_event, bookmarksPath: string) => {
+        return importChromiumBookmarks(bookmarksPath)
     })
 
     // Google search suggestions (proxy to avoid CORS in renderer)
