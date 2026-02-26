@@ -13,6 +13,18 @@ import Database from 'better-sqlite3'
 // Types
 // ============================================
 
+export interface AgentTaskRecord {
+    id: number
+    instruction: string
+    status: 'done' | 'error' | 'stopped'
+    steps: string           // JSON array of {step, action, goal}
+    result: string
+    stepCount: number
+    startedAt: number       // ms timestamp
+    completedAt: number     // ms timestamp
+    durationMs: number
+}
+
 export interface HistoryEntry {
     id: number
     url: string
@@ -62,6 +74,21 @@ function getDatabase(): Database.Database {
 
         -- Index for sorting by last visited (recent history)
         CREATE INDEX IF NOT EXISTS idx_history_last_visited ON history(last_visited DESC);
+
+        -- Agent task history
+        CREATE TABLE IF NOT EXISTS agent_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            instruction TEXT NOT NULL,
+            status TEXT NOT NULL,
+            steps TEXT NOT NULL DEFAULT '[]',
+            result TEXT NOT NULL DEFAULT '',
+            step_count INTEGER NOT NULL DEFAULT 0,
+            started_at INTEGER NOT NULL,
+            completed_at INTEGER NOT NULL,
+            duration_ms INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_tasks_completed ON agent_tasks(completed_at DESC);
     `)
 
     return db
@@ -280,6 +307,71 @@ export function getHistoryCount(): number {
     } catch (err) {
         console.error('Failed to get history count:', err)
         return 0
+    }
+}
+
+// ============================================
+// Agent Task History
+// ============================================
+
+/**
+ * Save a completed agent task to SQLite.
+ */
+export function saveAgentTask(task: Omit<AgentTaskRecord, 'id'>): number {
+    const database = getDatabase()
+    try {
+        const result = database.prepare(`
+            INSERT INTO agent_tasks
+                (instruction, status, steps, result, step_count, started_at, completed_at, duration_ms)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            task.instruction,
+            task.status,
+            task.steps,
+            task.result,
+            task.stepCount,
+            task.startedAt,
+            task.completedAt,
+            task.durationMs,
+        )
+        return result.lastInsertRowid as number
+    } catch (err) {
+        console.error('Failed to save agent task:', err)
+        return -1
+    }
+}
+
+/**
+ * Get recent agent task records, newest first.
+ */
+export function getAgentTasks(limit: number = 50): AgentTaskRecord[] {
+    const database = getDatabase()
+    try {
+        return database.prepare(`
+            SELECT id, instruction, status, steps, result,
+                   step_count as stepCount,
+                   started_at as startedAt,
+                   completed_at as completedAt,
+                   duration_ms as durationMs
+            FROM agent_tasks
+            ORDER BY completed_at DESC
+            LIMIT ?
+        `).all(limit) as AgentTaskRecord[]
+    } catch (err) {
+        console.error('Failed to get agent tasks:', err)
+        return []
+    }
+}
+
+/**
+ * Clear all agent task history.
+ */
+export function clearAgentTasks(): void {
+    const database = getDatabase()
+    try {
+        database.prepare(`DELETE FROM agent_tasks`).run()
+    } catch (err) {
+        console.error('Failed to clear agent tasks:', err)
     }
 }
 

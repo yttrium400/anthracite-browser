@@ -24,6 +24,12 @@ import {
     CircleNotch,
     SealCheck,
     ArrowSquareOut,
+    Robot,
+    ClockCounterClockwise,
+    CaretDown,
+    CaretRight,
+    Trash,
+    Play,
 } from '@phosphor-icons/react';
 
 interface AppSettings {
@@ -56,7 +62,7 @@ interface SettingsPageProps {
     className?: string;
 }
 
-type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account';
+type SettingsSection = 'browser' | 'appearance' | 'privacy' | 'tabs' | 'developer' | 'accounts' | 'subscription' | 'account' | 'agent-history';
 
 interface AuthUserPublic {
     id: string;
@@ -213,6 +219,11 @@ export function SettingsPage({ className }: SettingsPageProps) {
     const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
     const [accountsLoading, setAccountsLoading] = useState(false);
 
+    // Agent task history
+    const [agentTasks, setAgentTasks] = useState<any[]>([]);
+    const [agentTasksLoading, setAgentTasksLoading] = useState(false);
+    const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
+
     // Anthracite user account (task 7)
     const [authUser, setAuthUser] = useState<AuthUserPublic | null>(null);
     const [authEmail, setAuthEmail] = useState('');
@@ -310,7 +321,20 @@ export function SettingsPage({ className }: SettingsPageProps) {
         if (activeSection === 'accounts') {
             loadConnectedAccounts();
         }
+        if (activeSection === 'agent-history') {
+            loadAgentTasks();
+        }
     }, [activeSection, loadConnectedAccounts]);
+
+    const loadAgentTasks = useCallback(async () => {
+        setAgentTasksLoading(true);
+        try {
+            const tasks = await (window.electron as any)?.agentHistory?.getAll(50) || [];
+            setAgentTasks(tasks);
+        } catch { /* ignore */ } finally {
+            setAgentTasksLoading(false);
+        }
+    }, []);
 
     // Disconnect an account
     const handleDisconnect = useCallback(async (service: string) => {
@@ -398,6 +422,7 @@ export function SettingsPage({ className }: SettingsPageProps) {
         { id: 'account', label: 'My Account', icon: User },
         { id: 'subscription', label: 'Plan & Billing', icon: CreditCard },
         { id: 'accounts', label: 'Connected Accounts', icon: UserCircle },
+        { id: 'agent-history', label: 'Task History', icon: Robot },
         { id: 'browser', label: 'Browser', icon: Globe },
         { id: 'appearance', label: 'Appearance', icon: Palette },
         { id: 'privacy', label: 'Privacy & Security', icon: Lock },
@@ -1341,6 +1366,118 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                     <p>Version: {appVersion}</p>
                                 </div>
                             </div>
+                        </section>
+                    )}
+
+                    {/* Agent Task History Section */}
+                    {activeSection === 'agent-history' && (
+                        <section>
+                            <div className="flex items-center justify-between mb-4">
+                                <SectionHeader
+                                    icon={Robot}
+                                    title="Task History"
+                                    description="Past AI agent runs — click to see step-by-step what the agent did."
+                                />
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={loadAgentTasks}
+                                        disabled={agentTasksLoading}
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.08] rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        <ArrowsClockwise className={cn("h-3.5 w-3.5", agentTasksLoading && "animate-spin")} />
+                                        Refresh
+                                    </button>
+                                    {agentTasks.length > 0 && (
+                                        <button
+                                            onClick={async () => {
+                                                if (!window.confirm('Clear all task history?')) return;
+                                                await (window.electron as any)?.agentHistory?.clear();
+                                                setAgentTasks([]);
+                                            }}
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-error hover:bg-error/5 rounded-lg transition-colors"
+                                        >
+                                            <Trash className="h-3.5 w-3.5" />
+                                            Clear All
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {agentTasksLoading ? (
+                                <div className="flex items-center justify-center py-12 text-text-tertiary">
+                                    <ArrowsClockwise className="h-5 w-5 animate-spin mr-2" />
+                                    <span className="text-sm">Loading history...</span>
+                                </div>
+                            ) : agentTasks.length === 0 ? (
+                                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-8 text-center">
+                                    <ClockCounterClockwise className="h-10 w-10 text-text-tertiary mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-text-secondary mb-1">No task history yet</p>
+                                    <p className="text-xs text-text-tertiary max-w-xs mx-auto">
+                                        AI agent runs will appear here once you start using the agent.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {agentTasks.map((task: any) => {
+                                        const steps = (() => { try { return JSON.parse(task.steps || '[]'); } catch { return []; } })();
+                                        const isExpanded = expandedTaskId === task.id;
+                                        const statusColor = task.status === 'done' ? 'text-success bg-success/10' : task.status === 'error' ? 'text-error bg-error/10' : 'text-text-tertiary bg-white/[0.06]';
+                                        const durationSec = (task.durationMs / 1000).toFixed(1);
+                                        const date = new Date(task.completedAt).toLocaleString();
+
+                                        return (
+                                            <div
+                                                key={task.id}
+                                                className="bg-white/[0.03] rounded-xl border border-white/[0.06] hover:border-white/[0.1] transition-colors overflow-hidden"
+                                            >
+                                                {/* Row */}
+                                                <button
+                                                    onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
+                                                    className="flex items-center gap-3 w-full px-4 py-3 text-left"
+                                                >
+                                                    <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-brand/10 shrink-0">
+                                                        <Robot className="h-4 w-4 text-brand" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[13px] font-medium text-text-primary truncate">{task.instruction}</p>
+                                                        <p className="text-[11px] text-text-tertiary mt-0.5">{date} · {task.stepCount} step{task.stepCount !== 1 ? 's' : ''} · {durationSec}s</p>
+                                                    </div>
+                                                    <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0', statusColor)}>
+                                                        {task.status}
+                                                    </span>
+                                                    {isExpanded ? (
+                                                        <CaretDown className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
+                                                    ) : (
+                                                        <CaretRight className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
+                                                    )}
+                                                </button>
+
+                                                {/* Expanded: steps + result */}
+                                                {isExpanded && (
+                                                    <div className="px-4 pb-3 border-t border-white/[0.05] pt-3 space-y-1.5">
+                                                        {steps.map((s: any) => (
+                                                            <div key={s.step} className="flex items-start gap-2.5">
+                                                                <span className="h-4 w-4 rounded bg-white/[0.06] text-[9px] font-bold text-text-tertiary flex items-center justify-center shrink-0 mt-0.5">
+                                                                    {s.step}
+                                                                </span>
+                                                                <div className="min-w-0">
+                                                                    <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wide">{s.action} </span>
+                                                                    <span className="text-[12px] text-text-secondary">{s.goal}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {task.result && (
+                                                            <div className="mt-2 pt-2 border-t border-white/[0.05]">
+                                                                <p className="text-[12px] text-text-secondary italic">{task.result}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </section>
                     )}
 

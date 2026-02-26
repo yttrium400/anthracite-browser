@@ -255,6 +255,16 @@ contextBridge.exposeInMainWorld('electron', {
         openLoginPopup: (url: string) => ipcRenderer.invoke('open-login-popup', url),
     },
 
+    // Agent task history
+    agentHistory: {
+        save: (task: {
+            instruction: string; status: string; steps: string; result: string;
+            stepCount: number; startedAt: number; completedAt: number; durationMs: number;
+        }) => ipcRenderer.invoke('agent-history-save', task),
+        getAll: (limit?: number) => ipcRenderer.invoke('agent-history-get', limit),
+        clear: () => ipcRenderer.invoke('agent-history-clear'),
+    },
+
     // System shell — opens URLs in the default system browser
     openExternal: (url: string) => ipcRenderer.invoke('open-external-url', url),
 
@@ -439,6 +449,18 @@ declare global {
                 getConnected: () => Promise<Array<{ service: string; email: string | null; isActive: boolean }>>
                 disconnect: (domain: string) => Promise<{ success: boolean }>
                 openLoginPopup: (url: string) => Promise<{ success: boolean }>
+            }
+            agentHistory: {
+                save: (task: {
+                    instruction: string; status: string; steps: string; result: string;
+                    stepCount: number; startedAt: number; completedAt: number; durationMs: number;
+                }) => Promise<{ success: boolean; id: number }>
+                getAll: (limit?: number) => Promise<Array<{
+                    id: number; instruction: string; status: string; steps: string;
+                    result: string; stepCount: number; startedAt: number;
+                    completedAt: number; durationMs: number;
+                }>>
+                clear: () => Promise<{ success: boolean }>
             }
             openExternal: (url: string) => Promise<{ success: boolean }>
             auth: {

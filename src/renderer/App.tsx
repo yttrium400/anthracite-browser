@@ -417,6 +417,8 @@ function App() {
         // Abort any running agent
         agentAbortRef.current?.abort();
 
+        const taskStartedAt = Date.now();
+
         // Reset agent state
         setAgentInstruction(input);
         setAgentSteps([]);
@@ -453,6 +455,9 @@ function App() {
 
         const abort = new AbortController();
         agentAbortRef.current = abort;
+
+        // Collect steps locally so we can persist them to SQLite on task end
+        const collectedSteps: Array<{ step: number; action: string; goal: string }> = [];
 
         try {
             const response = await fetch(`${BACKEND_URL}/agent/stream`, {
@@ -508,34 +513,75 @@ function App() {
                             case 'agent_starting':
                                 setAgentStatus('running');
                                 break;
-                            case 'step':
+                            case 'step': {
+                                const newStep = {
+                                    step: event.step,
+                                    action: event.actions?.[0]?.action || 'action',
+                                    goal: event.next_goal || '',
+                                };
+                                collectedSteps.push(newStep);
                                 setAgentSteps(prev => {
-                                    // Avoid duplicates
                                     if (prev.some(s => s.step === event.step)) return prev;
-                                    return [...prev, {
-                                        step: event.step,
-                                        action: event.actions?.[0]?.action || 'action',
-                                        goal: event.next_goal || '',
-                                    }];
+                                    return [...prev, newStep];
                                 });
                                 break;
+                            }
                             case 'auth_required':
                                 setAgentStatus('auth');
                                 setAgentAuthService(event.service);
                                 setAgentAuthUrl(event.url);
                                 break;
-                            case 'done':
+                            case 'done': {
+                                const finalResult = event.result || 'Task completed.';
                                 setAgentStatus('done');
-                                setAgentResult(event.result || 'Task completed.');
+                                setAgentResult(finalResult);
+                                const now = Date.now();
+                                window.electron?.agentHistory?.save({
+                                    instruction: input,
+                                    status: 'done',
+                                    steps: JSON.stringify(collectedSteps),
+                                    result: finalResult,
+                                    stepCount: collectedSteps.length,
+                                    startedAt: taskStartedAt,
+                                    completedAt: now,
+                                    durationMs: now - taskStartedAt,
+                                }).catch(() => {});
                                 break;
-                            case 'stopped':
+                            }
+                            case 'stopped': {
+                                const finalResult = event.result || 'Agent stopped.';
                                 setAgentStatus('stopped');
-                                setAgentResult(event.result || 'Agent stopped.');
+                                setAgentResult(finalResult);
+                                const now = Date.now();
+                                window.electron?.agentHistory?.save({
+                                    instruction: input,
+                                    status: 'stopped',
+                                    steps: JSON.stringify(collectedSteps),
+                                    result: finalResult,
+                                    stepCount: collectedSteps.length,
+                                    startedAt: taskStartedAt,
+                                    completedAt: now,
+                                    durationMs: now - taskStartedAt,
+                                }).catch(() => {});
                                 break;
-                            case 'error':
+                            }
+                            case 'error': {
+                                const finalResult = event.message || 'An error occurred.';
                                 setAgentStatus('error');
-                                setAgentResult(event.message || 'An error occurred.');
+                                setAgentResult(finalResult);
+                                const now = Date.now();
+                                window.electron?.agentHistory?.save({
+                                    instruction: input,
+                                    status: 'error',
+                                    steps: JSON.stringify(collectedSteps),
+                                    result: finalResult,
+                                    stepCount: collectedSteps.length,
+                                    startedAt: taskStartedAt,
+                                    completedAt: now,
+                                    durationMs: now - taskStartedAt,
+                                }).catch(() => {});
                                 break;
+                            }
                         }
                     } catch { /* malformed SSE line */ }
                 }

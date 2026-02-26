@@ -186,7 +186,10 @@ import {
     closeDatabase,
     migrateFromJson,
     deleteOldHistory,
-    getHistoryCount
+    getHistoryCount,
+    saveAgentTask,
+    getAgentTasks,
+    clearAgentTasks,
 } from './history'
 import {
     // Realm operations
@@ -1114,6 +1117,30 @@ function setupIPC(): void {
 
     ipcMain.handle('history-clear', () => {
         clearHistory()
+        return { success: true }
+    })
+
+    // Agent task history
+    ipcMain.handle('agent-history-save', (_event, task: {
+        instruction: string
+        status: string
+        steps: string
+        result: string
+        stepCount: number
+        startedAt: number
+        completedAt: number
+        durationMs: number
+    }) => {
+        const id = saveAgentTask(task as any)
+        return { success: id >= 0, id }
+    })
+
+    ipcMain.handle('agent-history-get', (_event, limit?: number) => {
+        return getAgentTasks(limit || 50)
+    })
+
+    ipcMain.handle('agent-history-clear', () => {
+        clearAgentTasks()
         return { success: true }
     })
 
