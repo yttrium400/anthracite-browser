@@ -341,6 +341,23 @@ async def run_agent_task_streaming(
             return "Apple"
         return "the website"
 
+    async def _get_live_target_ids() -> set[str]:
+        """Return IDs of all real (non-blank) CDP targets visible to this Electron instance."""
+        try:
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(f"http://127.0.0.1:{CDP_PORT}/json") as resp:
+                    targets = await resp.json()
+            return {
+                t["id"] for t in targets
+                if t.get("type") in ("webview", "page")
+                and not t.get("url", "").startswith("about:")
+            }
+        except Exception:
+            return set()
+
+    # Mutable tracker so adapted_step_cb can update it via closure
+    _target_tracker: dict = {"known": set()}
+
     adapted_step_cb = None
     if step_callback:
         async def adapted_step_cb(browser_state, agent_output, step_num: int):
@@ -361,6 +378,26 @@ async def run_agent_task_streaming(
                         logger.info(f"[Takeover] Auth page detected at {current_url[:80]} — pausing for {service}")
                         await step_callback(step_num, "auth_required", {"url": current_url, "service": service}, "")
                         return
+
+                # ── New-tab following: switch agent focus to any tab opened since last step ──
+                current_target_ids = await _get_live_target_ids()
+                new_tab_ids = current_target_ids - _target_tracker["known"]
+                _target_tracker["known"] = current_target_ids  # always update for next step
+                if new_tab_ids:
+                    new_tid = next(iter(new_tab_ids))
+                    logger.info(f"[Agent] New tab detected: {new_tid[:12]}... — following")
+                    # Re-type webview → page so browser-use accepts the target
+                    if browser_session.session_manager:
+                        for _tid, _tgt in browser_session.session_manager._targets.items():
+                            if _tid == new_tid and _tgt.target_type == "webview":
+                                _tgt.target_type = "page"
+                                break
+                    browser_session.agent_focus_target_id = new_tid
+                    try:
+                        _new_cdp = await browser_session.get_or_create_cdp_session(new_tid, focus=False)
+                        await browser_session.session_manager._enable_page_monitoring(_new_cdp)
+                    except Exception as _e:
+                        logger.warning(f"[Agent] Could not set up new tab monitoring: {_e}")
 
                 action_name = "thinking"
                 args: dict = {}
@@ -426,6 +463,9 @@ async def run_agent_task_streaming(
             logger.warning(f"[Agent] Could not enable lifecycle monitoring: {e}")
 
         # ── Run agent ─────────────────────────────────────────────────────────
+        # Snapshot live targets so adapted_step_cb can detect new tabs opened mid-task
+        _target_tracker["known"] = await _get_live_target_ids()
+
         # Build system message — prepend user memory if available
         _memory_block = (
             f"{memory_prompt}\n\n"
@@ -450,7 +490,7 @@ async def run_agent_task_streaming(
                 "- Hotels/accommodation: https://www.booking.com\n"
                 "- Shopping: https://www.amazon.com.au\n"
                 "- General search: https://www.google.com\n"
-                "Do NOT use DuckDuckGo. Do NOT open new tabs.\n"
+                "Do NOT use DuckDuckGo. Do not intentionally open new tabs — if clicking a link opens one automatically, you will be redirected there and should continue your task normally.\n"
                 "\n"
                 "Cookie banners and overlay popups:\n"
                 "  When you encounter a cookie consent banner, GDPR notice, or modal overlay blocking\n"
