@@ -2,6 +2,20 @@ import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents, s
 import path from 'node:path'
 import * as dotenv from 'dotenv'
 dotenv.config({ path: path.join(__dirname, '../.env') })
+
+// ── Sentry error reporting (Task 12.1) ────────────────────────────────────────
+// Initialised here (before any other imports) so uncaught exceptions and
+// unhandled rejections in the main process are captured from app startup.
+// DSN is read from SENTRY_DSN env var or will be set via Settings at runtime.
+import * as Sentry from '@sentry/electron/main'
+const _sentryDsn = process.env.SENTRY_DSN || ''
+Sentry.init({
+    dsn: _sentryDsn,
+    // Only enable in production to avoid noise during development
+    enabled: _sentryDsn !== '' && app.isPackaged,
+    release: `anthracite@${app.getVersion()}`,
+    environment: app.isPackaged ? 'production' : 'development',
+})
 import { authService } from './authService'
 
 import { autoUpdater } from 'electron-updater'

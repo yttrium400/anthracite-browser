@@ -42,6 +42,10 @@ export interface AppSettings {
     googleApiKey?: string;
     selectedModel?: string; // e.g. "claude-sonnet-4-6", "gpt-4o", "gemini-2.0-flash"
 
+    // Error reporting
+    sentryDsn?: string;     // Sentry DSN for crash reporting (optional, user-provided)
+    errorReportingEnabled: boolean;
+
     // Onboarding
     hasCompletedOnboarding: boolean;
 }
@@ -76,6 +80,9 @@ const DEFAULT_SETTINGS: AppSettings = {
 
     // Developer
     enableDevTools: false,
+
+    // Error reporting
+    errorReportingEnabled: false,
 
     // Onboarding
     hasCompletedOnboarding: false,

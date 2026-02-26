@@ -59,6 +59,8 @@ interface AppSettings {
     anthropicApiKey?: string;
     googleApiKey?: string;
     selectedModel?: string;
+    sentryDsn?: string;
+    errorReportingEnabled?: boolean;
 }
 
 interface SettingsPageProps {
@@ -1409,6 +1411,31 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                 <div className="space-y-1 text-xs text-text-tertiary">
                                     <p>Version: {appVersion}</p>
                                 </div>
+                            </div>
+
+                            {/* Error Reporting (Sentry) */}
+                            <div className="mt-4 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                                <h4 className="text-sm font-medium text-text-primary mb-1">Crash Reporting</h4>
+                                <p className="text-xs text-text-tertiary mb-3">
+                                    Automatically send crash reports to help improve Anthracite.
+                                    Requires a Sentry DSN — leave blank to disable.
+                                </p>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <Toggle
+                                        enabled={settings.errorReportingEnabled ?? false}
+                                        onChange={(v) => updateSetting('errorReportingEnabled', v)}
+                                    />
+                                    <span className="text-xs text-text-secondary">Enable crash reporting</span>
+                                </div>
+                                {settings.errorReportingEnabled && (
+                                    <input
+                                        type="text"
+                                        value={settings.sentryDsn ?? ''}
+                                        onChange={(e) => updateSetting('sentryDsn', e.target.value)}
+                                        placeholder="https://xxxx@oXXXXXX.ingest.sentry.io/XXXXXX"
+                                        className="w-full h-9 px-3 rounded-lg text-xs bg-white/[0.05] border border-white/[0.08] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/30 transition-all"
+                                    />
+                                )}
                             </div>
 
                             {/* Report a Problem */}

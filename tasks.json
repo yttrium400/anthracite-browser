@@ -362,12 +362,12 @@
                 {
                     "id": "12.1",
                     "title": "Integrate Sentry for Electron main + renderer crashes",
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "12.2",
                     "title": "Add Python backend error reporting",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Catch uncaught exceptions in agent runs. Report to Sentry with task context (instruction, model, step count)."
                 },
                 {

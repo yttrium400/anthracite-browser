@@ -6,6 +6,8 @@ import os
 import json
 import asyncio
 import logging
+import traceback
+import time
 
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +21,25 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# ── Error tracking (Task 12.2) ────────────────────────────────────────────────
+# Keep a circular buffer of the last 10 errors so the frontend can surface them
+# without requiring Sentry. Cleared on each new agent run to avoid confusion.
+_error_log: list[dict] = []
+_MAX_ERRORS = 10
+_server_start_time = time.time()
+
+def _record_error(kind: str, message: str, detail: str = "") -> None:
+    """Append an error to the in-memory log (capped at _MAX_ERRORS)."""
+    entry = {
+        "kind": kind,
+        "message": message,
+        "detail": detail,
+        "timestamp": time.strftime("%H:%M:%S"),
+    }
+    _error_log.append(entry)
+    if len(_error_log) > _MAX_ERRORS:
+        _error_log.pop(0)
 
 app = FastAPI()
 
@@ -114,6 +135,17 @@ async def warmup():
 @app.get("/")
 def read_root():
     return {"status": "Anthracite Backend Running"}
+
+
+@app.get("/health")
+def health_check():
+    """Health endpoint — used by Electron to verify the Python backend is alive."""
+    return {
+        "status": "ok",
+        "uptime_seconds": round(time.time() - _server_start_time),
+        "agent_running": agent_control.is_running,
+        "recent_errors": _error_log[-3:],  # last 3 errors only
+    }
 
 @app.post("/agent/run")
 async def run_agent(task: TaskRequest):
@@ -305,6 +337,7 @@ async def stream_agent(task: TaskRequest):
                     })
 
                 # Run agent in background task
+                _error_log.clear()  # Fresh error slate for each agent run
                 async def run_agent():
                     try:
                         from backend.cdp_agent import run_agent_task_streaming
@@ -323,9 +356,12 @@ async def stream_agent(task: TaskRequest):
                     except InterruptedError:
                         await queue.put({"type": "stopped", "result": "Agent stopped by user"})
                     except TimeoutError as e:
+                        _record_error("timeout", str(e))
                         await queue.put({"type": "error", "message": str(e)})
                     except Exception as e:
-                        logger.error(f"Agent stream error in background task: {e}", exc_info=True)
+                        tb = traceback.format_exc()
+                        logger.error(f"Agent stream error in background task: {e}\n{tb}")
+                        _record_error("agent_error", str(e), tb[-500:])  # last 500 chars of traceback
                         await queue.put({"type": "error", "message": str(e)})
                     finally:
                         agent_control.finish()
@@ -353,7 +389,9 @@ async def stream_agent(task: TaskRequest):
                         pass
 
         except Exception as e:
-            logger.error(f"Stream error: {e}", exc_info=True)
+            tb = traceback.format_exc()
+            logger.error(f"Stream error: {e}\n{tb}")
+            _record_error("stream_error", str(e), tb[-500:])
             yield _sse_event({"type": "error", "message": str(e)})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

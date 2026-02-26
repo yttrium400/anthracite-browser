@@ -112,6 +112,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
+    "@sentry/electron": "^7.8.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
