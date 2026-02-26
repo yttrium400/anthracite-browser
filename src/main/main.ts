@@ -2104,6 +2104,18 @@ app.whenReady().then(async () => {
         callback({ requestHeaders: h })
     })
 
+    // ── Download handling (Task 11.4) ────────────────────────────────────────
+    // Auto-save downloads from the webview session to ~/Downloads.
+    // Without this, any file download triggered by the agent (or user) is
+    // silently dropped because no handler accepts it.
+    webviewSession.on('will-download', (_event, item) => {
+        const downloadsPath = app.getPath('downloads')
+        // Sanitise filename: strip path separators and null bytes
+        const safeFilename = item.getFilename().replace(/[/\\:\0]/g, '_') || 'download'
+        const savePath = path.join(downloadsPath, safeFilename)
+        item.setSavePath(savePath)
+    })
+
     // Migrate history from JSON to SQLite (one-time)
     migrateFromJson()
 

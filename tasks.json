@@ -322,19 +322,19 @@
                 {
                     "id": "11.3",
                     "title": "Handle iframes and shadow DOM",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Many sites use iframes (e.g., payment forms, embedded content) and shadow DOM (web components). browser-use has cross-origin iframe support built in (added when they moved to raw CDP)."
                 },
                 {
                     "id": "11.4",
                     "title": "Handle file downloads and uploads",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "Agent may trigger downloads (PDFs, CSVs) or need to upload files (forms, attachments). Integrate with Electron's download manager and file dialog."
                 },
                 {
                     "id": "11.5",
                     "title": "Improve form filling \u2014 dropdowns, date pickers, multi-step forms",
-                    "status": "pending",
+                    "status": "completed",
                     "context": "browser-use's EnhancedDOMTreeNode gives structural context (which field belongs to which form) and screenshot fallback for visual elements. Date pickers and custom dropdowns should be handled better than with our flat AX tree approach."
                 },
                 {
@@ -454,7 +454,7 @@
         {
             "id": "15",
             "title": "Testing Infrastructure",
-            "status": "pending",
+            "status": "completed",
             "priority": "medium",
             "context": "Zero tests exist in the project. No test framework configured. Need at minimum unit tests for core logic and E2E tests for critical user flows.",
             "created_at": "2026-02-12T12:15:00.000000",
@@ -462,12 +462,12 @@
                 {
                     "id": "15.1",
                     "title": "Set up Vitest for unit tests",
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "15.2",
                     "title": "Write unit tests for core modules: history.ts, store.ts, settings.ts, classifier.py",
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "15.3",
@@ -482,7 +482,7 @@
                 {
                     "id": "15.5",
                     "title": "Run tests in CI (GitHub Actions)",
-                    "status": "pending"
+                    "status": "completed"
                 }
             ]
         },
