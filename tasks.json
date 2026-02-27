@@ -1,883 +1,883 @@
 {
-    "tasks": [
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Production Desktop Builds (Mac + Windows + Linux)",
+      "status": "pending",
+      "priority": "critical",
+      "context": "electron-builder is installed (^24.9.1) and the build command exists in package.json, but there is NO platform-specific configuration. No code signing, no installer config, no auto-updater. Build resources exist at build/icon.png (512x512).",
+      "created_at": "2026-02-12T12:01:00.000000",
+      "subtasks": [
         {
-            "id": "1",
-            "title": "Production Desktop Builds (Mac + Windows + Linux)",
-            "status": "pending",
-            "priority": "critical",
-            "context": "electron-builder is installed (^24.9.1) and the build command exists in package.json, but there is NO platform-specific configuration. No code signing, no installer config, no auto-updater. Build resources exist at build/icon.png (512x512).",
-            "created_at": "2026-02-12T12:01:00.000000",
-            "subtasks": [
-                {
-                    "id": "1.2",
-                    "title": "macOS code signing + notarization",
-                    "status": "pending",
-                    "context": "Requires Apple Developer account ($99/yr). Sign with Developer ID Application certificate. Notarize via notarytool. Without this, macOS will block the app with Gatekeeper."
-                },
-                {
-                    "id": "1.3",
-                    "title": "Windows Distribution: Publish to Microsoft Store",
-                    "status": "pending",
-                    "context": "Microsoft Store handles signing for free/cheap (~$19 once), avoiding the expensive EV cert ($400/yr). Requires packaging as MSIX. Users install via Store link or appinstaller."
-                }
-            ]
+          "id": "1.2",
+          "title": "macOS code signing + notarization",
+          "status": "pending",
+          "context": "Requires Apple Developer account ($99/yr). Sign with Developer ID Application certificate. Notarize via notarytool. Without this, macOS will block the app with Gatekeeper."
         },
         {
-            "id": "2",
-            "title": "CI/CD Pipeline \u2014 Automated Builds & Releases",
-            "status": "pending",
-            "priority": "high",
-            "context": "No GitHub Actions workflows exist for desktop builds. Website deploys via Vercel (already configured). Need automated multi-platform builds triggered on git tags.",
-            "created_at": "2026-02-12T12:02:00.000000",
-            "subtasks": [
-                {
-                    "id": "2.2",
-                    "title": "Store code signing secrets in GitHub Secrets",
-                    "status": "pending",
-                    "context": "Mac: APPLE_ID, APPLE_TEAM_ID, CSC_LINK (base64 .p12), CSC_KEY_PASSWORD. Windows: WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD."
-                }
-            ]
-        },
-        {
-            "id": "3",
-            "title": "Website Waitlist Backend \u2014 Actually Save Signups",
-            "status": "completed",
-            "priority": "high",
-            "context": "The signup form on anthracitebrowser.com (website/src/components/Signup.tsx) is purely cosmetic. It shows 'You're on the list' but saves nothing \u2014 no API call, no database, no email service. Need a real backend to collect and manage waitlist signups.",
-            "created_at": "2026-02-12T12:03:00.000000",
-            "subtasks": [
-                {
-                    "id": "3.4",
-                    "title": "Send confirmation email on signup (optional)",
-                    "status": "completed",
-                    "context": "Use Resend or similar. Simple email: 'Thanks for signing up for Anthracite. We'll notify you when it's ready.'"
-                },
-                {
-                    "id": "3.5",
-                    "title": "Create admin view or export for signups",
-                    "status": "completed",
-                    "context": "At minimum: ability to export CSV of all signups. Supabase dashboard gives this for free."
-                }
-            ]
-        },
-        {
-            "id": "5",
-            "title": "Connected Accounts \u2014 Agent Auth via Ambient Session Reuse",
-            "status": "in_progress",
-            "priority": "critical",
-            "context": "RESEARCH COMPLETE (2026-02-23). Users need to link accounts (Google, GitHub, Amazon, etc.) so the AI agent can act as them \u2014 log into Gmail, book flights, manage their calendar. The chosen architecture is AMBIENT SESSION REUSE (same pattern as Comet by Perplexity and Dia by The Browser Company): the agent controls the same webview the user browses in ('persist:anthracite' Electron session), so cookies from manual logins are already available to the agent \u2014 NO separate OAuth or credential storage needed. The second pattern is TAKEOVER MODE (same as OpenAI Operator): when agent detects a login/CAPTCHA/MFA wall, it pauses and hands control to the user, who completes auth manually, then the agent resumes. INDUSTRY PATTERNS STUDIED: (1) Comet/Dia \u2014 ambient session reuse, exact same approach we use; agent acts inside the user's own browser profile. (2) OpenAI Operator \u2014 same ambient reuse but adds 'takeover mode' popup for login/CAPTCHA; agent pauses, user takes over, resumes after URL leaves auth domain. (3) Manus/Airtop \u2014 session capture/replay via cloud VMs: export ENTIRE browser profile as cookie jar, replay on cloud; NOT our approach (we're local). (4) Composio/Perplexity Connector \u2014 OAuth token delegation via API scopes; NOT our approach (we need full browser sessions, not API tokens). ELECTRON CONFIRM: persist:anthracite stores to ~/Library/Application Support/Anthracite/Partitions/anthracite/Cookies (SQLite) \u2014 cookies automatically survive restarts. SECURITY RULES: NEVER pass raw cookie values to LLM, NEVER log cookie values, NEVER transmit externally, NEVER persist credentials beyond Electron's own encrypted storage. The three missing pieces: (1) Connected Accounts UI \u2014 show which accounts are detected in persist:anthracite cookies, (2) Takeover mode \u2014 detect login pages during agent runs and pause for user, (3) Account detection logic \u2014 query known endpoints to extract username/email without leaking to LLM.",
-            "created_at": "2026-02-12T12:05:00.000000",
-            "subtasks": [
-                {
-                    "id": "5.1",
-                    "title": "IPC handler: read and classify accounts from persist:anthracite cookies",
-                    "status": "completed",
-                    "context": "In src/main/main.ts (or a new AccountsService.ts), add ipcMain.handle('get-connected-accounts') that calls session.fromPartition('persist:anthracite').cookies.get({}) and classifies accounts by domain. For Google: check for 'SID' or 'SSID' cookie on .google.com, then query https://accounts.google.com/ListAccounts?gpsia=1 in a hidden request to get the signed-in email (parse the GJSON array response \u2014 email is at index [1][0][2] in each session). For GitHub: check 'user_session' cookie on github.com. For Amazon: check 'session-id' on amazon.com/.amazon.com.au. For LinkedIn: check 'li_at' on linkedin.com. Return array of {service, email, avatarUrl, isActive}. SECURITY: return ONLY metadata (email, avatar URL) to renderer \u2014 NEVER the raw cookie values. Log detection counts only, never values."
-                },
-                {
-                    "id": "5.2",
-                    "title": "Connected Accounts UI in SettingsPage",
-                    "status": "completed",
-                    "context": "Add a 'Connected Accounts' section to src/renderer/components/SettingsPage.tsx. On mount, call window.electron.invoke('get-connected-accounts'). Show each detected account as a card: service logo icon, service name, email address, green 'Connected' badge. If no accounts: show placeholder 'Log into any website in Anthracite and it will appear here automatically.' Add a 'Disconnect' button per account that calls ipcMain.handle('clear-account-cookies', {domain}) \u2192 session.fromPartition('persist:anthracite').cookies.remove(url, name) for all cookies matching that domain. Design should match existing settings card style (dark surface, subtle border). Services to detect: Google, GitHub, Amazon, LinkedIn, Twitter/X, Reddit, Microsoft/Outlook."
-                },
-                {
-                    "id": "5.3",
-                    "title": "Takeover mode \u2014 pause agent on login/CAPTCHA/MFA detection",
-                    "status": "completed",
-                    "context": "In backend/cdp_agent.py (run_agent_task_streaming), after each navigation action, check if the resulting URL matches known auth patterns. Login URL detection heuristics: URL contains 'accounts.google.com', 'login.', 'signin.', 'auth.', 'oauth.', '/login', '/signin', '/authenticate', or page title contains 'Sign in', 'Log in', 'Verify it's you'. If detected: (1) fire step_callback with special action_name='auth_required' and args={url, service}, (2) set a flag that blocks the agent loop from proceeding, (3) frontend shows a non-blocking 'Takeover' notification overlay: 'Google needs you to sign in. Complete login then click Resume.' User completes login in the visible webview. Frontend polls for URL change away from auth domain, then calls resume endpoint. In server.py, add /agent/resume endpoint that clears the block flag and resumes the asyncio task. Also detect CAPTCHA: check if page contains iframe[src*='recaptcha'] or iframe[src*='hcaptcha']."
-                },
-                {
-                    "id": "5.4",
-                    "title": "Frontend takeover notification UI",
-                    "status": "completed",
-                    "context": "In src/renderer/components/CommandBar.tsx (or a new TakeoverOverlay.tsx), show a subtle banner when agent_status === 'auth_required': glass-morphism panel at bottom of webview area with: service icon, message 'Sign in to [Service] to continue', 'Takeover' button (makes webview interactive, hides agent overlay), 'Cancel Task' button. After user completes login, show 'Resume Agent' button. Track webview URL changes (listen to 'did-navigate' from agent tab) \u2014 when URL leaves auth domain, auto-show 'Resume Agent' button. POST to http://localhost:8000/agent/resume with taskId. The agent then continues from where it paused. Visual style: same glass panel style as existing agent progress indicator, amber/warning color scheme to indicate user action needed."
-                },
-                {
-                    "id": "5.5",
-                    "title": "Session health check before agent runs",
-                    "status": "completed",
-                    "context": "Before starting an agent task that likely requires auth (detect from instruction keywords: 'my email', 'my account', 'my orders', 'book', 'schedule', 'send'), call get-connected-accounts and check if the relevant service is connected. If not: show a non-blocking warning in CommandBar: 'Tip: Log into Google in any tab so the agent can access your account.' Don't block the task \u2014 just inform. This prevents the agent from starting, trying to log in, failing, and burning API credits on a doomed task. Map intent keywords to services: gmail/google/docs/drive/sheets \u2192 Google, github/repo/PR \u2192 GitHub, amazon/order/shipping \u2192 Amazon."
-                },
-                {
-                    "id": "5.6",
-                    "title": "Security audit: verify no cookie leakage to LLM or logs",
-                    "status": "completed",
-                    "context": "Audit all code paths: (1) IPC get-connected-accounts must return ONLY {service, email, avatarUrl} \u2014 grep codebase for cookie.value to ensure it's never forwarded. (2) Python cdp_agent.py: the agent's AX tree extraction and action loop must never output raw cookie content \u2014 cookies are in the browser process, not directly accessible to the Python agent anyway, but verify no CDP Runtime.evaluate calls that could extract document.cookie are emitted. (3) server.py logs: ensure step_callback results (which go to SSE stream) never contain auth tokens. (4) Add a comment block in AccountsService.ts: 'SECURITY: Raw cookie values are classified data. Never log, never send to renderer, never include in LLM context.' Follow Electron's security guidelines: use safeStorage for any credentials that need to be stored outside the session."
-                }
-            ]
-        },
-        {
-            "id": "6",
-            "title": "Multi-Model Support & API Key Management UI",
-            "status": "completed",
-            "priority": "high",
-            "context": "Anthracite uses Claude Sonnet 4.6 (Anthropic) as the primary executor model and optionally gpt-4o (OpenAI) as fallback. Users need to configure their own API keys. The Settings page currently has both Anthropic and OpenAI key fields. This task covers the full multi-model UX: model selector in CommandBar, and support for additional providers.",
-            "created_at": "2026-02-12T12:06:00.000000",
-            "subtasks": [
-                {
-                    "id": "6.1",
-                    "title": "Complete API Key settings page (Anthropic + OpenAI + Google)",
-                    "status": "completed",
-                    "context": "Add Google AI (Gemini) key field as a third option. All keys: password input, inline test button, stored via safeStorage. Show which keys are currently active. Clear visual hierarchy: Anthropic (recommended, Claude Sonnet 4.6) > OpenAI (fallback, gpt-4o) > Google (future)."
-                },
-                {
-                    "id": "6.2",
-                    "title": "Make CommandBar model selector functional",
-                    "status": "completed",
-                    "context": "The model selector button in CommandBar.tsx currently shows static text. Make it a dropdown: available options depend on which keys the user has set. Default: Claude Sonnet 4.6 if Anthropic key is set, else gpt-4o if OpenAI key is set. Persist last-used model. Send chosen model to backend with each agent task request."
-                },
-                {
-                    "id": "6.3",
-                    "title": "Support local models via Ollama",
-                    "status": "completed",
-                    "context": "For privacy-conscious users: detect if Ollama is running locally (http://localhost:11434), list available models, route agent calls through Ollama. No API key needed. Lower quality but free and private. browser-use supports Ollama via langchain-community OllamaLLM."
-                }
-            ]
-        },
-        {
-            "id": "7",
-            "title": "User Authentication System",
-            "status": "pending",
-            "priority": "high",
-            "context": "Currently zero auth exists in the desktop app. Everything is local. Need user accounts for: cloud sync, subscription management, cross-device continuity. This is a prerequisite for tasks 8 (sync) and 9 (payments).",
-            "created_at": "2026-02-12T12:07:00.000000",
-            "subtasks": [
-                {
-                    "id": "7.1",
-                    "title": "Choose auth provider",
-                    "status": "pending",
-                    "context": "Options: Clerk (best DX, generous free tier, handles OAuth flows), Supabase Auth (if already using Supabase for waitlist), Firebase Auth, or custom. Clerk recommended for speed and Electron compatibility."
-                },
-                {
-                    "id": "7.2",
-                    "title": "Implement sign-up / sign-in flow in Electron",
-                    "status": "pending",
-                    "context": "OAuth popup window (BrowserWindow) for Google/GitHub sign-in. Store auth tokens securely via Electron safeStorage. Show auth state in sidebar footer or settings."
-                },
-                {
-                    "id": "7.3",
-                    "title": "Support: email/password, Google OAuth, GitHub OAuth, Apple Sign-In",
-                    "status": "pending"
-                },
-                {
-                    "id": "7.4",
-                    "title": "Add user profile section in Settings",
-                    "status": "pending",
-                    "context": "Show: avatar, name, email, plan tier, sign-out button. Link to subscription management."
-                },
-                {
-                    "id": "7.5",
-                    "title": "Handle offline mode gracefully",
-                    "status": "pending",
-                    "context": "App must work fully without auth \u2014 just without sync/cloud/subscription features. Never block the browser because of auth issues."
-                }
-            ]
-        },
-        {
-            "id": "8",
-            "title": "Cloud Sync \u2014 Realms, Docks, History, Settings",
-            "status": "pending",
-            "priority": "medium",
-            "context": "All user data is currently local only. Realms/Docks in anthracite-realms.json, history in SQLite (history.db), settings in settings.json. Authenticated users should be able to sync across devices. Depends on task 7 (user auth).",
-            "created_at": "2026-02-12T12:08:00.000000",
-            "subtasks": [
-                {
-                    "id": "8.1",
-                    "title": "Design sync architecture",
-                    "status": "pending",
-                    "context": "Options: (1) CRDTs for conflict-free merging (complex but robust), (2) Last-write-wins per entity (simpler, occasional data loss), (3) Manual merge on conflict (user decides). Start with last-write-wins for settings, CRDTs for realms/docks. Backend: Supabase Postgres + realtime subscriptions."
-                },
-                {
-                    "id": "8.2",
-                    "title": "Implement settings sync (simplest \u2014 start here)",
-                    "status": "pending",
-                    "context": "Settings are a single JSON blob. On change: upload to cloud. On login from new device: merge with local (cloud wins for most fields). Files: src/main/settings.ts."
-                },
-                {
-                    "id": "8.3",
-                    "title": "Implement realms & docks sync",
-                    "status": "pending",
-                    "context": "More complex \u2014 realms contain docks which contain tabs. Need entity-level sync, not whole-file replacement. Files: src/main/store.ts."
-                },
-                {
-                    "id": "8.4",
-                    "title": "Implement history sync",
-                    "status": "pending",
-                    "context": "SQLite history.db. Sync recent entries (last 30 days). Don't sync entire history \u2014 too large. Files: src/main/history.ts."
-                },
-                {
-                    "id": "8.5",
-                    "title": "Handle offline \u2192 online reconciliation",
-                    "status": "pending",
-                    "context": "Queue changes made while offline. Sync when connection restored. Handle conflicts."
-                }
-            ]
-        },
-        {
-            "id": "9",
-            "title": "Subscription & Payment System",
-            "status": "pending",
-            "priority": "high",
-            "context": "Monetization layer. Business model: Free tier (bring your own API key, full browser features) + Pro tier (monthly subscription with agent credits \u2014 no API key needed, Anthracite proxies LLM calls). The agent must be significantly better than open-source alternatives for people to pay. Depends on tasks 4 (agent) and 7 (user auth).",
-            "created_at": "2026-02-12T12:09:00.000000",
-            "subtasks": [
-                {
-                    "id": "9.1",
-                    "title": "Integrate payment provider",
-                    "status": "pending",
-                    "context": "Options: Stripe (industry standard, complex tax handling), Paddle (handles international tax/VAT automatically, simpler for solo dev). Paddle recommended for simpler setup. LemonSqueezy is another option."
-                },
-                {
-                    "id": "9.2",
-                    "title": "Design pricing tiers",
-                    "status": "pending",
-                    "context": "Free: BYOK (bring your own API key), all browser features, local agent. Pro ($X/month): N agent credits (each credit = 1 agent task), Anthracite's API proxy (no key needed), priority support, cloud sync. Team: future (shared realms, admin controls)."
-                },
-                {
-                    "id": "9.3",
-                    "title": "Build API proxy server for paid users",
-                    "status": "pending",
-                    "context": "Paid users' agent calls route through Anthracite's backend using our API keys. This backend meters usage, enforces rate limits, and bills per credit. Tech: serverless functions or a lightweight API on Railway/Fly.io. Keys stored server-side, never sent to client."
-                },
-                {
-                    "id": "9.4",
-                    "title": "Implement credit/usage tracking",
-                    "status": "pending",
-                    "context": "Track: number of agent tasks run, tokens consumed, cost per task. Show usage in Settings: 'You've used 47 of 200 credits this month.' Warn at 80% and 100% usage."
-                },
-                {
-                    "id": "9.5",
-                    "title": "Add subscription management in Settings",
-                    "status": "pending",
-                    "context": "Show: current plan, usage bar, billing cycle, upgrade/downgrade button (opens Stripe/Paddle portal), payment history."
-                },
-                {
-                    "id": "9.6",
-                    "title": "Handle edge cases: payment failures, grace periods, downgrades",
-                    "status": "pending",
-                    "context": "On payment failure: 3-day grace period, then downgrade to free. On downgrade: keep all data, just disable proxy access. Never delete user data because of billing."
-                },
-                {
-                    "id": "9.7",
-                    "title": "In-app upgrade prompts (tasteful, not aggressive)",
-                    "status": "pending",
-                    "context": "When free user without API key tries to run agent: show a subtle prompt explaining they need either their own key or a Pro subscription. Never block normal browsing. Never nag."
-                }
-            ]
-        },
-        {
-            "id": "10",
-            "title": "Agent Task History & Saved Workflows",
-            "status": "completed",
-            "priority": "medium",
-            "context": "The agent has no memory between tasks. It should remember past interactions, learn user preferences, and allow saving repeatable workflows. This makes the agent feel intelligent rather than stateless.",
-            "created_at": "2026-02-12T12:10:00.000000",
-            "subtasks": [
-                {
-                    "id": "10.1",
-                    "title": "Store agent task history",
-                    "status": "completed",
-                    "context": "For each agent run, save: user instruction, classified intent, steps taken (actions + screenshots), success/failure, duration, model used, tokens consumed. Store in SQLite alongside browsing history."
-                },
-                {
-                    "id": "10.2",
-                    "title": "Add 'Task History' view in the UI",
-                    "status": "completed",
-                    "context": "New section accessible from sidebar or settings. Show past agent runs with step-by-step replay. Click a past task to see what the agent did. Option to re-run a task."
-                },
-                {
-                    "id": "10.3",
-                    "title": "Implement agent context memory",
-                    "status": "completed",
-                    "context": "Agent should know: user's name, frequently visited sites, preferred services (Gmail vs Outlook, Google Flights vs Kayak), past task patterns. Build a lightweight user profile the agent references on each run."
-                },
-                {
-                    "id": "10.4",
-                    "title": "Saved workflows \u2014 repeatable multi-step agent tasks",
-                    "status": "completed",
-                    "context": "Allow users to save an agent task as a 'workflow' (e.g., 'Check my email and summarize unread', 'Search for flights to X on Y date'). Show saved workflows in CommandBar or sidebar for one-click re-run."
-                }
-            ]
-        },
-        {
-            "id": "11",
-            "title": "Agent Reliability \u2014 Edge Cases & Failure Handling",
-            "status": "in_progress",
-            "priority": "high",
-            "context": "Common scenarios where the agent breaks or gets stuck. browser-use handles many of these better than our custom agent, but some still need explicit handling. Fixing these is critical for user trust and the paid tier value proposition.",
-            "created_at": "2026-02-12T12:11:00.000000",
-            "subtasks": [
-                {
-                    "id": "11.1",
-                    "title": "CAPTCHA handling \u2014 detect and defer to user",
-                    "status": "completed",
-                    "context": "When agent encounters a CAPTCHA: pause agent, show the page to the user, prompt them to solve it, then resume agent automatically after CAPTCHA is cleared."
-                },
-                {
-                    "id": "11.2",
-                    "title": "Handle popups, cookie banners, overlay modals",
-                    "status": "completed",
-                    "context": "These block element interaction. Agent should detect common patterns (cookie consent, newsletter popups, paywall modals) and dismiss them before attempting the actual task."
-                },
-                {
-                    "id": "11.3",
-                    "title": "Handle iframes and shadow DOM",
-                    "status": "completed",
-                    "context": "Many sites use iframes (e.g., payment forms, embedded content) and shadow DOM (web components). browser-use has cross-origin iframe support built in (added when they moved to raw CDP)."
-                },
-                {
-                    "id": "11.4",
-                    "title": "Handle file downloads and uploads",
-                    "status": "completed",
-                    "context": "Agent may trigger downloads (PDFs, CSVs) or need to upload files (forms, attachments). Integrate with Electron's download manager and file dialog."
-                },
-                {
-                    "id": "11.5",
-                    "title": "Improve form filling \u2014 dropdowns, date pickers, multi-step forms",
-                    "status": "completed",
-                    "context": "browser-use's EnhancedDOMTreeNode gives structural context (which field belongs to which form) and screenshot fallback for visual elements. Date pickers and custom dropdowns should be handled better than with our flat AX tree approach."
-                },
-                {
-                    "id": "11.6",
-                    "title": "Timeout handling \u2014 don't spin forever",
-                    "status": "completed",
-                    "context": "Add per-step timeouts (30s default) and per-task timeouts (5min default). If stuck, try alternative approach or ask user for help. Never leave agent running silently."
-                },
-                {
-                    "id": "11.7",
-                    "title": "Handle new tab/window creation during agent tasks",
-                    "status": "completed",
-                    "context": "Some sites open links in new tabs. Agent needs to follow into the new tab, complete the action, and return. Currently handled partially in main.ts setWindowOpenHandler but not integrated with agent flow."
-                }
-            ]
-        },
-        {
-            "id": "12",
-            "title": "Error Reporting & Crash Recovery",
-            "status": "in_progress",
-            "priority": "medium",
-            "context": "No error reporting or crash recovery exists. No visibility into what breaks for users in the wild.",
-            "created_at": "2026-02-12T12:12:00.000000",
-            "subtasks": [
-                {
-                    "id": "12.1",
-                    "title": "Integrate Sentry for Electron main + renderer crashes",
-                    "status": "completed"
-                },
-                {
-                    "id": "12.2",
-                    "title": "Add Python backend error reporting",
-                    "status": "completed",
-                    "context": "Catch uncaught exceptions in agent runs. Report to Sentry with task context (instruction, model, step count)."
-                },
-                {
-                    "id": "12.3",
-                    "title": "Implement crash recovery \u2014 restore tabs/realms on restart",
-                    "status": "completed",
-                    "context": "On app crash, save current state. On next launch, detect crash and offer to restore previous session."
-                },
-                {
-                    "id": "12.4",
-                    "title": "Add 'Report a Problem' in help menu / settings",
-                    "status": "completed"
-                }
-            ]
-        },
-        {
-            "id": "13",
-            "title": "Chrome Data Import & First-Run Experience",
-            "status": "in_progress",
-            "priority": "medium",
-            "context": "Users switching from Chrome/Brave/Edge need to import data. Critical for reducing switching friction. No import functionality exists.",
-            "created_at": "2026-02-12T12:13:00.000000",
-            "subtasks": [
-                {
-                    "id": "13.1",
-                    "title": "Import bookmarks \u2192 map to Anthracite Realms/Docks",
-                    "status": "completed",
-                    "context": "Chrome bookmarks are folders. Map top-level folders to Realms, sub-folders to Docks, bookmarks to pinned tabs or dock items."
-                },
-                {
-                    "id": "13.2",
-                    "title": "Import browsing history into SQLite",
-                    "status": "completed"
-                },
-                {
-                    "id": "13.3",
-                    "title": "Import saved passwords (optional, offer to skip)",
-                    "status": "pending",
-                    "context": "Sensitive. Store in OS keychain if imported. Many users may prefer to skip and use a password manager."
-                },
-                {
-                    "id": "13.4",
-                    "title": "First-run import wizard on initial launch",
-                    "status": "completed",
-                    "context": "Detect installed browsers, offer to import. Clean, minimal UI matching Anthracite aesthetic. Steps: Welcome \u2192 Import \u2192 API Key Setup \u2192 Done."
-                },
-                {
-                    "id": "13.5",
-                    "title": "Support Chrome, Brave, Edge, Firefox, Safari",
-                    "status": "completed"
-                }
-            ]
-        },
-        {
-            "id": "14",
-            "title": "Keyboard Shortcuts & Command Palette",
-            "status": "completed",
-            "priority": "medium",
-            "context": "Some shortcuts exist (Cmd+R, Cmd+Shift+K for realm search) but there's no command palette and no customization.",
-            "created_at": "2026-02-12T12:14:00.000000",
-            "subtasks": [
-                {
-                    "id": "14.1",
-                    "title": "Add Cmd+K / Ctrl+K command palette for all browser actions",
-                    "status": "completed"
-                },
-                {
-                    "id": "14.2",
-                    "title": "Add tab quick-switch with fuzzy search",
-                    "status": "completed"
-                },
-                {
-                    "id": "14.3",
-                    "title": "Document and audit all existing shortcuts",
-                    "status": "completed"
-                },
-                {
-                    "id": "14.4",
-                    "title": "Add customizable keybindings in settings",
-                    "status": "completed"
-                }
-            ]
-        },
-        {
-            "id": "15",
-            "title": "Testing Infrastructure",
-            "status": "completed",
-            "priority": "medium",
-            "context": "Zero tests exist in the project. No test framework configured. Need at minimum unit tests for core logic and E2E tests for critical user flows.",
-            "created_at": "2026-02-12T12:15:00.000000",
-            "subtasks": [
-                {
-                    "id": "15.1",
-                    "title": "Set up Vitest for unit tests",
-                    "status": "completed"
-                },
-                {
-                    "id": "15.2",
-                    "title": "Write unit tests for core modules: history.ts, store.ts, settings.ts, classifier.py",
-                    "status": "completed"
-                },
-                {
-                    "id": "15.3",
-                    "title": "Set up Playwright for Electron E2E tests",
-                    "status": "pending"
-                },
-                {
-                    "id": "15.4",
-                    "title": "Write E2E tests: app launch, tab management, navigation, agent task execution",
-                    "status": "pending"
-                },
-                {
-                    "id": "15.5",
-                    "title": "Run tests in CI (GitHub Actions)",
-                    "status": "completed"
-                }
-            ]
-        },
-        {
-            "id": "16",
-            "title": "Mobile Browser (Later Stage \u2014 iOS & Android)",
-            "status": "pending",
-            "priority": "low",
-            "context": "Separate project from the Electron desktop app. Do NOT start until desktop is stable and monetized. Major architectural decisions needed \u2014 mobile can't run Python locally, so agent tasks must go through a cloud backend. iOS requires WebKit (Apple policy). Android allows custom engines.",
-            "created_at": "2026-02-12T12:16:00.000000",
-            "subtasks": [
-                {
-                    "id": "16.1",
-                    "title": "Research & architecture planning",
-                    "status": "pending",
-                    "context": "Options: React Native + WebView, native Swift (iOS) + Kotlin (Android), or a hybrid. Determine which features carry over. Design mobile-specific UI (bottom nav, gesture-based tab switching). Plan cloud-based agent infrastructure."
-                },
-                {
-                    "id": "16.2",
-                    "title": "Build iOS app",
-                    "status": "pending",
-                    "context": "Must use WKWebView (Apple policy). Swift recommended for best performance and App Store compliance."
-                },
-                {
-                    "id": "16.3",
-                    "title": "Build Android app",
-                    "status": "pending",
-                    "context": "Can use custom Chromium or standard WebView. Kotlin recommended."
-                },
-                {
-                    "id": "16.4",
-                    "title": "Cloud-based agent backend for mobile",
-                    "status": "pending",
-                    "context": "Mobile devices can't run the Python agent locally. Build a cloud API that runs browser-use tasks on server-side browsers. This is also the infrastructure needed for the paid proxy tier (task 9)."
-                },
-                {
-                    "id": "16.5",
-                    "title": "App Store & Play Store submission",
-                    "status": "pending"
-                }
-            ]
-        },
-        {
-            "id": "17",
-            "title": "Upgrade Application Menu & Native Features",
-            "status": "completed",
-            "priority": "medium",
-            "context": "Expand the native Electron menu to include standard browser features (File, Edit, View, History, Window, Help). Add keyboard shortcuts for common actions.",
-            "created_at": "2026-02-13T08:10:00.000000",
-            "subtasks": [
-                {
-                    "id": "17.1",
-                    "title": "Implement 'File' menu (New Tab, New Window, Save Page As, Print)",
-                    "status": "completed"
-                },
-                {
-                    "id": "17.2",
-                    "title": "Implement 'Edit' menu (Undo, Redo, Cut, Copy, Paste, Select All, Find in Page)",
-                    "status": "completed"
-                },
-                {
-                    "id": "17.3",
-                    "title": "Implement 'View' menu (Reload, Force Reload, Toggle DevTools, Actual Size, Zoom In, Zoom Out, Toggle Full Screen)",
-                    "status": "completed"
-                },
-                {
-                    "id": "17.4",
-                    "title": "Implement 'History' menu (Back, Forward, Home, Show Full History, Clear Browsing Data)",
-                    "status": "completed"
-                },
-                {
-                    "id": "17.5",
-                    "title": "Implement 'Window' menu (Minimize, Zoom, Tile Window to Left/Right, Bring All to Front)",
-                    "status": "completed"
-                },
-                {
-                    "id": "17.6",
-                    "title": "Implement 'Help' menu (Report Issue, Keyboard Shortcuts, About Anthracite)",
-                    "status": "completed"
-                }
-            ]
-        },
-        {
-            "id": "18",
-            "title": "Hardware-Native AdBlock (Custom Chromium Engine Fork)",
-            "status": "pending",
-            "priority": "low",
-            "context": "Option 3: The ultimate end-game for 0ms network interception latency. Requires compiling a custom fork of the Chromium open-source project and injecting adblock-rs CXX bindings directly into the C++ net/url_request/ layer (identical to Brave Browser's architecture). PREREQUISITES: A dedicated build machine with at least 150GB of free SSD storage and 16+ CPU cores. Estimated build time per compilation is 2-8 hours.",
-            "created_at": "2026-02-21T18:40:00.000000",
-            "subtasks": [
-                {
-                    "id": "18.1",
-                    "title": "Environment Setup & Depot Tools",
-                    "status": "pending",
-                    "context": "Install Google's depot_tools suite. Configure global PATH variables. Fetch the massive Chromium source tree (fetch chromium) into a dedicated external drive or high-performance cloud server."
-                },
-                {
-                    "id": "18.2",
-                    "title": "Study Chromium Network Stack Architecture",
-                    "status": "pending",
-                    "context": "Analyze net/url_request/url_request_http_job.cc and related classes to identify the exact HTTP header and body interception points before data is passed to the V8 JS context."
-                },
-                {
-                    "id": "18.3",
-                    "title": "Embed Rust CXX Bindings",
-                    "status": "pending",
-                    "context": "Integrate the adblock-rs engine into the Chromium build process (BUILD.gn). Create safe C++ wrappers (CXX bindings) that the C++ network stack can call into synchronously."
-                },
-                {
-                    "id": "18.4",
-                    "title": "Implement Native Payload Scrubbing",
-                    "status": "pending",
-                    "context": "Port the N-API JSON scrubbing logic directly into the deeply embedded C++ interceptor. Intercept YouTube XHR payloads at the raw TCP layer and scrub adPlacements instantly."
-                },
-                {
-                    "id": "18.5",
-                    "title": "Compile Custom Browser Binary",
-                    "status": "pending",
-                    "context": "Run the massive ninja -C out/Default chrome compilation. Debug hundreds of inevitable C++ and Chromium build system errors."
-                },
-                {
-                    "id": "18.6",
-                    "title": "Swap Electron's Underlying Engine",
-                    "status": "pending",
-                    "context": "Once the custom Chromium binary is stable, recompile Electron from source to use our custom Chromium fork instead of the default unpatched Chromium upstream."
-                }
-            ]
-        },
-        {
-            "id": "19",
-            "title": "Input Flow Fix \u2014 Separate URL Bar from Agent Bar",
-            "status": "completed",
-            "priority": "critical",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). The current layout has two input bars that serve conflicting purposes and confuse the UX: (1) TopBar (top of screen, always visible when browsing) \u2014 has a URL/search input AND an AI Sparkles button that fires the agent. (2) CommandBar (center of HomePage only) \u2014 has a text input and a Run button that calls `onRun={handleSearch}` which navigates/searches Google, NOT the agent. The user wants these roles to be clearly separated and swapped. DESIRED BEHAVIOR: TopBar = pure URL navigation/search bar only. Remove the Sparkles/AI button and handleRunAgent from TopBar entirely. CommandBar (center of home page) = the agent interface. Pressing Enter in CommandBar should trigger a web search/navigate (what onRun currently does). Clicking the 'Run' button in CommandBar should fire the AI agent (which already calls handleRunAgent internally). The agent is still accessible from any browsing context via the CommandBar embedded below the TopBar. CURRENT CODE STATE: TopBar AI button is the Sparkles icon around line 659 in TopBar.tsx, calls handleRunAgent (~line 340). The showNoModelHint banner and its logic must remain in TopBar (it still needs to guard against agent runs from CommandBar). Actually, the agent can only be invoked from CommandBar going forward, so TopBar just needs its AI button and handleRunAgent removed, but the no-model hint can move to CommandBar permanently. IMPLEMENTATION NOTES: (1) In TopBar.tsx: delete the Sparkles import, remove the handleRunAgent function entirely, remove the AI button JSX, remove the showNoModelHint state and its associated JSX. (2) In CommandBar.tsx: the handleRunAgent function already exists and handles SSE streaming correctly \u2014 keep it. The hint logic from TopBar needs to merge here or stay as-is in CommandBar since it already has a version. (3) In HomePage.tsx: the CommandBar's onRun prop is set to handleSearch which calls window.electron?.navigation.navigate(input) \u2014 this is correct for search/URL, keep it. The agent is triggered separately by CommandBar's internal Run button. RESULT: Clean UX \u2014 one bar for browsing, one bar for AI tasks.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "19.1",
-                    "title": "Remove AI button and handleRunAgent from TopBar.tsx",
-                    "status": "completed",
-                    "context": "In src/renderer/components/TopBar.tsx: remove the Sparkles import from lucide-react, remove the handleRunAgent async function (lines ~340-465), remove the showNoModelHint useState, remove the isAIProcessing/isAgentPaused/agentStatus states related to agent control, remove the AI button JSX and pause/stop controls from the render output. Keep: URL navigation input, back/forward/reload buttons, history suggestions. The TopBar should be a pure navigation chrome."
-                },
-                {
-                    "id": "19.2",
-                    "title": "Verify CommandBar agent button works standalone",
-                    "status": "completed",
-                    "context": "CommandBar.tsx already has a full handleRunAgent implementation with SSE streaming, pause/resume/stop controls, and model checking. Verify it still works correctly when TopBar no longer has an AI button. The CommandBar is shown on the home page and also in the browsing view area. Make sure the no-model hint in CommandBar is functional."
-                }
-            ]
-        },
-        {
-            "id": "20",
-            "title": "Design System Overhaul \u2014 Replace Purple, Establish Anthracite Palette",
-            "status": "completed",
-            "priority": "critical",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). The current brand color is #6366F1 (indigo-purple), which reads as generic AI tooling. The app is named Anthracite \u2014 a lustrous, premium form of coal. The palette should reflect this: dark, rich, refined, mineral. RECOMMENDED NEW PALETTE: Primary accent \u2192 #D4A574 (warm brushed gold, like premium hardware) or #C0A882 (warm champagne). Rationale: gold/amber on near-black is a classic premium pairing (used by Bloomberg, high-end watchmakers, premium software). If gold feels too warm, alternative: #5B9BD5 (steel blue \u2014 cool, precise, techno-premium like Vercel/Linear). Surface colors are already good (#0A0A0B, #111113, #1A1A1D) \u2014 keep these. CHANGES NEEDED: (1) tailwind.config.js: replace brand.DEFAULT from #6366F1 to new accent, update brand.light, brand.dark, brand.muted accordingly. Update glow/glow-lg/glow-brand boxShadow to use new color. Update glowPulse keyframe. (2) All components using text-brand, bg-brand, ring-brand, border-brand classes will automatically inherit the new color. (3) The ambient orb on the home page (rgba(99,102,241,0.03)) should be updated to new brand color. (4) Settings sidebar active state, CommandBar focus ring, and any hardcoded purple hex values must be updated. SCOPE: grep the codebase for #6366F1, rgba(99,102,241, #4F46E5, #818CF8 to find all hardcoded instances. UPDATE APPROACH: change tailwind.config.js first (covers ~80% of usage via utility classes), then manually fix hardcoded values. The goal is zero purple anywhere in the UI.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "20.1",
-                    "title": "Update tailwind.config.js brand colors",
-                    "status": "completed",
-                    "context": "Replace: brand.DEFAULT: '#6366F1' \u2192 '#C8A97E' (warm gold). brand.light: '#818CF8' \u2192 '#DFC4A0'. brand.dark: '#4F46E5' \u2192 '#A8895A'. brand.muted: 'rgba(99,102,241,0.12)' \u2192 'rgba(200,169,126,0.12)'. Update boxShadow glow variants to use rgba(200,169,126,...). Update glowPulse keyframes. This single file change will cascade through all Tailwind utility classes across every component."
-                },
-                {
-                    "id": "20.2",
-                    "title": "Audit and fix hardcoded purple hex values across all components",
-                    "status": "completed",
-                    "context": "Run: grep -r '#6366F1\\|#818CF8\\|#4F46E5\\|rgba(99,102,241' src/. Fix each occurrence. Key files expected: HomePage.tsx (ambient orb gradient), index.css (any global styles using brand colors), SettingsPage.tsx (focus rings, active states). Replace all with the new brand color equivalents."
-                },
-                {
-                    "id": "20.3",
-                    "title": "Update Settings sidebar active/selected state",
-                    "status": "completed",
-                    "context": "Settings sidebar currently uses brand color for the active section indicator (left border, background tint, text color). After palette update, verify these look correct with the new gold/steel accent. The settings section list is in SettingsPage.tsx around the sections.map() render."
-                }
-            ]
-        },
-        {
-            "id": "21",
-            "title": "Sidebar Redesign \u2014 Classy, Arc-Inspired Premium UI",
-            "status": "completed",
-            "priority": "high",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). The current sidebar (src/renderer/components/Sidebar.tsx) uses dnd-kit for drag-and-drop, has a RealmSwitcher at top, SortableDock groups, and SortableTab items. It works but looks generic. DESIGN GOALS: (1) Tab items \u2014 reduce visual noise. Each tab should be a compact row: favicon (16x16) + title text (truncated, max 160px) + close button (appears on hover only, subtle X). Active tab: slightly brighter background, left accent border in brand color. Hover: smooth opacity/background transition using CSS cubic-bezier(0.25, 0.46, 0.45, 0.94). (2) Sidebar background \u2014 use a very slight frosted glass effect: bg-[#0D0D0F]/95 with backdrop-blur-xl and a right border of rgba(255,255,255,0.05). The sidebar should feel like it recedes slightly from the content. (3) Typography \u2014 tab titles at 12.5px, font-medium, text-text-secondary by default, text-text-primary when active. Remove bold or large text from the tab list. (4) Section headers (dock labels) \u2014 very subtle, 10px uppercase tracking-wider text-text-tertiary. No heavy separators. (5) Realm switcher at bottom (not top) \u2014 a compact row of circular realm icons at the sidebar footer. Click to switch. Current active realm indicated by a subtle ring. (6) Animations: tab appear = fadeInUp 150ms ease-out. Tab close = fadeOut + width-collapse 120ms. Sidebar expand/collapse = transform translateX with cubic-bezier(0.32, 0.72, 0, 1) \u2014 iOS-style spring. (7) New tab button \u2014 a clean '+' icon at the bottom of the tab list, no border, just icon + 'New Tab' text at the same size as tab items. IMPLEMENTATION: Edit Sidebar.tsx, SortableTab.tsx, RealmSwitcher.tsx. Most changes are CSS class changes (Tailwind + inline styles). Animation additions use framer-motion AnimatePresence which is already imported.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "21.1",
-                    "title": "Redesign SortableTab item appearance",
-                    "status": "completed",
-                    "context": "In src/renderer/components/SortableTab.tsx: tab row height 32px (h-8). Favicon 14px. Title: text-[12.5px] font-medium truncate max-w-[140px]. Close button: opacity-0 group-hover:opacity-100 transition-opacity duration-150, positioned right. Active tab: bg-white/[0.07] border-l-2 border-brand. Add framer-motion layout animation so tabs smoothly reorder on drag."
-                },
-                {
-                    "id": "21.2",
-                    "title": "Redesign sidebar chrome (background, borders, spacing)",
-                    "status": "completed",
-                    "context": "In Sidebar.tsx: sidebar container bg-[#0D0D0F] border-r border-white/[0.05]. Remove any heavy separators. Realm switcher: move to footer area of sidebar. Add subtle inner shadow on right edge. Padding: px-2 py-2 for tab list area. Section (dock) labels: text-[10px] uppercase tracking-[0.08em] text-text-tertiary/60 px-2 py-1."
-                },
-                {
-                    "id": "21.3",
-                    "title": "Sidebar open/close animation",
-                    "status": "completed",
-                    "context": "Currently sidebar slides in/out. Improve with iOS-style spring easing: transition-transform duration-300 cubic-bezier(0.32,0.72,0,1). Add a subtle shadow that appears when sidebar is open (shadow-large on the right edge). The sidebar panel itself should feel light and ephemeral when floating over content."
-                }
-            ]
-        },
-        {
-            "id": "22",
-            "title": "Tab Organization Redesign \u2014 Realms \u2192 Pinned/Unpinned (Arc-Inspired)",
-            "status": "completed",
-            "priority": "high",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). CURRENT STATE: The app has Realms \u2192 Docks \u2192 Tabs (3 levels). Docks are folders/groups within a realm. This is confusing and adds unnecessary hierarchy. TARGET STATE (Arc-inspired but differentiated): Realms \u2192 Tabs only. Within each realm, tabs are divided into two zones: (1) PINNED ZONE (top half of sidebar): Tabs manually pinned by user. These persist forever until unpinned or closed. They function like saved apps \u2014 clicking them always stays within that site (navigation-locked). External links from pinned tabs open in a new unpinned tab. Visually distinct: slightly larger favicon, no auto-archive. (2) UNPINNED ZONE (bottom half, separated by a thin divider): Regular open tabs. Auto-archive after 12 hours of inactivity (configurable). A collapsed 'Earlier' section shows recently archived tabs for the current realm. User can un-archive by clicking. CONCEPTUAL DIFFERENCE FROM ARC: We call them Realms (not Spaces) to differentiate. We do NOT implement folders/sub-groups within realms for now \u2014 keep it flat and simple. MIGRATION: The existing Dock data structure (src/main/store.ts) needs to be simplified. The isPinned flag already exists on tabs. The main change is removing the mandatory Dock container \u2014 tabs can exist directly under a realm without a dock. UI: The sidebar dock headers (folder groups) should be replaced with just a simple dividing line between pinned and unpinned sections. DATA MODEL CHANGE: In src/main/store.ts and src/shared/types.ts, the Dock type becomes optional \u2014 tabs can have dockId: null to be 'loose' in the realm. This already partially exists. DOCK REMOVAL: Remove DockModal.tsx, SortableDock.tsx, the 'Create Dock' UI, and the 'Move to Dock' context menu items. Simplify to: realm \u2192 pinned tabs + unpinned tabs. IMPORTANT: Keep backward compatibility \u2014 existing docked tabs should migrate to loose tabs when docks are removed.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "22.1",
-                    "title": "Remove Dock concept from sidebar UI",
-                    "status": "completed",
-                    "context": "In Sidebar.tsx: remove SortableDock rendering, remove dock creation UI, remove 'Move to Dock' context menu items. Replace with two zones: a pinned section (isPinned=true tabs) and unpinned section (isPinned=false tabs) separated by a thin divider line (border-t border-white/[0.06] my-1). Keep drag-and-drop between pinned and unpinned zones. Remove DockModal.tsx from rendering. The '+' new dock button becomes a simple new tab button."
-                },
-                {
-                    "id": "22.2",
-                    "title": "Implement auto-archiving of unpinned tabs",
-                    "status": "completed",
-                    "context": "Track last-accessed timestamp on each tab (store in tab metadata or localStorage). In the main process (store.ts), add a timer that runs every 30 minutes: find tabs with lastAccessedAt < now - 12h AND isPinned=false AND not the active tab \u2192 mark as archived=true. Archived tabs are hidden from the main list but shown in a collapsed 'Earlier' section at the bottom of the unpinned zone. Clicking an archived tab un-archives it and makes it active. IPC: add archive-tab, unarchive-tab handlers."
-                },
-                {
-                    "id": "22.3",
-                    "title": "Pinned tab navigation lock",
-                    "status": "completed",
-                    "context": "When a pinned tab navigates to an external domain (different from its origin domain), intercept the navigation and instead open a new unpinned tab for the external URL. Keep the pinned tab on its original domain. Detect 'external' as: new URL(url).hostname !== new URL(tab.originalUrl).hostname. This makes pinned tabs behave like app shortcuts. Implementation: in main.ts webview did-navigate handler, check if the tab is pinned and the new URL's domain differs from the tab's originalUrl domain. If so: (1) revert the pinned tab to its originalUrl, (2) create a new unpinned tab with the external URL."
-                }
-            ]
-        },
-        {
-            "id": "23",
-            "title": "Adaptive Wallpaper Theming \u2014 Color Extraction from Custom Images",
-            "status": "completed",
-            "priority": "high",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). Users should be able to set any local image as the browser wallpaper (home page background), and the entire browser chrome (sidebar, top bar, settings, CommandBar) should subtly adapt its accent color to match the dominant palette of that image. This is the Spotify model \u2014 UI molds itself to the content. TECHNICAL APPROACH: Use node-vibrant (already well-suited for Electron main process) to extract semantic color swatches from the image. node-vibrant returns: Vibrant (bright, saturated), DarkVibrant (dark, saturated), Muted (muted), DarkMuted (dark, desaturated), LightVibrant (light, saturated), LightMuted (light, desaturated). MAPPING TO UI ROLES: accent/brand color \u2192 Vibrant swatch hex (bright, distinctive color from image). If Vibrant is too light/dark for readability, fall back to LightVibrant. Sidebar background tint \u2192 DarkMuted hex at very low opacity (5-8%) blended over the base surface color. Glow effects \u2192 Vibrant hex at 0.15 opacity. IMPLEMENTATION PLAN: (1) In main.ts: add IPC handler 'extract-wallpaper-palette' that takes a local file path, runs node-vibrant, returns { vibrant, darkVibrant, muted, darkMuted } hex strings. (2) In renderer: when user selects a custom wallpaper image, call this IPC, receive the palette, inject CSS custom properties (--color-brand, --color-brand-light, --color-brand-muted) into document.documentElement.style. (3) All Tailwind brand color usages that can't use CSS vars need to be converted to use inline style vars or a React context that provides theme values. PERFORMANCE: node-vibrant processes a typical JPEG in 100-300ms. Do this once on image selection and cache the result in settings. INSTALLATION: npm install node-vibrant (or sharp-vibrant for lighter footprint). SETTINGS PERSISTENCE: Store extracted palette hex strings in settings.json alongside the wallpaper path so they don't need re-extraction on every launch. GRACEFUL FALLBACK: If no custom wallpaper is set, use the default Anthracite brand color. If extraction fails, keep default. TRANSITION: When wallpaper changes, animate the CSS custom property change using a short cross-fade overlay (300ms opacity transition) to avoid jarring color jumps. FILE PICKER: Use Electron's dialog.showOpenDialog with filters for image types (JPEG, PNG, WebP, AVIF). Copy the chosen file to userData/wallpapers/ so it's available even if the source moves.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "23.1",
-                    "title": "Install node-vibrant and add IPC handler for palette extraction",
-                    "status": "completed",
-                    "context": "npm install node-vibrant. In src/main/main.ts, add: ipcMain.handle('extract-wallpaper-palette', async (_e, filePath: string) => { const Vibrant = require('node-vibrant'); const palette = await Vibrant.from(filePath).getPalette(); return { vibrant: palette.Vibrant?.hex, darkVibrant: palette.DarkVibrant?.hex, muted: palette.Muted?.hex, darkMuted: palette.DarkMuted?.hex, lightVibrant: palette.LightVibrant?.hex }; }). Also add IPC for file picker: ipcMain.handle('pick-wallpaper-file', () => dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['jpg','jpeg','png','webp','avif','gif'] }], properties: ['openFile'] }))."
-                },
-                {
-                    "id": "23.2",
-                    "title": "Apply extracted palette as CSS custom properties in renderer",
-                    "status": "completed",
-                    "context": "In a new ThemeContext (src/renderer/contexts/ThemeContext.tsx): on app init, read homeBackground and wallpaperPalette from settings. If custom wallpaper and palette exists, inject: document.documentElement.style.setProperty('--color-brand', vibrantHex); document.documentElement.style.setProperty('--color-brand-muted', vibrantHex + '1F'); etc. Re-apply whenever settings change via the onChanged listener. In tailwind.config.js, change brand.DEFAULT to 'var(--color-brand, #C8A97E)' syntax (Tailwind supports CSS vars via JIT). Alternatively, maintain a palette state in a React context and pass to components that need dynamic coloring."
-                },
-                {
-                    "id": "23.3",
-                    "title": "Wallpaper file picker UI in Settings \u2192 Appearance",
-                    "status": "completed",
-                    "context": "In SettingsPage.tsx, Appearance section: replace the current 'Custom URL' text input for wallpaper with a proper file picker button. Show a thumbnail preview of selected image (50x50px, rounded-lg). Button text: 'Choose Image'. On click: call window.electron.invoke('pick-wallpaper-file'). On selection: (1) copy file to userData/wallpapers/wallpaper.{ext}, (2) call extract-wallpaper-palette with the new path, (3) save both the path and the extracted palette to settings, (4) broadcast settings change so ThemeContext re-applies the palette. Show extracted palette swatches as 5 small colored circles next to the thumbnail as visual feedback."
-                }
-            ]
-        },
-        {
-            "id": "24",
-            "title": "Settings Visual Redesign \u2014 Elegant, Classy, Premium",
-            "status": "completed",
-            "priority": "high",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). The current Settings page uses the purple brand color for the active sidebar tab indicator and various interactive elements. After task 20 (palette overhaul), the colors will improve. This task covers the layout and visual treatment specifically. DESIGN GOALS inspired by macOS System Settings and Linear's preferences: (1) Sidebar \u2014 left sidebar with section icons + labels. Currently w-64. Keep this but improve: active item uses a subtle filled pill background (bg-white/[0.08] rounded-lg) instead of a left border. Icon and text both become text-text-primary when active. Inactive: icon text-text-tertiary, label text-text-secondary. Hover: bg-white/[0.04] with 150ms transition. (2) Section content area \u2014 each settings group should use clear visual grouping: a titled card container (bg-surface-secondary rounded-xl p-6 border border-white/[0.06]) per logical group. Example: 'Search Engine' card, 'Tab Behavior' card within Browser section. This is how macOS System Settings and Linear organize preferences. (3) Toggle switches \u2014 replace any checkbox inputs with a proper iOS-style toggle switch component. Small (20x12px), smooth transition, brand-colored when on. (4) Input fields \u2014 consistent height (h-9), rounded-lg, bg-white/[0.04] border border-white/[0.07], focus ring in brand color at 30% opacity. (5) Section headers \u2014 11px uppercase tracking-wider text-text-tertiary/70, no heavy dividers, just generous spacing. (6) Typography \u2014 section title: text-base font-semibold text-text-primary. Description: text-xs text-text-tertiary leading-relaxed. (7) Remove any remaining em dashes or generic AI-purple colored elements.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "24.1",
-                    "title": "Redesign settings sidebar active state (pill instead of border)",
-                    "status": "completed",
-                    "context": "In SettingsPage.tsx, the section list renders around the sections.map(). Change active item from border-l-2 border-brand style to: bg-white/[0.08] rounded-xl (full row). Remove the left border indicator. Active icon: text-text-primary. Active label: text-text-primary font-medium. Inactive: text-text-tertiary / text-text-secondary. Transition: transition-colors duration-150."
-                },
-                {
-                    "id": "24.2",
-                    "title": "Add grouped card containers for settings sections",
-                    "status": "completed",
-                    "context": "In SettingsPage.tsx, for each settings section (Browser, Appearance, Privacy, Tabs, Developer), wrap logical groups of settings into card components: <div className='bg-surface-secondary rounded-xl p-5 border border-white/[0.06] space-y-4'>. For example Browser section: Card 1 'Search & Navigation' (search engine, homepage), Card 2 'Tab Behavior' (open links, restore tabs). This creates visual hierarchy without clutter."
-                },
-                {
-                    "id": "24.3",
-                    "title": "Build reusable Toggle switch component",
-                    "status": "completed",
-                    "context": "Create src/renderer/components/ui/Toggle.tsx: a controlled React component <Toggle checked={bool} onChange={(v) => void} label='...' description='...' />. Visual: pill shape 36px x 20px, thumb 16px x 16px. Off: bg-white/[0.12], thumb white/60. On: bg-brand, thumb white. Transition: all 200ms cubic-bezier(0.34,1.56,0.64,1) (bouncy thumb movement). Replace all <input type='checkbox' /> in SettingsPage.tsx with this component."
-                }
-            ]
-        },
-        {
-            "id": "25",
-            "title": "UI Micro-animations & Motion Polish \u2014 Entire Browser",
-            "status": "completed",
-            "priority": "medium",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). This covers the ENTIRE browser UI, not just the sidebar. Arc Browser's perceived quality comes largely from its animation system. The goal is subtle, tasteful motion that makes actions feel physical and responsive \u2014 NOT flashy or distracting. Rule: if you notice the animation itself, it's too much. PRINCIPLES: (1) Hardware-accelerated only: transform and opacity. Never animate width, height, top, left (causes layout reflow). (2) Easing: ease-out for entering elements (decelerate into place), ease-in for exiting. Spring for interactive feedback. (3) Duration: 100-150ms micro, 200-300ms panel transitions, 300-400ms page-level. Never exceed 400ms. (4) Subtlety rule: opacity shifts max 0.1 for hover states, scale max 1.03 for hover, 0.97 for press. SCOPE \u2014 EVERY AREA OF THE BROWSER: Sidebar: tab add/remove fadeIn+scale, tab hover bg transition, realm switch cross-fade, sidebar open/close iOS spring. TopBar: URL input focus glow expand, back/forward button scale on press, loading spinner smooth fade in/out. HomePage: entrance stagger already exists, CommandBar focus ring smooth expand, Run button hover scale. CommandBar: suggestion items fadeIn stagger, model selector dropdown scale+fade. Settings: section switch fade+slide, toggle switch spring animation, card hover lift (subtle shadow increase). Agent Panel (task 28): step card slideIn from right, streaming text fade-in per word, panel open/close spring. Realm switching: tab list cross-fade, new realm indicator flash. Context menus: scale-in from origin point, fade-out on close. Tooltips: fade in after 400ms delay, fade out immediately. Modals/dialogs: scale 0.96\u21921 + fade in, scale 1\u21920.96 + fade out on close. IMPLEMENTATION: Use framer-motion for complex sequences (AnimatePresence, layout animations). Use Tailwind transition classes for simple hover/focus states. Use CSS cubic-bezier(0.32,0.72,0,1) for panel transitions (iOS-quality spring), cubic-bezier(0.25,0.46,0.45,0.94) for general ease.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "25.1",
-                    "title": "Sidebar tab open/close/hover animations",
-                    "status": "completed",
-                    "context": "In Sidebar.tsx, wrap tab list in AnimatePresence. SortableTab: initial={{ opacity: 0, scaleY: 0.8, height: 0 }} animate={{ opacity: 1, scaleY: 1, height: 32 }} exit={{ opacity: 0, scaleY: 0.8, height: 0 }} transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}. Tab hover: transition-colors duration-100. Realm switch: AnimatePresence mode='wait' on the tab list, cross-fade 200ms."
-                },
-                {
-                    "id": "25.2",
-                    "title": "Settings section transition and toggle spring animation",
-                    "status": "completed",
-                    "context": "Settings content panel: AnimatePresence key=activeSection, motion.div initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-4 }} transition={{ duration:0.18, ease:'easeOut' }}. Toggle switch (from task 24.3): thumb transition uses spring({ stiffness:500, damping:30 }) for bouncy snap feel."
-                },
-                {
-                    "id": "25.3",
-                    "title": "Global button press and hover micro-interactions",
-                    "status": "completed",
-                    "context": "Add to index.css: button, [role='button'] { transition: transform 100ms cubic-bezier(0.34,1.56,0.64,1), opacity 150ms ease; } button:active { transform: scale(0.97); }. Hover for primary buttons: scale(1.02). Icon-only buttons (close X, nav arrows): hover bg-white/[0.08] rounded, scale(1.1). TopBar back/forward: active:scale-[0.9]. Never add transforms to large layout containers."
-                },
-                {
-                    "id": "25.4",
-                    "title": "HomePage, CommandBar, and TopBar focus animations",
-                    "status": "completed",
-                    "context": "CommandBar input focus: box-shadow expands from 0 to brand-colored glow over 200ms (already partially done, tune easing). Run button hover: scale(1.03), transition 150ms. TopBar URL input focus: border-color transition 150ms, subtle glow. Suggestion items in dropdown: staggered fadeInUp 80ms delay per item, AnimatePresence for mount/unmount. Model selector dropdown: scale(0.97)\u2192scale(1) + opacity 0\u21921, origin top-center."
-                },
-                {
-                    "id": "25.5",
-                    "title": "Context menus, modals, and tooltips",
-                    "status": "completed",
-                    "context": "Context menu (ContextMenu.tsx): initial={{ opacity:0, scale:0.95, y:-4 }} animate={{ opacity:1, scale:1, y:0 }} exit={{ opacity:0, scale:0.95 }} transition={{ duration:0.12 }}. Modals (DockModal, RealmModal, InputModal): scale(0.96)\u2192scale(1) + opacity, backdrop fadeIn. Tooltips: delay 400ms before showing, fade 150ms, no delay on hide. All context-origin scaling should use CSS transform-origin matching the click point."
-                }
-            ]
-        },
-        {
-            "id": "26",
-            "title": "Additional Enhancement: Command Palette (Cmd+K)",
-            "status": "completed",
-            "priority": "medium",
-            "branch": "feat/browser-enhancements",
-            "context": "SUGGESTED ENHANCEMENT (2026-02-26). Arc Browser and premium apps like Linear, Vercel, and Raycast all use a command palette as a power-user shortcut to everything. This integrates well with Anthracite's keyboard-first philosophy. SCOPE: Press Cmd+K from anywhere in the app to open a floating palette. The palette supports: (1) Switch to any open tab (fuzzy search by title or URL), (2) Open new tab with URL/search, (3) Switch realm, (4) Run an agent task (same as typing in CommandBar), (5) Go to settings section. Visual: centered modal, frosted glass bg-[#111113]/95 backdrop-blur-2xl, rounded-2xl, shadow-large. Input at top (h-12, large text). Results list below with keyboard navigation (arrow keys + Enter). Groups: 'Open Tabs' / 'Actions' / 'Settings'. Close on Escape or outside click. IMPLEMENTATION: New component src/renderer/components/CommandPalette.tsx. Register Cmd+K in App.tsx or main layout with useEffect keydown listener. Reuse fuzzy search logic from CommandBar suggestions.",
-            "created_at": "2026-02-26T00:00:00.000000"
-        },
-        {
-            "id": "28",
-            "title": "Agent Activity Panel \u2014 Right-Side Collapsible Chat Panel",
-            "status": "completed",
-            "priority": "critical",
-            "branch": "feat/browser-enhancements",
-            "context": "RESEARCH COMPLETE (2026-02-26). INSPIRATION: Perplexity Comet uses a sidebar chat panel \u2014 the agent activity is shown as a persistent right panel while the main browsing area takes primary real estate. The panel shows real-time agent thinking, step-by-step actions, and allows user control (pause/stop/next command). OpenAI Operator (now ChatGPT agent) uses narration-based activity display with pause/resume/stop controls. Brave Browser's implementation shows pause (halts tool execution, thoughts continue) + stop (full halt, partial results) buttons. CURRENT STATE: Anthracite's agent output is shown inline in the CommandBar as a small status message and a takeover banner. There's no dedicated panel for agent activity. The SSE stream in CommandBar.tsx receives step events from the backend: { step_num, action, args, result } and displays minimal status. SSE events also fire 'auth_required' for takeover mode. All this logic needs to be lifted out of CommandBar and into a dedicated AgentPanel component. DESIGN: Right-side slide-in panel, 320px wide (resizable), opens automatically when an agent task starts, user can pin it open or close it. Has a toggle button in the TopBar (or sidebar footer). PANEL LAYOUT (top to bottom): (1) Header bar: 'Agent' label + active task title + close/pin toggle button. (2) Task context card: shows the original user instruction in a subtle card at top. (3) Activity feed: scrollable list of step cards \u2014 each card shows: step number badge, action icon (navigate=Globe, click=MousePointer, type=Keyboard, etc.), action description, result summary. Cards stream in with slideInRight animation. Current step pulses with a subtle glow. (4) Thinking indicator: when agent is reasoning between steps, show an animated 3-dot typing indicator or a shimmer skeleton. (5) Controls bar (sticky bottom): Pause/Resume button, Stop button, and a text input for 'Send follow-up command'. (6) Status line: 'Step 4 of ~12 estimated', elapsed time. INTERACTION: User can type a follow-up instruction in the input and press Enter while the agent is running \u2014 this sends an interrupt to the backend that modifies the agent's next prompt. On task completion: show a 'Done' state with a summary card, 'Run another task' button. On error: red error card with retry option. TAB HIGHLIGHT: When agent controls a tab, that tab in the sidebar gets a subtle animated border/glow in brand color (like Comet's blue outline). FOLLOW-UP COMMANDS: POST to http://127.0.0.1:8000/agent/message with { taskId, message } \u2014 backend routes this into the agent's next step context. Backend needs a new endpoint for this. ANIMATION: Panel slides in from right using transform translateX(100%)\u2192translateX(0) with cubic-bezier(0.32,0.72,0,1), 300ms. Step cards animate in with fadeInRight 150ms. PERSISTENCE: Panel pin state stored in localStorage. If pinned, it stays open between tasks. If not pinned, it closes when task completes. COMPONENT FILES: New src/renderer/components/AgentPanel.tsx. Modify App.tsx or the main layout to render AgentPanel alongside the browser content area (flex row: sidebar + browser + agentPanel). Move SSE streaming logic from CommandBar.tsx to AgentPanel (or a shared useAgentTask hook). The CommandBar's Run button now opens the panel and starts the task.",
-            "created_at": "2026-02-26T00:00:00.000000",
-            "subtasks": [
-                {
-                    "id": "28.1",
-                    "title": "Create AgentPanel.tsx component with activity feed",
-                    "status": "completed",
-                    "context": "New file: src/renderer/components/AgentPanel.tsx. Props: { isOpen: boolean, onClose: () => void, isPinned: boolean, onPinToggle: () => void }. State: taskInstruction (string), steps (AgentStep[]), status ('idle'|'running'|'paused'|'done'|'error'), elapsedSeconds (number), followUpInput (string). AgentStep type: { stepNum: number, action: string, args: Record<string, any>, result: string, timestamp: number }. The panel is a fixed right panel: right-0 top-0 h-full w-80 bg-[#0D0D0F]/98 backdrop-blur-xl border-l border-white/[0.06] shadow-large. Animation: motion.div with initial={{ x: '100%' }} animate={{ x: isOpen ? 0 : '100%' }} transition={{ type:'tween', ease:[0.32,0.72,0,1], duration:0.3 }}. The SSE event listener (currently in CommandBar) moves here. On each step event, append to steps array and scroll feed to bottom."
-                },
-                {
-                    "id": "28.2",
-                    "title": "Step card design and streaming animations",
-                    "status": "completed",
-                    "context": "Each AgentStep renders as a compact card in the feed. Layout: left column (step number badge, vertical connector line to next card) + right column (action name, args summary, result text). Action icons from lucide-react: navigate\u2192Globe, click\u2192MousePointer2, type\u2192Keyboard, scroll\u2192ScrollText, wait\u2192Clock, done\u2192CheckCircle2, error\u2192AlertCircle. Active/current step: border-brand/30 bg-brand/5 with a subtle pulse animation on the left border. Completed steps: muted, text-text-secondary. Step card entrance animation: motion.div initial={{ opacity:0, x:16 }} animate={{ opacity:1, x:0 }} transition={{ duration:0.15 }}. Between steps: show an animated 3-dot indicator (existing Loader2 or a custom dots component)."
-                },
-                {
-                    "id": "28.3",
-                    "title": "Follow-up command input and backend endpoint",
-                    "status": "completed",
-                    "context": "At the bottom of AgentPanel: a sticky input bar. Input: text-sm, placeholder 'Send a follow-up...', rounded-xl bg-white/[0.04]. Send button: ArrowRight icon. On submit: POST to http://127.0.0.1:8000/agent/message with { message: string }. In backend/server.py: add POST /agent/message endpoint that sets a global message_queue variable. In backend/cdp_agent.py: after each step, check message_queue \u2014 if non-empty, prepend the user message to the next step's context: add a user message 'User instruction update: {message}' into the messages array before the next LLM call. This lets users course-correct the agent mid-task."
-                },
-                {
-                    "id": "28.4",
-                    "title": "Agent tab highlight in sidebar",
-                    "status": "completed",
-                    "context": "When an agent task is running and controlling a specific tab (identified by tabId from the SSE stream or from the agent start response), that tab in the Sidebar should show a visual indicator. In SortableTab.tsx: add a prop isAgentControlled: boolean. When true: add a left border in brand color (border-l-2 border-brand) + a subtle pulsing glow effect (animate-pulse on a brand-colored dot badge). The agentControlledTabId state is stored in a React context (AgentContext) that both AgentPanel and Sidebar can read. When task ends, clear the highlight."
-                },
-                {
-                    "id": "28.5",
-                    "title": "Integrate panel into app layout and move SSE logic",
-                    "status": "completed",
-                    "context": "In App.tsx (or the main browser layout): add AgentPanel alongside the content area. The main layout should be a flex row: [Sidebar][BrowserContent][AgentPanel]. AgentPanel sits at position:fixed right-0 so it overlays the browser content rather than squishing it (overlay mode, not push mode \u2014 like Comet's sidebar). Move the SSE streaming fetch from CommandBar.tsx into a custom hook: src/renderer/hooks/useAgentTask.ts. This hook manages: startTask(instruction, cdpTarget), pauseTask(), resumeTask(), stopTask(), SSE event parsing, steps state, status state. Both CommandBar (to start a task) and AgentPanel (to display and control) consume this hook via a shared AgentContext. Remove duplicate agent control code from CommandBar after migration."
-                }
-            ]
-        },
-        {
-            "id": "27",
-            "title": "Additional Enhancement: Tab Preview on Hover",
-            "status": "completed",
-            "priority": "low",
-            "branch": "feat/browser-enhancements",
-            "context": "SUGGESTED ENHANCEMENT (2026-02-26). When hovering over a tab in the sidebar for 600ms, show a small preview card positioned to the right of the sidebar. The preview shows: (1) A live screenshot of the tab (captured via Electron's webContents.capturePage()), (2) The page title, (3) The URL. Visual: a 240x150px rounded-xl card with the screenshot, positioned to the right of the hovered tab row, with a smooth fadeIn animation. IMPLEMENTATION: In main.ts, add IPC handler 'capture-tab-preview' that calls webContents.fromId(tabId)?.capturePage() \u2192 returns NativeImage \u2192 convert to base64 PNG data URL. In SortableTab.tsx: on mouse enter, set a 600ms timeout; if still hovered after timeout, call capture-tab-preview and show the preview overlay using Framer motion. On mouse leave, clear timeout and dismiss preview. This is an Arc-inspired feature that adds spatial context without requiring tab switches.",
-            "created_at": "2026-02-26T00:00:00.000000"
+          "id": "1.3",
+          "title": "Windows Distribution: Publish to Microsoft Store",
+          "status": "pending",
+          "context": "Microsoft Store handles signing for free/cheap (~$19 once), avoiding the expensive EV cert ($400/yr). Requires packaging as MSIX. Users install via Store link or appinstaller."
         }
-    ]
+      ]
+    },
+    {
+      "id": "2",
+      "title": "CI/CD Pipeline \u2014 Automated Builds & Releases",
+      "status": "pending",
+      "priority": "high",
+      "context": "No GitHub Actions workflows exist for desktop builds. Website deploys via Vercel (already configured). Need automated multi-platform builds triggered on git tags.",
+      "created_at": "2026-02-12T12:02:00.000000",
+      "subtasks": [
+        {
+          "id": "2.2",
+          "title": "Store code signing secrets in GitHub Secrets",
+          "status": "pending",
+          "context": "Mac: APPLE_ID, APPLE_TEAM_ID, CSC_LINK (base64 .p12), CSC_KEY_PASSWORD. Windows: WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD."
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Website Waitlist Backend \u2014 Actually Save Signups",
+      "status": "completed",
+      "priority": "high",
+      "context": "The signup form on anthracitebrowser.com (website/src/components/Signup.tsx) is purely cosmetic. It shows 'You're on the list' but saves nothing \u2014 no API call, no database, no email service. Need a real backend to collect and manage waitlist signups.",
+      "created_at": "2026-02-12T12:03:00.000000",
+      "subtasks": [
+        {
+          "id": "3.4",
+          "title": "Send confirmation email on signup (optional)",
+          "status": "completed",
+          "context": "Use Resend or similar. Simple email: 'Thanks for signing up for Anthracite. We'll notify you when it's ready.'"
+        },
+        {
+          "id": "3.5",
+          "title": "Create admin view or export for signups",
+          "status": "completed",
+          "context": "At minimum: ability to export CSV of all signups. Supabase dashboard gives this for free."
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "Connected Accounts \u2014 Agent Auth via Ambient Session Reuse",
+      "status": "completed",
+      "priority": "critical",
+      "context": "RESEARCH COMPLETE (2026-02-23). Users need to link accounts (Google, GitHub, Amazon, etc.) so the AI agent can act as them \u2014 log into Gmail, book flights, manage their calendar. The chosen architecture is AMBIENT SESSION REUSE (same pattern as Comet by Perplexity and Dia by The Browser Company): the agent controls the same webview the user browses in ('persist:anthracite' Electron session), so cookies from manual logins are already available to the agent \u2014 NO separate OAuth or credential storage needed. The second pattern is TAKEOVER MODE (same as OpenAI Operator): when agent detects a login/CAPTCHA/MFA wall, it pauses and hands control to the user, who completes auth manually, then the agent resumes. INDUSTRY PATTERNS STUDIED: (1) Comet/Dia \u2014 ambient session reuse, exact same approach we use; agent acts inside the user's own browser profile. (2) OpenAI Operator \u2014 same ambient reuse but adds 'takeover mode' popup for login/CAPTCHA; agent pauses, user takes over, resumes after URL leaves auth domain. (3) Manus/Airtop \u2014 session capture/replay via cloud VMs: export ENTIRE browser profile as cookie jar, replay on cloud; NOT our approach (we're local). (4) Composio/Perplexity Connector \u2014 OAuth token delegation via API scopes; NOT our approach (we need full browser sessions, not API tokens). ELECTRON CONFIRM: persist:anthracite stores to ~/Library/Application Support/Anthracite/Partitions/anthracite/Cookies (SQLite) \u2014 cookies automatically survive restarts. SECURITY RULES: NEVER pass raw cookie values to LLM, NEVER log cookie values, NEVER transmit externally, NEVER persist credentials beyond Electron's own encrypted storage. The three missing pieces: (1) Connected Accounts UI \u2014 show which accounts are detected in persist:anthracite cookies, (2) Takeover mode \u2014 detect login pages during agent runs and pause for user, (3) Account detection logic \u2014 query known endpoints to extract username/email without leaking to LLM.",
+      "created_at": "2026-02-12T12:05:00.000000",
+      "subtasks": [
+        {
+          "id": "5.1",
+          "title": "IPC handler: read and classify accounts from persist:anthracite cookies",
+          "status": "completed",
+          "context": "In src/main/main.ts (or a new AccountsService.ts), add ipcMain.handle('get-connected-accounts') that calls session.fromPartition('persist:anthracite').cookies.get({}) and classifies accounts by domain. For Google: check for 'SID' or 'SSID' cookie on .google.com, then query https://accounts.google.com/ListAccounts?gpsia=1 in a hidden request to get the signed-in email (parse the GJSON array response \u2014 email is at index [1][0][2] in each session). For GitHub: check 'user_session' cookie on github.com. For Amazon: check 'session-id' on amazon.com/.amazon.com.au. For LinkedIn: check 'li_at' on linkedin.com. Return array of {service, email, avatarUrl, isActive}. SECURITY: return ONLY metadata (email, avatar URL) to renderer \u2014 NEVER the raw cookie values. Log detection counts only, never values."
+        },
+        {
+          "id": "5.2",
+          "title": "Connected Accounts UI in SettingsPage",
+          "status": "completed",
+          "context": "Add a 'Connected Accounts' section to src/renderer/components/SettingsPage.tsx. On mount, call window.electron.invoke('get-connected-accounts'). Show each detected account as a card: service logo icon, service name, email address, green 'Connected' badge. If no accounts: show placeholder 'Log into any website in Anthracite and it will appear here automatically.' Add a 'Disconnect' button per account that calls ipcMain.handle('clear-account-cookies', {domain}) \u2192 session.fromPartition('persist:anthracite').cookies.remove(url, name) for all cookies matching that domain. Design should match existing settings card style (dark surface, subtle border). Services to detect: Google, GitHub, Amazon, LinkedIn, Twitter/X, Reddit, Microsoft/Outlook."
+        },
+        {
+          "id": "5.3",
+          "title": "Takeover mode \u2014 pause agent on login/CAPTCHA/MFA detection",
+          "status": "completed",
+          "context": "In backend/cdp_agent.py (run_agent_task_streaming), after each navigation action, check if the resulting URL matches known auth patterns. Login URL detection heuristics: URL contains 'accounts.google.com', 'login.', 'signin.', 'auth.', 'oauth.', '/login', '/signin', '/authenticate', or page title contains 'Sign in', 'Log in', 'Verify it's you'. If detected: (1) fire step_callback with special action_name='auth_required' and args={url, service}, (2) set a flag that blocks the agent loop from proceeding, (3) frontend shows a non-blocking 'Takeover' notification overlay: 'Google needs you to sign in. Complete login then click Resume.' User completes login in the visible webview. Frontend polls for URL change away from auth domain, then calls resume endpoint. In server.py, add /agent/resume endpoint that clears the block flag and resumes the asyncio task. Also detect CAPTCHA: check if page contains iframe[src*='recaptcha'] or iframe[src*='hcaptcha']."
+        },
+        {
+          "id": "5.4",
+          "title": "Frontend takeover notification UI",
+          "status": "completed",
+          "context": "In src/renderer/components/CommandBar.tsx (or a new TakeoverOverlay.tsx), show a subtle banner when agent_status === 'auth_required': glass-morphism panel at bottom of webview area with: service icon, message 'Sign in to [Service] to continue', 'Takeover' button (makes webview interactive, hides agent overlay), 'Cancel Task' button. After user completes login, show 'Resume Agent' button. Track webview URL changes (listen to 'did-navigate' from agent tab) \u2014 when URL leaves auth domain, auto-show 'Resume Agent' button. POST to http://localhost:8000/agent/resume with taskId. The agent then continues from where it paused. Visual style: same glass panel style as existing agent progress indicator, amber/warning color scheme to indicate user action needed."
+        },
+        {
+          "id": "5.5",
+          "title": "Session health check before agent runs",
+          "status": "completed",
+          "context": "Before starting an agent task that likely requires auth (detect from instruction keywords: 'my email', 'my account', 'my orders', 'book', 'schedule', 'send'), call get-connected-accounts and check if the relevant service is connected. If not: show a non-blocking warning in CommandBar: 'Tip: Log into Google in any tab so the agent can access your account.' Don't block the task \u2014 just inform. This prevents the agent from starting, trying to log in, failing, and burning API credits on a doomed task. Map intent keywords to services: gmail/google/docs/drive/sheets \u2192 Google, github/repo/PR \u2192 GitHub, amazon/order/shipping \u2192 Amazon."
+        },
+        {
+          "id": "5.6",
+          "title": "Security audit: verify no cookie leakage to LLM or logs",
+          "status": "completed",
+          "context": "Audit all code paths: (1) IPC get-connected-accounts must return ONLY {service, email, avatarUrl} \u2014 grep codebase for cookie.value to ensure it's never forwarded. (2) Python cdp_agent.py: the agent's AX tree extraction and action loop must never output raw cookie content \u2014 cookies are in the browser process, not directly accessible to the Python agent anyway, but verify no CDP Runtime.evaluate calls that could extract document.cookie are emitted. (3) server.py logs: ensure step_callback results (which go to SSE stream) never contain auth tokens. (4) Add a comment block in AccountsService.ts: 'SECURITY: Raw cookie values are classified data. Never log, never send to renderer, never include in LLM context.' Follow Electron's security guidelines: use safeStorage for any credentials that need to be stored outside the session."
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Multi-Model Support & API Key Management UI",
+      "status": "completed",
+      "priority": "high",
+      "context": "Anthracite uses Claude Sonnet 4.6 (Anthropic) as the primary executor model and optionally gpt-4o (OpenAI) as fallback. Users need to configure their own API keys. The Settings page currently has both Anthropic and OpenAI key fields. This task covers the full multi-model UX: model selector in CommandBar, and support for additional providers.",
+      "created_at": "2026-02-12T12:06:00.000000",
+      "subtasks": [
+        {
+          "id": "6.1",
+          "title": "Complete API Key settings page (Anthropic + OpenAI + Google)",
+          "status": "completed",
+          "context": "Add Google AI (Gemini) key field as a third option. All keys: password input, inline test button, stored via safeStorage. Show which keys are currently active. Clear visual hierarchy: Anthropic (recommended, Claude Sonnet 4.6) > OpenAI (fallback, gpt-4o) > Google (future)."
+        },
+        {
+          "id": "6.2",
+          "title": "Make CommandBar model selector functional",
+          "status": "completed",
+          "context": "The model selector button in CommandBar.tsx currently shows static text. Make it a dropdown: available options depend on which keys the user has set. Default: Claude Sonnet 4.6 if Anthropic key is set, else gpt-4o if OpenAI key is set. Persist last-used model. Send chosen model to backend with each agent task request."
+        },
+        {
+          "id": "6.3",
+          "title": "Support local models via Ollama",
+          "status": "completed",
+          "context": "For privacy-conscious users: detect if Ollama is running locally (http://localhost:11434), list available models, route agent calls through Ollama. No API key needed. Lower quality but free and private. browser-use supports Ollama via langchain-community OllamaLLM."
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "title": "User Authentication System",
+      "status": "pending",
+      "priority": "high",
+      "context": "Currently zero auth exists in the desktop app. Everything is local. Need user accounts for: cloud sync, subscription management, cross-device continuity. This is a prerequisite for tasks 8 (sync) and 9 (payments).",
+      "created_at": "2026-02-12T12:07:00.000000",
+      "subtasks": [
+        {
+          "id": "7.1",
+          "title": "Choose auth provider",
+          "status": "pending",
+          "context": "Options: Clerk (best DX, generous free tier, handles OAuth flows), Supabase Auth (if already using Supabase for waitlist), Firebase Auth, or custom. Clerk recommended for speed and Electron compatibility."
+        },
+        {
+          "id": "7.2",
+          "title": "Implement sign-up / sign-in flow in Electron",
+          "status": "pending",
+          "context": "OAuth popup window (BrowserWindow) for Google/GitHub sign-in. Store auth tokens securely via Electron safeStorage. Show auth state in sidebar footer or settings."
+        },
+        {
+          "id": "7.3",
+          "title": "Support: email/password, Google OAuth, GitHub OAuth, Apple Sign-In",
+          "status": "pending"
+        },
+        {
+          "id": "7.4",
+          "title": "Add user profile section in Settings",
+          "status": "pending",
+          "context": "Show: avatar, name, email, plan tier, sign-out button. Link to subscription management."
+        },
+        {
+          "id": "7.5",
+          "title": "Handle offline mode gracefully",
+          "status": "pending",
+          "context": "App must work fully without auth \u2014 just without sync/cloud/subscription features. Never block the browser because of auth issues."
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "title": "Cloud Sync \u2014 Realms, Docks, History, Settings",
+      "status": "pending",
+      "priority": "medium",
+      "context": "All user data is currently local only. Realms/Docks in anthracite-realms.json, history in SQLite (history.db), settings in settings.json. Authenticated users should be able to sync across devices. Depends on task 7 (user auth).",
+      "created_at": "2026-02-12T12:08:00.000000",
+      "subtasks": [
+        {
+          "id": "8.1",
+          "title": "Design sync architecture",
+          "status": "pending",
+          "context": "Options: (1) CRDTs for conflict-free merging (complex but robust), (2) Last-write-wins per entity (simpler, occasional data loss), (3) Manual merge on conflict (user decides). Start with last-write-wins for settings, CRDTs for realms/docks. Backend: Supabase Postgres + realtime subscriptions."
+        },
+        {
+          "id": "8.2",
+          "title": "Implement settings sync (simplest \u2014 start here)",
+          "status": "pending",
+          "context": "Settings are a single JSON blob. On change: upload to cloud. On login from new device: merge with local (cloud wins for most fields). Files: src/main/settings.ts."
+        },
+        {
+          "id": "8.3",
+          "title": "Implement realms & docks sync",
+          "status": "pending",
+          "context": "More complex \u2014 realms contain docks which contain tabs. Need entity-level sync, not whole-file replacement. Files: src/main/store.ts."
+        },
+        {
+          "id": "8.4",
+          "title": "Implement history sync",
+          "status": "pending",
+          "context": "SQLite history.db. Sync recent entries (last 30 days). Don't sync entire history \u2014 too large. Files: src/main/history.ts."
+        },
+        {
+          "id": "8.5",
+          "title": "Handle offline \u2192 online reconciliation",
+          "status": "pending",
+          "context": "Queue changes made while offline. Sync when connection restored. Handle conflicts."
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "title": "Subscription & Payment System",
+      "status": "pending",
+      "priority": "high",
+      "context": "Monetization layer. Business model: Free tier (bring your own API key, full browser features) + Pro tier (monthly subscription with agent credits \u2014 no API key needed, Anthracite proxies LLM calls). The agent must be significantly better than open-source alternatives for people to pay. Depends on tasks 4 (agent) and 7 (user auth).",
+      "created_at": "2026-02-12T12:09:00.000000",
+      "subtasks": [
+        {
+          "id": "9.1",
+          "title": "Integrate payment provider",
+          "status": "pending",
+          "context": "Options: Stripe (industry standard, complex tax handling), Paddle (handles international tax/VAT automatically, simpler for solo dev). Paddle recommended for simpler setup. LemonSqueezy is another option."
+        },
+        {
+          "id": "9.2",
+          "title": "Design pricing tiers",
+          "status": "pending",
+          "context": "Free: BYOK (bring your own API key), all browser features, local agent. Pro ($X/month): N agent credits (each credit = 1 agent task), Anthracite's API proxy (no key needed), priority support, cloud sync. Team: future (shared realms, admin controls)."
+        },
+        {
+          "id": "9.3",
+          "title": "Build API proxy server for paid users",
+          "status": "pending",
+          "context": "Paid users' agent calls route through Anthracite's backend using our API keys. This backend meters usage, enforces rate limits, and bills per credit. Tech: serverless functions or a lightweight API on Railway/Fly.io. Keys stored server-side, never sent to client."
+        },
+        {
+          "id": "9.4",
+          "title": "Implement credit/usage tracking",
+          "status": "pending",
+          "context": "Track: number of agent tasks run, tokens consumed, cost per task. Show usage in Settings: 'You've used 47 of 200 credits this month.' Warn at 80% and 100% usage."
+        },
+        {
+          "id": "9.5",
+          "title": "Add subscription management in Settings",
+          "status": "pending",
+          "context": "Show: current plan, usage bar, billing cycle, upgrade/downgrade button (opens Stripe/Paddle portal), payment history."
+        },
+        {
+          "id": "9.6",
+          "title": "Handle edge cases: payment failures, grace periods, downgrades",
+          "status": "pending",
+          "context": "On payment failure: 3-day grace period, then downgrade to free. On downgrade: keep all data, just disable proxy access. Never delete user data because of billing."
+        },
+        {
+          "id": "9.7",
+          "title": "In-app upgrade prompts (tasteful, not aggressive)",
+          "status": "pending",
+          "context": "When free user without API key tries to run agent: show a subtle prompt explaining they need either their own key or a Pro subscription. Never block normal browsing. Never nag."
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "title": "Agent Task History & Saved Workflows",
+      "status": "completed",
+      "priority": "medium",
+      "context": "The agent has no memory between tasks. It should remember past interactions, learn user preferences, and allow saving repeatable workflows. This makes the agent feel intelligent rather than stateless.",
+      "created_at": "2026-02-12T12:10:00.000000",
+      "subtasks": [
+        {
+          "id": "10.1",
+          "title": "Store agent task history",
+          "status": "completed",
+          "context": "For each agent run, save: user instruction, classified intent, steps taken (actions + screenshots), success/failure, duration, model used, tokens consumed. Store in SQLite alongside browsing history."
+        },
+        {
+          "id": "10.2",
+          "title": "Add 'Task History' view in the UI",
+          "status": "completed",
+          "context": "New section accessible from sidebar or settings. Show past agent runs with step-by-step replay. Click a past task to see what the agent did. Option to re-run a task."
+        },
+        {
+          "id": "10.3",
+          "title": "Implement agent context memory",
+          "status": "completed",
+          "context": "Agent should know: user's name, frequently visited sites, preferred services (Gmail vs Outlook, Google Flights vs Kayak), past task patterns. Build a lightweight user profile the agent references on each run."
+        },
+        {
+          "id": "10.4",
+          "title": "Saved workflows \u2014 repeatable multi-step agent tasks",
+          "status": "completed",
+          "context": "Allow users to save an agent task as a 'workflow' (e.g., 'Check my email and summarize unread', 'Search for flights to X on Y date'). Show saved workflows in CommandBar or sidebar for one-click re-run."
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "title": "Agent Reliability \u2014 Edge Cases & Failure Handling",
+      "status": "completed",
+      "priority": "high",
+      "context": "Common scenarios where the agent breaks or gets stuck. browser-use handles many of these better than our custom agent, but some still need explicit handling. Fixing these is critical for user trust and the paid tier value proposition.",
+      "created_at": "2026-02-12T12:11:00.000000",
+      "subtasks": [
+        {
+          "id": "11.1",
+          "title": "CAPTCHA handling \u2014 detect and defer to user",
+          "status": "completed",
+          "context": "When agent encounters a CAPTCHA: pause agent, show the page to the user, prompt them to solve it, then resume agent automatically after CAPTCHA is cleared."
+        },
+        {
+          "id": "11.2",
+          "title": "Handle popups, cookie banners, overlay modals",
+          "status": "completed",
+          "context": "These block element interaction. Agent should detect common patterns (cookie consent, newsletter popups, paywall modals) and dismiss them before attempting the actual task."
+        },
+        {
+          "id": "11.3",
+          "title": "Handle iframes and shadow DOM",
+          "status": "completed",
+          "context": "Many sites use iframes (e.g., payment forms, embedded content) and shadow DOM (web components). browser-use has cross-origin iframe support built in (added when they moved to raw CDP)."
+        },
+        {
+          "id": "11.4",
+          "title": "Handle file downloads and uploads",
+          "status": "completed",
+          "context": "Agent may trigger downloads (PDFs, CSVs) or need to upload files (forms, attachments). Integrate with Electron's download manager and file dialog."
+        },
+        {
+          "id": "11.5",
+          "title": "Improve form filling \u2014 dropdowns, date pickers, multi-step forms",
+          "status": "completed",
+          "context": "browser-use's EnhancedDOMTreeNode gives structural context (which field belongs to which form) and screenshot fallback for visual elements. Date pickers and custom dropdowns should be handled better than with our flat AX tree approach."
+        },
+        {
+          "id": "11.6",
+          "title": "Timeout handling \u2014 don't spin forever",
+          "status": "completed",
+          "context": "Add per-step timeouts (30s default) and per-task timeouts (5min default). If stuck, try alternative approach or ask user for help. Never leave agent running silently."
+        },
+        {
+          "id": "11.7",
+          "title": "Handle new tab/window creation during agent tasks",
+          "status": "completed",
+          "context": "Some sites open links in new tabs. Agent needs to follow into the new tab, complete the action, and return. Currently handled partially in main.ts setWindowOpenHandler but not integrated with agent flow."
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "title": "Error Reporting & Crash Recovery",
+      "status": "completed",
+      "priority": "medium",
+      "context": "No error reporting or crash recovery exists. No visibility into what breaks for users in the wild.",
+      "created_at": "2026-02-12T12:12:00.000000",
+      "subtasks": [
+        {
+          "id": "12.1",
+          "title": "Integrate Sentry for Electron main + renderer crashes",
+          "status": "completed"
+        },
+        {
+          "id": "12.2",
+          "title": "Add Python backend error reporting",
+          "status": "completed",
+          "context": "Catch uncaught exceptions in agent runs. Report to Sentry with task context (instruction, model, step count)."
+        },
+        {
+          "id": "12.3",
+          "title": "Implement crash recovery \u2014 restore tabs/realms on restart",
+          "status": "completed",
+          "context": "On app crash, save current state. On next launch, detect crash and offer to restore previous session."
+        },
+        {
+          "id": "12.4",
+          "title": "Add 'Report a Problem' in help menu / settings",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "title": "Chrome Data Import & First-Run Experience",
+      "status": "completed",
+      "priority": "medium",
+      "context": "Users switching from Chrome/Brave/Edge need to import data. Critical for reducing switching friction. No import functionality exists.",
+      "created_at": "2026-02-12T12:13:00.000000",
+      "subtasks": [
+        {
+          "id": "13.1",
+          "title": "Import bookmarks \u2192 map to Anthracite Realms/Docks",
+          "status": "completed",
+          "context": "Chrome bookmarks are folders. Map top-level folders to Realms, sub-folders to Docks, bookmarks to pinned tabs or dock items."
+        },
+        {
+          "id": "13.2",
+          "title": "Import browsing history into SQLite",
+          "status": "completed"
+        },
+        {
+          "id": "13.3",
+          "title": "Import saved passwords (optional, offer to skip)",
+          "status": "pending",
+          "context": "Sensitive. Store in OS keychain if imported. Many users may prefer to skip and use a password manager."
+        },
+        {
+          "id": "13.4",
+          "title": "First-run import wizard on initial launch",
+          "status": "completed",
+          "context": "Detect installed browsers, offer to import. Clean, minimal UI matching Anthracite aesthetic. Steps: Welcome \u2192 Import \u2192 API Key Setup \u2192 Done."
+        },
+        {
+          "id": "13.5",
+          "title": "Support Chrome, Brave, Edge, Firefox, Safari",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "title": "Keyboard Shortcuts & Command Palette",
+      "status": "completed",
+      "priority": "medium",
+      "context": "Some shortcuts exist (Cmd+R, Cmd+Shift+K for realm search) but there's no command palette and no customization.",
+      "created_at": "2026-02-12T12:14:00.000000",
+      "subtasks": [
+        {
+          "id": "14.1",
+          "title": "Add Cmd+K / Ctrl+K command palette for all browser actions",
+          "status": "completed"
+        },
+        {
+          "id": "14.2",
+          "title": "Add tab quick-switch with fuzzy search",
+          "status": "completed"
+        },
+        {
+          "id": "14.3",
+          "title": "Document and audit all existing shortcuts",
+          "status": "completed"
+        },
+        {
+          "id": "14.4",
+          "title": "Add customizable keybindings in settings",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "title": "Testing Infrastructure",
+      "status": "completed",
+      "priority": "medium",
+      "context": "Zero tests exist in the project. No test framework configured. Need at minimum unit tests for core logic and E2E tests for critical user flows.",
+      "created_at": "2026-02-12T12:15:00.000000",
+      "subtasks": [
+        {
+          "id": "15.1",
+          "title": "Set up Vitest for unit tests",
+          "status": "completed"
+        },
+        {
+          "id": "15.2",
+          "title": "Write unit tests for core modules: history.ts, store.ts, settings.ts, classifier.py",
+          "status": "completed"
+        },
+        {
+          "id": "15.3",
+          "title": "Set up Playwright for Electron E2E tests",
+          "status": "pending"
+        },
+        {
+          "id": "15.4",
+          "title": "Write E2E tests: app launch, tab management, navigation, agent task execution",
+          "status": "pending"
+        },
+        {
+          "id": "15.5",
+          "title": "Run tests in CI (GitHub Actions)",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "title": "Mobile Browser (Later Stage \u2014 iOS & Android)",
+      "status": "pending",
+      "priority": "low",
+      "context": "Separate project from the Electron desktop app. Do NOT start until desktop is stable and monetized. Major architectural decisions needed \u2014 mobile can't run Python locally, so agent tasks must go through a cloud backend. iOS requires WebKit (Apple policy). Android allows custom engines.",
+      "created_at": "2026-02-12T12:16:00.000000",
+      "subtasks": [
+        {
+          "id": "16.1",
+          "title": "Research & architecture planning",
+          "status": "pending",
+          "context": "Options: React Native + WebView, native Swift (iOS) + Kotlin (Android), or a hybrid. Determine which features carry over. Design mobile-specific UI (bottom nav, gesture-based tab switching). Plan cloud-based agent infrastructure."
+        },
+        {
+          "id": "16.2",
+          "title": "Build iOS app",
+          "status": "pending",
+          "context": "Must use WKWebView (Apple policy). Swift recommended for best performance and App Store compliance."
+        },
+        {
+          "id": "16.3",
+          "title": "Build Android app",
+          "status": "pending",
+          "context": "Can use custom Chromium or standard WebView. Kotlin recommended."
+        },
+        {
+          "id": "16.4",
+          "title": "Cloud-based agent backend for mobile",
+          "status": "pending",
+          "context": "Mobile devices can't run the Python agent locally. Build a cloud API that runs browser-use tasks on server-side browsers. This is also the infrastructure needed for the paid proxy tier (task 9)."
+        },
+        {
+          "id": "16.5",
+          "title": "App Store & Play Store submission",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "17",
+      "title": "Upgrade Application Menu & Native Features",
+      "status": "completed",
+      "priority": "medium",
+      "context": "Expand the native Electron menu to include standard browser features (File, Edit, View, History, Window, Help). Add keyboard shortcuts for common actions.",
+      "created_at": "2026-02-13T08:10:00.000000",
+      "subtasks": [
+        {
+          "id": "17.1",
+          "title": "Implement 'File' menu (New Tab, New Window, Save Page As, Print)",
+          "status": "completed"
+        },
+        {
+          "id": "17.2",
+          "title": "Implement 'Edit' menu (Undo, Redo, Cut, Copy, Paste, Select All, Find in Page)",
+          "status": "completed"
+        },
+        {
+          "id": "17.3",
+          "title": "Implement 'View' menu (Reload, Force Reload, Toggle DevTools, Actual Size, Zoom In, Zoom Out, Toggle Full Screen)",
+          "status": "completed"
+        },
+        {
+          "id": "17.4",
+          "title": "Implement 'History' menu (Back, Forward, Home, Show Full History, Clear Browsing Data)",
+          "status": "completed"
+        },
+        {
+          "id": "17.5",
+          "title": "Implement 'Window' menu (Minimize, Zoom, Tile Window to Left/Right, Bring All to Front)",
+          "status": "completed"
+        },
+        {
+          "id": "17.6",
+          "title": "Implement 'Help' menu (Report Issue, Keyboard Shortcuts, About Anthracite)",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "18",
+      "title": "Hardware-Native AdBlock (Custom Chromium Engine Fork)",
+      "status": "pending",
+      "priority": "low",
+      "context": "Option 3: The ultimate end-game for 0ms network interception latency. Requires compiling a custom fork of the Chromium open-source project and injecting adblock-rs CXX bindings directly into the C++ net/url_request/ layer (identical to Brave Browser's architecture). PREREQUISITES: A dedicated build machine with at least 150GB of free SSD storage and 16+ CPU cores. Estimated build time per compilation is 2-8 hours.",
+      "created_at": "2026-02-21T18:40:00.000000",
+      "subtasks": [
+        {
+          "id": "18.1",
+          "title": "Environment Setup & Depot Tools",
+          "status": "pending",
+          "context": "Install Google's depot_tools suite. Configure global PATH variables. Fetch the massive Chromium source tree (fetch chromium) into a dedicated external drive or high-performance cloud server."
+        },
+        {
+          "id": "18.2",
+          "title": "Study Chromium Network Stack Architecture",
+          "status": "pending",
+          "context": "Analyze net/url_request/url_request_http_job.cc and related classes to identify the exact HTTP header and body interception points before data is passed to the V8 JS context."
+        },
+        {
+          "id": "18.3",
+          "title": "Embed Rust CXX Bindings",
+          "status": "pending",
+          "context": "Integrate the adblock-rs engine into the Chromium build process (BUILD.gn). Create safe C++ wrappers (CXX bindings) that the C++ network stack can call into synchronously."
+        },
+        {
+          "id": "18.4",
+          "title": "Implement Native Payload Scrubbing",
+          "status": "pending",
+          "context": "Port the N-API JSON scrubbing logic directly into the deeply embedded C++ interceptor. Intercept YouTube XHR payloads at the raw TCP layer and scrub adPlacements instantly."
+        },
+        {
+          "id": "18.5",
+          "title": "Compile Custom Browser Binary",
+          "status": "pending",
+          "context": "Run the massive ninja -C out/Default chrome compilation. Debug hundreds of inevitable C++ and Chromium build system errors."
+        },
+        {
+          "id": "18.6",
+          "title": "Swap Electron's Underlying Engine",
+          "status": "pending",
+          "context": "Once the custom Chromium binary is stable, recompile Electron from source to use our custom Chromium fork instead of the default unpatched Chromium upstream."
+        }
+      ]
+    },
+    {
+      "id": "19",
+      "title": "Input Flow Fix \u2014 Separate URL Bar from Agent Bar",
+      "status": "completed",
+      "priority": "critical",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). The current layout has two input bars that serve conflicting purposes and confuse the UX: (1) TopBar (top of screen, always visible when browsing) \u2014 has a URL/search input AND an AI Sparkles button that fires the agent. (2) CommandBar (center of HomePage only) \u2014 has a text input and a Run button that calls `onRun={handleSearch}` which navigates/searches Google, NOT the agent. The user wants these roles to be clearly separated and swapped. DESIRED BEHAVIOR: TopBar = pure URL navigation/search bar only. Remove the Sparkles/AI button and handleRunAgent from TopBar entirely. CommandBar (center of home page) = the agent interface. Pressing Enter in CommandBar should trigger a web search/navigate (what onRun currently does). Clicking the 'Run' button in CommandBar should fire the AI agent (which already calls handleRunAgent internally). The agent is still accessible from any browsing context via the CommandBar embedded below the TopBar. CURRENT CODE STATE: TopBar AI button is the Sparkles icon around line 659 in TopBar.tsx, calls handleRunAgent (~line 340). The showNoModelHint banner and its logic must remain in TopBar (it still needs to guard against agent runs from CommandBar). Actually, the agent can only be invoked from CommandBar going forward, so TopBar just needs its AI button and handleRunAgent removed, but the no-model hint can move to CommandBar permanently. IMPLEMENTATION NOTES: (1) In TopBar.tsx: delete the Sparkles import, remove the handleRunAgent function entirely, remove the AI button JSX, remove the showNoModelHint state and its associated JSX. (2) In CommandBar.tsx: the handleRunAgent function already exists and handles SSE streaming correctly \u2014 keep it. The hint logic from TopBar needs to merge here or stay as-is in CommandBar since it already has a version. (3) In HomePage.tsx: the CommandBar's onRun prop is set to handleSearch which calls window.electron?.navigation.navigate(input) \u2014 this is correct for search/URL, keep it. The agent is triggered separately by CommandBar's internal Run button. RESULT: Clean UX \u2014 one bar for browsing, one bar for AI tasks.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "19.1",
+          "title": "Remove AI button and handleRunAgent from TopBar.tsx",
+          "status": "completed",
+          "context": "In src/renderer/components/TopBar.tsx: remove the Sparkles import from lucide-react, remove the handleRunAgent async function (lines ~340-465), remove the showNoModelHint useState, remove the isAIProcessing/isAgentPaused/agentStatus states related to agent control, remove the AI button JSX and pause/stop controls from the render output. Keep: URL navigation input, back/forward/reload buttons, history suggestions. The TopBar should be a pure navigation chrome."
+        },
+        {
+          "id": "19.2",
+          "title": "Verify CommandBar agent button works standalone",
+          "status": "completed",
+          "context": "CommandBar.tsx already has a full handleRunAgent implementation with SSE streaming, pause/resume/stop controls, and model checking. Verify it still works correctly when TopBar no longer has an AI button. The CommandBar is shown on the home page and also in the browsing view area. Make sure the no-model hint in CommandBar is functional."
+        }
+      ]
+    },
+    {
+      "id": "20",
+      "title": "Design System Overhaul \u2014 Replace Purple, Establish Anthracite Palette",
+      "status": "completed",
+      "priority": "critical",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). The current brand color is #6366F1 (indigo-purple), which reads as generic AI tooling. The app is named Anthracite \u2014 a lustrous, premium form of coal. The palette should reflect this: dark, rich, refined, mineral. RECOMMENDED NEW PALETTE: Primary accent \u2192 #D4A574 (warm brushed gold, like premium hardware) or #C0A882 (warm champagne). Rationale: gold/amber on near-black is a classic premium pairing (used by Bloomberg, high-end watchmakers, premium software). If gold feels too warm, alternative: #5B9BD5 (steel blue \u2014 cool, precise, techno-premium like Vercel/Linear). Surface colors are already good (#0A0A0B, #111113, #1A1A1D) \u2014 keep these. CHANGES NEEDED: (1) tailwind.config.js: replace brand.DEFAULT from #6366F1 to new accent, update brand.light, brand.dark, brand.muted accordingly. Update glow/glow-lg/glow-brand boxShadow to use new color. Update glowPulse keyframe. (2) All components using text-brand, bg-brand, ring-brand, border-brand classes will automatically inherit the new color. (3) The ambient orb on the home page (rgba(99,102,241,0.03)) should be updated to new brand color. (4) Settings sidebar active state, CommandBar focus ring, and any hardcoded purple hex values must be updated. SCOPE: grep the codebase for #6366F1, rgba(99,102,241, #4F46E5, #818CF8 to find all hardcoded instances. UPDATE APPROACH: change tailwind.config.js first (covers ~80% of usage via utility classes), then manually fix hardcoded values. The goal is zero purple anywhere in the UI.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "20.1",
+          "title": "Update tailwind.config.js brand colors",
+          "status": "completed",
+          "context": "Replace: brand.DEFAULT: '#6366F1' \u2192 '#C8A97E' (warm gold). brand.light: '#818CF8' \u2192 '#DFC4A0'. brand.dark: '#4F46E5' \u2192 '#A8895A'. brand.muted: 'rgba(99,102,241,0.12)' \u2192 'rgba(200,169,126,0.12)'. Update boxShadow glow variants to use rgba(200,169,126,...). Update glowPulse keyframes. This single file change will cascade through all Tailwind utility classes across every component."
+        },
+        {
+          "id": "20.2",
+          "title": "Audit and fix hardcoded purple hex values across all components",
+          "status": "completed",
+          "context": "Run: grep -r '#6366F1\\|#818CF8\\|#4F46E5\\|rgba(99,102,241' src/. Fix each occurrence. Key files expected: HomePage.tsx (ambient orb gradient), index.css (any global styles using brand colors), SettingsPage.tsx (focus rings, active states). Replace all with the new brand color equivalents."
+        },
+        {
+          "id": "20.3",
+          "title": "Update Settings sidebar active/selected state",
+          "status": "completed",
+          "context": "Settings sidebar currently uses brand color for the active section indicator (left border, background tint, text color). After palette update, verify these look correct with the new gold/steel accent. The settings section list is in SettingsPage.tsx around the sections.map() render."
+        }
+      ]
+    },
+    {
+      "id": "21",
+      "title": "Sidebar Redesign \u2014 Classy, Arc-Inspired Premium UI",
+      "status": "completed",
+      "priority": "high",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). The current sidebar (src/renderer/components/Sidebar.tsx) uses dnd-kit for drag-and-drop, has a RealmSwitcher at top, SortableDock groups, and SortableTab items. It works but looks generic. DESIGN GOALS: (1) Tab items \u2014 reduce visual noise. Each tab should be a compact row: favicon (16x16) + title text (truncated, max 160px) + close button (appears on hover only, subtle X). Active tab: slightly brighter background, left accent border in brand color. Hover: smooth opacity/background transition using CSS cubic-bezier(0.25, 0.46, 0.45, 0.94). (2) Sidebar background \u2014 use a very slight frosted glass effect: bg-[#0D0D0F]/95 with backdrop-blur-xl and a right border of rgba(255,255,255,0.05). The sidebar should feel like it recedes slightly from the content. (3) Typography \u2014 tab titles at 12.5px, font-medium, text-text-secondary by default, text-text-primary when active. Remove bold or large text from the tab list. (4) Section headers (dock labels) \u2014 very subtle, 10px uppercase tracking-wider text-text-tertiary. No heavy separators. (5) Realm switcher at bottom (not top) \u2014 a compact row of circular realm icons at the sidebar footer. Click to switch. Current active realm indicated by a subtle ring. (6) Animations: tab appear = fadeInUp 150ms ease-out. Tab close = fadeOut + width-collapse 120ms. Sidebar expand/collapse = transform translateX with cubic-bezier(0.32, 0.72, 0, 1) \u2014 iOS-style spring. (7) New tab button \u2014 a clean '+' icon at the bottom of the tab list, no border, just icon + 'New Tab' text at the same size as tab items. IMPLEMENTATION: Edit Sidebar.tsx, SortableTab.tsx, RealmSwitcher.tsx. Most changes are CSS class changes (Tailwind + inline styles). Animation additions use framer-motion AnimatePresence which is already imported.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "21.1",
+          "title": "Redesign SortableTab item appearance",
+          "status": "completed",
+          "context": "In src/renderer/components/SortableTab.tsx: tab row height 32px (h-8). Favicon 14px. Title: text-[12.5px] font-medium truncate max-w-[140px]. Close button: opacity-0 group-hover:opacity-100 transition-opacity duration-150, positioned right. Active tab: bg-white/[0.07] border-l-2 border-brand. Add framer-motion layout animation so tabs smoothly reorder on drag."
+        },
+        {
+          "id": "21.2",
+          "title": "Redesign sidebar chrome (background, borders, spacing)",
+          "status": "completed",
+          "context": "In Sidebar.tsx: sidebar container bg-[#0D0D0F] border-r border-white/[0.05]. Remove any heavy separators. Realm switcher: move to footer area of sidebar. Add subtle inner shadow on right edge. Padding: px-2 py-2 for tab list area. Section (dock) labels: text-[10px] uppercase tracking-[0.08em] text-text-tertiary/60 px-2 py-1."
+        },
+        {
+          "id": "21.3",
+          "title": "Sidebar open/close animation",
+          "status": "completed",
+          "context": "Currently sidebar slides in/out. Improve with iOS-style spring easing: transition-transform duration-300 cubic-bezier(0.32,0.72,0,1). Add a subtle shadow that appears when sidebar is open (shadow-large on the right edge). The sidebar panel itself should feel light and ephemeral when floating over content."
+        }
+      ]
+    },
+    {
+      "id": "22",
+      "title": "Tab Organization Redesign \u2014 Realms \u2192 Pinned/Unpinned (Arc-Inspired)",
+      "status": "completed",
+      "priority": "high",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). CURRENT STATE: The app has Realms \u2192 Docks \u2192 Tabs (3 levels). Docks are folders/groups within a realm. This is confusing and adds unnecessary hierarchy. TARGET STATE (Arc-inspired but differentiated): Realms \u2192 Tabs only. Within each realm, tabs are divided into two zones: (1) PINNED ZONE (top half of sidebar): Tabs manually pinned by user. These persist forever until unpinned or closed. They function like saved apps \u2014 clicking them always stays within that site (navigation-locked). External links from pinned tabs open in a new unpinned tab. Visually distinct: slightly larger favicon, no auto-archive. (2) UNPINNED ZONE (bottom half, separated by a thin divider): Regular open tabs. Auto-archive after 12 hours of inactivity (configurable). A collapsed 'Earlier' section shows recently archived tabs for the current realm. User can un-archive by clicking. CONCEPTUAL DIFFERENCE FROM ARC: We call them Realms (not Spaces) to differentiate. We do NOT implement folders/sub-groups within realms for now \u2014 keep it flat and simple. MIGRATION: The existing Dock data structure (src/main/store.ts) needs to be simplified. The isPinned flag already exists on tabs. The main change is removing the mandatory Dock container \u2014 tabs can exist directly under a realm without a dock. UI: The sidebar dock headers (folder groups) should be replaced with just a simple dividing line between pinned and unpinned sections. DATA MODEL CHANGE: In src/main/store.ts and src/shared/types.ts, the Dock type becomes optional \u2014 tabs can have dockId: null to be 'loose' in the realm. This already partially exists. DOCK REMOVAL: Remove DockModal.tsx, SortableDock.tsx, the 'Create Dock' UI, and the 'Move to Dock' context menu items. Simplify to: realm \u2192 pinned tabs + unpinned tabs. IMPORTANT: Keep backward compatibility \u2014 existing docked tabs should migrate to loose tabs when docks are removed.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "22.1",
+          "title": "Remove Dock concept from sidebar UI",
+          "status": "completed",
+          "context": "In Sidebar.tsx: remove SortableDock rendering, remove dock creation UI, remove 'Move to Dock' context menu items. Replace with two zones: a pinned section (isPinned=true tabs) and unpinned section (isPinned=false tabs) separated by a thin divider line (border-t border-white/[0.06] my-1). Keep drag-and-drop between pinned and unpinned zones. Remove DockModal.tsx from rendering. The '+' new dock button becomes a simple new tab button."
+        },
+        {
+          "id": "22.2",
+          "title": "Implement auto-archiving of unpinned tabs",
+          "status": "completed",
+          "context": "Track last-accessed timestamp on each tab (store in tab metadata or localStorage). In the main process (store.ts), add a timer that runs every 30 minutes: find tabs with lastAccessedAt < now - 12h AND isPinned=false AND not the active tab \u2192 mark as archived=true. Archived tabs are hidden from the main list but shown in a collapsed 'Earlier' section at the bottom of the unpinned zone. Clicking an archived tab un-archives it and makes it active. IPC: add archive-tab, unarchive-tab handlers."
+        },
+        {
+          "id": "22.3",
+          "title": "Pinned tab navigation lock",
+          "status": "completed",
+          "context": "When a pinned tab navigates to an external domain (different from its origin domain), intercept the navigation and instead open a new unpinned tab for the external URL. Keep the pinned tab on its original domain. Detect 'external' as: new URL(url).hostname !== new URL(tab.originalUrl).hostname. This makes pinned tabs behave like app shortcuts. Implementation: in main.ts webview did-navigate handler, check if the tab is pinned and the new URL's domain differs from the tab's originalUrl domain. If so: (1) revert the pinned tab to its originalUrl, (2) create a new unpinned tab with the external URL."
+        }
+      ]
+    },
+    {
+      "id": "23",
+      "title": "Adaptive Wallpaper Theming \u2014 Color Extraction from Custom Images",
+      "status": "completed",
+      "priority": "high",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). Users should be able to set any local image as the browser wallpaper (home page background), and the entire browser chrome (sidebar, top bar, settings, CommandBar) should subtly adapt its accent color to match the dominant palette of that image. This is the Spotify model \u2014 UI molds itself to the content. TECHNICAL APPROACH: Use node-vibrant (already well-suited for Electron main process) to extract semantic color swatches from the image. node-vibrant returns: Vibrant (bright, saturated), DarkVibrant (dark, saturated), Muted (muted), DarkMuted (dark, desaturated), LightVibrant (light, saturated), LightMuted (light, desaturated). MAPPING TO UI ROLES: accent/brand color \u2192 Vibrant swatch hex (bright, distinctive color from image). If Vibrant is too light/dark for readability, fall back to LightVibrant. Sidebar background tint \u2192 DarkMuted hex at very low opacity (5-8%) blended over the base surface color. Glow effects \u2192 Vibrant hex at 0.15 opacity. IMPLEMENTATION PLAN: (1) In main.ts: add IPC handler 'extract-wallpaper-palette' that takes a local file path, runs node-vibrant, returns { vibrant, darkVibrant, muted, darkMuted } hex strings. (2) In renderer: when user selects a custom wallpaper image, call this IPC, receive the palette, inject CSS custom properties (--color-brand, --color-brand-light, --color-brand-muted) into document.documentElement.style. (3) All Tailwind brand color usages that can't use CSS vars need to be converted to use inline style vars or a React context that provides theme values. PERFORMANCE: node-vibrant processes a typical JPEG in 100-300ms. Do this once on image selection and cache the result in settings. INSTALLATION: npm install node-vibrant (or sharp-vibrant for lighter footprint). SETTINGS PERSISTENCE: Store extracted palette hex strings in settings.json alongside the wallpaper path so they don't need re-extraction on every launch. GRACEFUL FALLBACK: If no custom wallpaper is set, use the default Anthracite brand color. If extraction fails, keep default. TRANSITION: When wallpaper changes, animate the CSS custom property change using a short cross-fade overlay (300ms opacity transition) to avoid jarring color jumps. FILE PICKER: Use Electron's dialog.showOpenDialog with filters for image types (JPEG, PNG, WebP, AVIF). Copy the chosen file to userData/wallpapers/ so it's available even if the source moves.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "23.1",
+          "title": "Install node-vibrant and add IPC handler for palette extraction",
+          "status": "completed",
+          "context": "npm install node-vibrant. In src/main/main.ts, add: ipcMain.handle('extract-wallpaper-palette', async (_e, filePath: string) => { const Vibrant = require('node-vibrant'); const palette = await Vibrant.from(filePath).getPalette(); return { vibrant: palette.Vibrant?.hex, darkVibrant: palette.DarkVibrant?.hex, muted: palette.Muted?.hex, darkMuted: palette.DarkMuted?.hex, lightVibrant: palette.LightVibrant?.hex }; }). Also add IPC for file picker: ipcMain.handle('pick-wallpaper-file', () => dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['jpg','jpeg','png','webp','avif','gif'] }], properties: ['openFile'] }))."
+        },
+        {
+          "id": "23.2",
+          "title": "Apply extracted palette as CSS custom properties in renderer",
+          "status": "completed",
+          "context": "In a new ThemeContext (src/renderer/contexts/ThemeContext.tsx): on app init, read homeBackground and wallpaperPalette from settings. If custom wallpaper and palette exists, inject: document.documentElement.style.setProperty('--color-brand', vibrantHex); document.documentElement.style.setProperty('--color-brand-muted', vibrantHex + '1F'); etc. Re-apply whenever settings change via the onChanged listener. In tailwind.config.js, change brand.DEFAULT to 'var(--color-brand, #C8A97E)' syntax (Tailwind supports CSS vars via JIT). Alternatively, maintain a palette state in a React context and pass to components that need dynamic coloring."
+        },
+        {
+          "id": "23.3",
+          "title": "Wallpaper file picker UI in Settings \u2192 Appearance",
+          "status": "completed",
+          "context": "In SettingsPage.tsx, Appearance section: replace the current 'Custom URL' text input for wallpaper with a proper file picker button. Show a thumbnail preview of selected image (50x50px, rounded-lg). Button text: 'Choose Image'. On click: call window.electron.invoke('pick-wallpaper-file'). On selection: (1) copy file to userData/wallpapers/wallpaper.{ext}, (2) call extract-wallpaper-palette with the new path, (3) save both the path and the extracted palette to settings, (4) broadcast settings change so ThemeContext re-applies the palette. Show extracted palette swatches as 5 small colored circles next to the thumbnail as visual feedback."
+        }
+      ]
+    },
+    {
+      "id": "24",
+      "title": "Settings Visual Redesign \u2014 Elegant, Classy, Premium",
+      "status": "completed",
+      "priority": "high",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). The current Settings page uses the purple brand color for the active sidebar tab indicator and various interactive elements. After task 20 (palette overhaul), the colors will improve. This task covers the layout and visual treatment specifically. DESIGN GOALS inspired by macOS System Settings and Linear's preferences: (1) Sidebar \u2014 left sidebar with section icons + labels. Currently w-64. Keep this but improve: active item uses a subtle filled pill background (bg-white/[0.08] rounded-lg) instead of a left border. Icon and text both become text-text-primary when active. Inactive: icon text-text-tertiary, label text-text-secondary. Hover: bg-white/[0.04] with 150ms transition. (2) Section content area \u2014 each settings group should use clear visual grouping: a titled card container (bg-surface-secondary rounded-xl p-6 border border-white/[0.06]) per logical group. Example: 'Search Engine' card, 'Tab Behavior' card within Browser section. This is how macOS System Settings and Linear organize preferences. (3) Toggle switches \u2014 replace any checkbox inputs with a proper iOS-style toggle switch component. Small (20x12px), smooth transition, brand-colored when on. (4) Input fields \u2014 consistent height (h-9), rounded-lg, bg-white/[0.04] border border-white/[0.07], focus ring in brand color at 30% opacity. (5) Section headers \u2014 11px uppercase tracking-wider text-text-tertiary/70, no heavy dividers, just generous spacing. (6) Typography \u2014 section title: text-base font-semibold text-text-primary. Description: text-xs text-text-tertiary leading-relaxed. (7) Remove any remaining em dashes or generic AI-purple colored elements.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "24.1",
+          "title": "Redesign settings sidebar active state (pill instead of border)",
+          "status": "completed",
+          "context": "In SettingsPage.tsx, the section list renders around the sections.map(). Change active item from border-l-2 border-brand style to: bg-white/[0.08] rounded-xl (full row). Remove the left border indicator. Active icon: text-text-primary. Active label: text-text-primary font-medium. Inactive: text-text-tertiary / text-text-secondary. Transition: transition-colors duration-150."
+        },
+        {
+          "id": "24.2",
+          "title": "Add grouped card containers for settings sections",
+          "status": "completed",
+          "context": "In SettingsPage.tsx, for each settings section (Browser, Appearance, Privacy, Tabs, Developer), wrap logical groups of settings into card components: <div className='bg-surface-secondary rounded-xl p-5 border border-white/[0.06] space-y-4'>. For example Browser section: Card 1 'Search & Navigation' (search engine, homepage), Card 2 'Tab Behavior' (open links, restore tabs). This creates visual hierarchy without clutter."
+        },
+        {
+          "id": "24.3",
+          "title": "Build reusable Toggle switch component",
+          "status": "completed",
+          "context": "Create src/renderer/components/ui/Toggle.tsx: a controlled React component <Toggle checked={bool} onChange={(v) => void} label='...' description='...' />. Visual: pill shape 36px x 20px, thumb 16px x 16px. Off: bg-white/[0.12], thumb white/60. On: bg-brand, thumb white. Transition: all 200ms cubic-bezier(0.34,1.56,0.64,1) (bouncy thumb movement). Replace all <input type='checkbox' /> in SettingsPage.tsx with this component."
+        }
+      ]
+    },
+    {
+      "id": "25",
+      "title": "UI Micro-animations & Motion Polish \u2014 Entire Browser",
+      "status": "completed",
+      "priority": "medium",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). This covers the ENTIRE browser UI, not just the sidebar. Arc Browser's perceived quality comes largely from its animation system. The goal is subtle, tasteful motion that makes actions feel physical and responsive \u2014 NOT flashy or distracting. Rule: if you notice the animation itself, it's too much. PRINCIPLES: (1) Hardware-accelerated only: transform and opacity. Never animate width, height, top, left (causes layout reflow). (2) Easing: ease-out for entering elements (decelerate into place), ease-in for exiting. Spring for interactive feedback. (3) Duration: 100-150ms micro, 200-300ms panel transitions, 300-400ms page-level. Never exceed 400ms. (4) Subtlety rule: opacity shifts max 0.1 for hover states, scale max 1.03 for hover, 0.97 for press. SCOPE \u2014 EVERY AREA OF THE BROWSER: Sidebar: tab add/remove fadeIn+scale, tab hover bg transition, realm switch cross-fade, sidebar open/close iOS spring. TopBar: URL input focus glow expand, back/forward button scale on press, loading spinner smooth fade in/out. HomePage: entrance stagger already exists, CommandBar focus ring smooth expand, Run button hover scale. CommandBar: suggestion items fadeIn stagger, model selector dropdown scale+fade. Settings: section switch fade+slide, toggle switch spring animation, card hover lift (subtle shadow increase). Agent Panel (task 28): step card slideIn from right, streaming text fade-in per word, panel open/close spring. Realm switching: tab list cross-fade, new realm indicator flash. Context menus: scale-in from origin point, fade-out on close. Tooltips: fade in after 400ms delay, fade out immediately. Modals/dialogs: scale 0.96\u21921 + fade in, scale 1\u21920.96 + fade out on close. IMPLEMENTATION: Use framer-motion for complex sequences (AnimatePresence, layout animations). Use Tailwind transition classes for simple hover/focus states. Use CSS cubic-bezier(0.32,0.72,0,1) for panel transitions (iOS-quality spring), cubic-bezier(0.25,0.46,0.45,0.94) for general ease.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "25.1",
+          "title": "Sidebar tab open/close/hover animations",
+          "status": "completed",
+          "context": "In Sidebar.tsx, wrap tab list in AnimatePresence. SortableTab: initial={{ opacity: 0, scaleY: 0.8, height: 0 }} animate={{ opacity: 1, scaleY: 1, height: 32 }} exit={{ opacity: 0, scaleY: 0.8, height: 0 }} transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}. Tab hover: transition-colors duration-100. Realm switch: AnimatePresence mode='wait' on the tab list, cross-fade 200ms."
+        },
+        {
+          "id": "25.2",
+          "title": "Settings section transition and toggle spring animation",
+          "status": "completed",
+          "context": "Settings content panel: AnimatePresence key=activeSection, motion.div initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-4 }} transition={{ duration:0.18, ease:'easeOut' }}. Toggle switch (from task 24.3): thumb transition uses spring({ stiffness:500, damping:30 }) for bouncy snap feel."
+        },
+        {
+          "id": "25.3",
+          "title": "Global button press and hover micro-interactions",
+          "status": "completed",
+          "context": "Add to index.css: button, [role='button'] { transition: transform 100ms cubic-bezier(0.34,1.56,0.64,1), opacity 150ms ease; } button:active { transform: scale(0.97); }. Hover for primary buttons: scale(1.02). Icon-only buttons (close X, nav arrows): hover bg-white/[0.08] rounded, scale(1.1). TopBar back/forward: active:scale-[0.9]. Never add transforms to large layout containers."
+        },
+        {
+          "id": "25.4",
+          "title": "HomePage, CommandBar, and TopBar focus animations",
+          "status": "completed",
+          "context": "CommandBar input focus: box-shadow expands from 0 to brand-colored glow over 200ms (already partially done, tune easing). Run button hover: scale(1.03), transition 150ms. TopBar URL input focus: border-color transition 150ms, subtle glow. Suggestion items in dropdown: staggered fadeInUp 80ms delay per item, AnimatePresence for mount/unmount. Model selector dropdown: scale(0.97)\u2192scale(1) + opacity 0\u21921, origin top-center."
+        },
+        {
+          "id": "25.5",
+          "title": "Context menus, modals, and tooltips",
+          "status": "completed",
+          "context": "Context menu (ContextMenu.tsx): initial={{ opacity:0, scale:0.95, y:-4 }} animate={{ opacity:1, scale:1, y:0 }} exit={{ opacity:0, scale:0.95 }} transition={{ duration:0.12 }}. Modals (DockModal, RealmModal, InputModal): scale(0.96)\u2192scale(1) + opacity, backdrop fadeIn. Tooltips: delay 400ms before showing, fade 150ms, no delay on hide. All context-origin scaling should use CSS transform-origin matching the click point."
+        }
+      ]
+    },
+    {
+      "id": "26",
+      "title": "Additional Enhancement: Command Palette (Cmd+K)",
+      "status": "completed",
+      "priority": "medium",
+      "branch": "feat/browser-enhancements",
+      "context": "SUGGESTED ENHANCEMENT (2026-02-26). Arc Browser and premium apps like Linear, Vercel, and Raycast all use a command palette as a power-user shortcut to everything. This integrates well with Anthracite's keyboard-first philosophy. SCOPE: Press Cmd+K from anywhere in the app to open a floating palette. The palette supports: (1) Switch to any open tab (fuzzy search by title or URL), (2) Open new tab with URL/search, (3) Switch realm, (4) Run an agent task (same as typing in CommandBar), (5) Go to settings section. Visual: centered modal, frosted glass bg-[#111113]/95 backdrop-blur-2xl, rounded-2xl, shadow-large. Input at top (h-12, large text). Results list below with keyboard navigation (arrow keys + Enter). Groups: 'Open Tabs' / 'Actions' / 'Settings'. Close on Escape or outside click. IMPLEMENTATION: New component src/renderer/components/CommandPalette.tsx. Register Cmd+K in App.tsx or main layout with useEffect keydown listener. Reuse fuzzy search logic from CommandBar suggestions.",
+      "created_at": "2026-02-26T00:00:00.000000"
+    },
+    {
+      "id": "28",
+      "title": "Agent Activity Panel \u2014 Right-Side Collapsible Chat Panel",
+      "status": "completed",
+      "priority": "critical",
+      "branch": "feat/browser-enhancements",
+      "context": "RESEARCH COMPLETE (2026-02-26). INSPIRATION: Perplexity Comet uses a sidebar chat panel \u2014 the agent activity is shown as a persistent right panel while the main browsing area takes primary real estate. The panel shows real-time agent thinking, step-by-step actions, and allows user control (pause/stop/next command). OpenAI Operator (now ChatGPT agent) uses narration-based activity display with pause/resume/stop controls. Brave Browser's implementation shows pause (halts tool execution, thoughts continue) + stop (full halt, partial results) buttons. CURRENT STATE: Anthracite's agent output is shown inline in the CommandBar as a small status message and a takeover banner. There's no dedicated panel for agent activity. The SSE stream in CommandBar.tsx receives step events from the backend: { step_num, action, args, result } and displays minimal status. SSE events also fire 'auth_required' for takeover mode. All this logic needs to be lifted out of CommandBar and into a dedicated AgentPanel component. DESIGN: Right-side slide-in panel, 320px wide (resizable), opens automatically when an agent task starts, user can pin it open or close it. Has a toggle button in the TopBar (or sidebar footer). PANEL LAYOUT (top to bottom): (1) Header bar: 'Agent' label + active task title + close/pin toggle button. (2) Task context card: shows the original user instruction in a subtle card at top. (3) Activity feed: scrollable list of step cards \u2014 each card shows: step number badge, action icon (navigate=Globe, click=MousePointer, type=Keyboard, etc.), action description, result summary. Cards stream in with slideInRight animation. Current step pulses with a subtle glow. (4) Thinking indicator: when agent is reasoning between steps, show an animated 3-dot typing indicator or a shimmer skeleton. (5) Controls bar (sticky bottom): Pause/Resume button, Stop button, and a text input for 'Send follow-up command'. (6) Status line: 'Step 4 of ~12 estimated', elapsed time. INTERACTION: User can type a follow-up instruction in the input and press Enter while the agent is running \u2014 this sends an interrupt to the backend that modifies the agent's next prompt. On task completion: show a 'Done' state with a summary card, 'Run another task' button. On error: red error card with retry option. TAB HIGHLIGHT: When agent controls a tab, that tab in the sidebar gets a subtle animated border/glow in brand color (like Comet's blue outline). FOLLOW-UP COMMANDS: POST to http://127.0.0.1:8000/agent/message with { taskId, message } \u2014 backend routes this into the agent's next step context. Backend needs a new endpoint for this. ANIMATION: Panel slides in from right using transform translateX(100%)\u2192translateX(0) with cubic-bezier(0.32,0.72,0,1), 300ms. Step cards animate in with fadeInRight 150ms. PERSISTENCE: Panel pin state stored in localStorage. If pinned, it stays open between tasks. If not pinned, it closes when task completes. COMPONENT FILES: New src/renderer/components/AgentPanel.tsx. Modify App.tsx or the main layout to render AgentPanel alongside the browser content area (flex row: sidebar + browser + agentPanel). Move SSE streaming logic from CommandBar.tsx to AgentPanel (or a shared useAgentTask hook). The CommandBar's Run button now opens the panel and starts the task.",
+      "created_at": "2026-02-26T00:00:00.000000",
+      "subtasks": [
+        {
+          "id": "28.1",
+          "title": "Create AgentPanel.tsx component with activity feed",
+          "status": "completed",
+          "context": "New file: src/renderer/components/AgentPanel.tsx. Props: { isOpen: boolean, onClose: () => void, isPinned: boolean, onPinToggle: () => void }. State: taskInstruction (string), steps (AgentStep[]), status ('idle'|'running'|'paused'|'done'|'error'), elapsedSeconds (number), followUpInput (string). AgentStep type: { stepNum: number, action: string, args: Record<string, any>, result: string, timestamp: number }. The panel is a fixed right panel: right-0 top-0 h-full w-80 bg-[#0D0D0F]/98 backdrop-blur-xl border-l border-white/[0.06] shadow-large. Animation: motion.div with initial={{ x: '100%' }} animate={{ x: isOpen ? 0 : '100%' }} transition={{ type:'tween', ease:[0.32,0.72,0,1], duration:0.3 }}. The SSE event listener (currently in CommandBar) moves here. On each step event, append to steps array and scroll feed to bottom."
+        },
+        {
+          "id": "28.2",
+          "title": "Step card design and streaming animations",
+          "status": "completed",
+          "context": "Each AgentStep renders as a compact card in the feed. Layout: left column (step number badge, vertical connector line to next card) + right column (action name, args summary, result text). Action icons from lucide-react: navigate\u2192Globe, click\u2192MousePointer2, type\u2192Keyboard, scroll\u2192ScrollText, wait\u2192Clock, done\u2192CheckCircle2, error\u2192AlertCircle. Active/current step: border-brand/30 bg-brand/5 with a subtle pulse animation on the left border. Completed steps: muted, text-text-secondary. Step card entrance animation: motion.div initial={{ opacity:0, x:16 }} animate={{ opacity:1, x:0 }} transition={{ duration:0.15 }}. Between steps: show an animated 3-dot indicator (existing Loader2 or a custom dots component)."
+        },
+        {
+          "id": "28.3",
+          "title": "Follow-up command input and backend endpoint",
+          "status": "completed",
+          "context": "At the bottom of AgentPanel: a sticky input bar. Input: text-sm, placeholder 'Send a follow-up...', rounded-xl bg-white/[0.04]. Send button: ArrowRight icon. On submit: POST to http://127.0.0.1:8000/agent/message with { message: string }. In backend/server.py: add POST /agent/message endpoint that sets a global message_queue variable. In backend/cdp_agent.py: after each step, check message_queue \u2014 if non-empty, prepend the user message to the next step's context: add a user message 'User instruction update: {message}' into the messages array before the next LLM call. This lets users course-correct the agent mid-task."
+        },
+        {
+          "id": "28.4",
+          "title": "Agent tab highlight in sidebar",
+          "status": "completed",
+          "context": "When an agent task is running and controlling a specific tab (identified by tabId from the SSE stream or from the agent start response), that tab in the Sidebar should show a visual indicator. In SortableTab.tsx: add a prop isAgentControlled: boolean. When true: add a left border in brand color (border-l-2 border-brand) + a subtle pulsing glow effect (animate-pulse on a brand-colored dot badge). The agentControlledTabId state is stored in a React context (AgentContext) that both AgentPanel and Sidebar can read. When task ends, clear the highlight."
+        },
+        {
+          "id": "28.5",
+          "title": "Integrate panel into app layout and move SSE logic",
+          "status": "completed",
+          "context": "In App.tsx (or the main browser layout): add AgentPanel alongside the content area. The main layout should be a flex row: [Sidebar][BrowserContent][AgentPanel]. AgentPanel sits at position:fixed right-0 so it overlays the browser content rather than squishing it (overlay mode, not push mode \u2014 like Comet's sidebar). Move the SSE streaming fetch from CommandBar.tsx into a custom hook: src/renderer/hooks/useAgentTask.ts. This hook manages: startTask(instruction, cdpTarget), pauseTask(), resumeTask(), stopTask(), SSE event parsing, steps state, status state. Both CommandBar (to start a task) and AgentPanel (to display and control) consume this hook via a shared AgentContext. Remove duplicate agent control code from CommandBar after migration."
+        }
+      ]
+    },
+    {
+      "id": "27",
+      "title": "Additional Enhancement: Tab Preview on Hover",
+      "status": "completed",
+      "priority": "low",
+      "branch": "feat/browser-enhancements",
+      "context": "SUGGESTED ENHANCEMENT (2026-02-26). When hovering over a tab in the sidebar for 600ms, show a small preview card positioned to the right of the sidebar. The preview shows: (1) A live screenshot of the tab (captured via Electron's webContents.capturePage()), (2) The page title, (3) The URL. Visual: a 240x150px rounded-xl card with the screenshot, positioned to the right of the hovered tab row, with a smooth fadeIn animation. IMPLEMENTATION: In main.ts, add IPC handler 'capture-tab-preview' that calls webContents.fromId(tabId)?.capturePage() \u2192 returns NativeImage \u2192 convert to base64 PNG data URL. In SortableTab.tsx: on mouse enter, set a 600ms timeout; if still hovered after timeout, call capture-tab-preview and show the preview overlay using Framer motion. On mouse leave, clear timeout and dismiss preview. This is an Arc-inspired feature that adds spatial context without requiring tab switches.",
+      "created_at": "2026-02-26T00:00:00.000000"
+    }
+  ]
 }
