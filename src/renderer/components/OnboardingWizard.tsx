@@ -11,7 +11,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     ArrowRight,
-    BrowsersLight,
+    Browsers,
     CheckCircle,
     CloudArrowDown,
     Spinner,
@@ -135,13 +135,22 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
     }
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
             <motion.div
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="relative w-[480px] max-h-[620px] rounded-2xl bg-surface-elevated border border-border-subtle shadow-2xl overflow-hidden flex flex-col"
+                className="relative w-[480px] max-h-[620px] rounded-2xl bg-[#1c1c21] border border-white/[0.12] shadow-2xl overflow-hidden flex flex-col"
             >
+                {/* Close / Skip button */}
+                <button
+                    onClick={handleFinish}
+                    className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.08] transition-colors"
+                    title="Skip onboarding"
+                >
+                    <X className="w-4 h-4" weight="bold" />
+                </button>
+
                 {/* Progress dots */}
                 <div className="flex items-center justify-center gap-2 pt-5 pb-1">
                     {STEPS.map((s) => (
@@ -204,7 +213,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
                 transition={{ delay: 0.05, duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
                 className="w-16 h-16 rounded-2xl bg-brand/15 border border-brand/30 flex items-center justify-center mb-6"
             >
-                <BrowsersLight className="w-8 h-8 text-brand" weight="duotone" />
+                <Browsers className="w-8 h-8 text-brand" weight="duotone" />
             </motion.div>
 
             <motion.h1
@@ -293,7 +302,7 @@ function ImportStep({
                     </div>
                 ) : browsers.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center">
-                        <BrowsersLight className="w-8 h-8 text-text-muted mb-2" />
+                        <Browsers className="w-8 h-8 text-text-muted mb-2" />
                         <p className="text-[12px] text-text-secondary">No other browsers detected.</p>
                         <p className="text-[11px] text-text-muted mt-0.5">You can import data later in Settings → Import.</p>
                     </div>
