@@ -12,7 +12,7 @@ import OnboardingWizard from './components/OnboardingWizard';
 import { useAdaptiveTheme } from './hooks/useAdaptiveTheme';
 import { cn } from './lib/utils';
 
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = 'http://127.0.0.1:8000';
 
 // Simple heuristic: is this a URL or search query (not an agent instruction)?
 function isSimpleNavigation(input: string): boolean {
@@ -23,8 +23,6 @@ function isSimpleNavigation(input: string): boolean {
     if (/^www\./i.test(trimmed)) return true;
     // Looks like a hostname/domain (no spaces, has a dot)
     if (!trimmed.includes(' ') && /\.[a-z]{2,}(\/|$)/i.test(trimmed)) return true;
-    // Short phrase (≤ 3 words) → treat as search query
-    if (trimmed.split(/\s+/).length <= 3) return true;
     return false;
 }
 
@@ -278,7 +276,7 @@ function App() {
                     sidebar: s.keybindingSidebar ?? '\\',
                 };
             }
-        }).catch(() => {});
+        }).catch(() => { });
         // Re-read on settings changes
         const unsub = window.electron?.settings.onChanged((data: any) => {
             if (data?.settings) {
@@ -321,7 +319,7 @@ function App() {
             // Check first-run onboarding
             window.electron.onboarding?.isFirstRun().then((isFirst: boolean) => {
                 if (isFirst) setShowOnboarding(true);
-            }).catch(() => {});
+            }).catch(() => { });
 
             // Fetch preload paths
             window.electron.getWebviewPreloadPath().then(path => {
@@ -448,11 +446,19 @@ function App() {
         const input = instruction.trim();
         if (!input) return;
 
+        // Debug: log immediately (before any async work)
+        console.log('[Agent Debug] handleRunAgent called with:', input);
+        window.electron?.log?.(`[Agent Debug] handleRunAgent called with: ${input}`);
+
         // Fast path: URL or short search query
         if (isSimpleNavigation(input)) {
+            console.log('[Agent Debug] isSimpleNavigation=true, navigating directly');
+            window.electron?.log?.(`[Agent Debug] isSimpleNavigation=true, navigating directly`);
             window.electron?.navigation.navigate(input);
             return;
         }
+        console.log('[Agent Debug] isSimpleNavigation=false, proceeding to agent');
+        window.electron?.log?.(`[Agent Debug] isSimpleNavigation=false, proceeding to agent`);
 
         // Abort any running agent
         agentAbortRef.current?.abort();
@@ -479,7 +485,13 @@ function App() {
             openaiKey = settings?.openaiApiKey || '';
             googleKey = settings?.googleApiKey || '';
             selectedModel = settings?.selectedModel || '';
-        } catch { /* no keys configured */ }
+            const keyMsg = `[Agent Debug] Keys loaded — anthropic: ${anthropicKey ? `SET (${anthropicKey.length} chars)` : 'EMPTY'} | openai: ${openaiKey ? 'SET' : 'EMPTY'} | google: ${googleKey ? 'SET' : 'EMPTY'} | model: ${selectedModel || 'none'}`;
+            console.log(keyMsg);
+            window.electron?.log?.(keyMsg);
+        } catch (e) {
+            console.error('[Agent Debug] Failed to load settings:', e);
+            window.electron?.log?.(`[Agent Debug] Failed to load settings: ${e}`);
+        }
 
         // Session health check (Task 5.5): if instruction mentions a service that
         // needs auth, verify the user has an active session in Anthracite's browser.
@@ -537,6 +549,8 @@ function App() {
             // Fetch user memory prompt to personalise the agent run
             const memoryPrompt = await window.electron?.agentMemory?.getPrompt().catch(() => '') || '';
 
+            console.log('[Agent Debug] Fetching /agent/stream with target_id:', targetId);
+            window.electron?.log?.(`[Agent Debug] Fetching /agent/stream with target_id: ${targetId}`);
             const response = await fetch(`${BACKEND_URL}/agent/stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -552,6 +566,9 @@ function App() {
                 }),
                 signal: abort.signal,
             });
+            const resMsg = `[Agent Debug] Response status: ${response.status} ok: ${response.ok} body: ${!!response.body}`;
+            console.log(resMsg);
+            window.electron?.log?.(resMsg);
 
             if (!response.ok || !response.body) {
                 setAgentStatus('error');
@@ -628,7 +645,7 @@ function App() {
                                     startedAt: taskStartedAt,
                                     completedAt: now,
                                     durationMs: now - taskStartedAt,
-                                }).catch(() => {});
+                                }).catch(() => { });
                                 break;
                             }
                             case 'stopped': {
@@ -645,7 +662,7 @@ function App() {
                                     startedAt: taskStartedAt,
                                     completedAt: now,
                                     durationMs: now - taskStartedAt,
-                                }).catch(() => {});
+                                }).catch(() => { });
                                 break;
                             }
                             case 'error': {
@@ -662,7 +679,7 @@ function App() {
                                     startedAt: taskStartedAt,
                                     completedAt: now,
                                     durationMs: now - taskStartedAt,
-                                }).catch(() => {});
+                                }).catch(() => { });
                                 break;
                             }
                         }
@@ -671,7 +688,9 @@ function App() {
             }
         } catch (err: any) {
             if (err?.name === 'AbortError') return;
-            console.error('Agent stream error:', err);
+            const errMsg = `[Agent Debug] Fetch/stream error: ${err?.name} ${err?.message}`;
+            console.error(errMsg, err);
+            window.electron?.log?.(errMsg);
             setAgentStatus('error');
             setAgentResult('Could not connect to the AI backend. Make sure the server is running.');
         }
@@ -769,12 +788,14 @@ function App() {
     // Listen for back/forward from native menu
     useEffect(() => {
         const handler = () => handleBack();
+        // @ts-expect-error — channel not in preload yet; kept as placeholder
         window.electron?.ipc?.on('go-back-active-tab', handler);
         return () => { /* listener cleanup handled by preload */ };
     }, [handleBack]);
 
     useEffect(() => {
         const handler = () => handleForward();
+        // @ts-expect-error — channel not in preload yet; kept as placeholder
         window.electron?.ipc?.on('go-forward-active-tab', handler);
         return () => { /* listener cleanup handled by preload */ };
     }, [handleForward]);

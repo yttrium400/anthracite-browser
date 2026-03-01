@@ -372,6 +372,7 @@ interface AppSettings {
 declare global {
     interface Window {
         electron: {
+            log: (message: string) => void
             ipcRenderer: {
                 send: (channel: string, ...args: any[]) => void
                 invoke: (channel: string, ...args: any[]) => Promise<any>
