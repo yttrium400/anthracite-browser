@@ -861,6 +861,7 @@ function App() {
                         handleNavigate(url);
                     }
                 }}
+                onToggleAgentPanel={() => setIsAgentPanelOpen(prev => !prev)}
             />
 
             {/* Floating Sidebar - z-index ensures it's above webview */}

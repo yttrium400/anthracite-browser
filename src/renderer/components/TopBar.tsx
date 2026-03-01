@@ -12,6 +12,7 @@ import {
     CircleNotch,
     ClockCounterClockwise,
     MagnifyingGlass,
+    Sparkle,
 } from '@phosphor-icons/react';
 
 interface TopBarProps {
@@ -24,6 +25,7 @@ interface TopBarProps {
     canGoForward?: boolean;
     isLoading?: boolean;
     onNavigate?: (url: string) => void;
+    onToggleAgentPanel?: () => void;
 }
 
 interface Suggestion {
@@ -62,7 +64,8 @@ export function TopBar({
     canGoBack,
     canGoForward,
     isLoading,
-    onNavigate
+    onNavigate,
+    onToggleAgentPanel
 }: TopBarProps) {
     const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
     const [inputValue, setInputValue] = useState('');
@@ -370,57 +373,66 @@ export function TopBar({
 
                 {/* Autocomplete Suggestions */}
                 <AnimatePresence>
-                {showSuggestions && suggestions.length > 0 && (
-                    <motion.div
-                        ref={suggestionsRef}
-                        className="absolute z-[9999] w-full bg-[#1A1A1D]/97 backdrop-blur-xl border border-t-0 border-white/[0.08] rounded-b-xl shadow-large overflow-hidden"
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.12, ease: 'easeOut' }}
-                    >
-                        {suggestions.map((suggestion, index) => (
-                            <motion.button
-                                key={`${suggestion.type}-${suggestion.url || suggestion.title}-${index}`}
-                                type="button"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.1, delay: index * 0.025 }}
-                                onMouseDown={(e) => { e.preventDefault(); handleSelectSuggestion(suggestion); }}
-                                className={cn(
-                                    "flex items-center gap-3 w-full px-3 py-2.5 text-left transition-colors",
-                                    "hover:bg-white/[0.05]",
-                                    index === selectedIndex && "bg-white/[0.05]"
-                                )}
-                            >
-                                <div className="flex items-center justify-center h-7 w-7 rounded-md bg-white/[0.06] shrink-0">
-                                    {suggestion.type === 'history' && suggestion.favicon ? (
-                                        <img src={suggestion.favicon} alt="" className="h-4 w-4 rounded"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                    ) : suggestion.type === 'history' ? (
-                                        <ClockCounterClockwise className="h-3.5 w-3.5 text-text-tertiary" />
-                                    ) : (
-                                        <MagnifyingGlass className="h-3.5 w-3.5 text-text-tertiary" />
+                    {showSuggestions && suggestions.length > 0 && (
+                        <motion.div
+                            ref={suggestionsRef}
+                            className="absolute z-[9999] w-full bg-[#1A1A1D]/97 backdrop-blur-xl border border-t-0 border-white/[0.08] rounded-b-xl shadow-large overflow-hidden"
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.12, ease: 'easeOut' }}
+                        >
+                            {suggestions.map((suggestion, index) => (
+                                <motion.button
+                                    key={`${suggestion.type}-${suggestion.url || suggestion.title}-${index}`}
+                                    type="button"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 0.1, delay: index * 0.025 }}
+                                    onMouseDown={(e) => { e.preventDefault(); handleSelectSuggestion(suggestion); }}
+                                    className={cn(
+                                        "flex items-center gap-3 w-full px-3 py-2.5 text-left transition-colors",
+                                        "hover:bg-white/[0.05]",
+                                        index === selectedIndex && "bg-white/[0.05]"
                                     )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm text-text-primary truncate">{suggestion.title}</div>
-                                    {suggestion.type === 'history' && suggestion.url && (
-                                        <div className="text-xs text-text-tertiary truncate">{suggestion.url}</div>
+                                >
+                                    <div className="flex items-center justify-center h-7 w-7 rounded-md bg-white/[0.06] shrink-0">
+                                        {suggestion.type === 'history' && suggestion.favicon ? (
+                                            <img src={suggestion.favicon} alt="" className="h-4 w-4 rounded"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        ) : suggestion.type === 'history' ? (
+                                            <ClockCounterClockwise className="h-3.5 w-3.5 text-text-tertiary" />
+                                        ) : (
+                                            <MagnifyingGlass className="h-3.5 w-3.5 text-text-tertiary" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm text-text-primary truncate">{suggestion.title}</div>
+                                        {suggestion.type === 'history' && suggestion.url && (
+                                            <div className="text-xs text-text-tertiary truncate">{suggestion.url}</div>
+                                        )}
+                                    </div>
+                                    {suggestion.type === 'search' && (
+                                        <span className="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded shrink-0">Search</span>
                                     )}
-                                </div>
-                                {suggestion.type === 'search' && (
-                                    <span className="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded shrink-0">Search</span>
-                                )}
-                            </motion.button>
-                        ))}
-                    </motion.div>
-                )}
+                                </motion.button>
+                            ))}
+                        </motion.div>
+                    )}
                 </AnimatePresence>
             </form>
 
-            {/* Right Spacer */}
-            <div className="w-20 shrink-0" />
+            {/* Right Actions */}
+            <div className="flex items-center justify-end px-3 shrink-0 h-full w-[80px]" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                <button
+                    type="button"
+                    onClick={onToggleAgentPanel}
+                    className="p-1.5 hover:bg-white/[0.08] text-text-tertiary hover:text-text-primary rounded-lg transition-colors active:scale-95"
+                    title="Toggle Agent Panel"
+                >
+                    <Sparkle weight="fill" size={18} className="text-brand" />
+                </button>
+            </div>
         </header>
     );
 }

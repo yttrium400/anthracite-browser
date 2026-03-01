@@ -454,13 +454,15 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                         {/* Right Actions */}
                         <div className="flex items-center gap-2">
                             {/* Status Indicator */}
-                            <div className="flex items-center gap-2 mr-2">
-                                <div className={cn("status-dot", statusConfig.dot)} />
-                                <span className={cn("text-xs font-medium", statusConfig.color)}>
-                                    {statusConfig.icon}
-                                    {!statusConfig.icon && statusConfig.text}
-                                </span>
-                            </div>
+                            {status !== 'idle' && status !== 'done' && (
+                                <div className="flex items-center gap-2 mr-2">
+                                    <div className={cn("status-dot", statusConfig.dot)} />
+                                    <span className={cn("text-xs font-medium", statusConfig.color)}>
+                                        {statusConfig.icon}
+                                        {!statusConfig.icon && statusConfig.text}
+                                    </span>
+                                </div>
+                            )}
 
                             {/* Submit Button */}
                             <button
@@ -493,74 +495,74 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
 
                 {/* Autocomplete Suggestions Dropdown */}
                 <AnimatePresence>
-                {showSuggestions && suggestions.length > 0 && (
-                    <motion.div
-                        ref={suggestionsRef}
-                        className="absolute z-50 w-full bg-[#1A1A1D]/95 backdrop-blur-xl border border-t-0 border-white/[0.08] rounded-b-2xl shadow-large overflow-hidden"
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.14, ease: 'easeOut' }}
-                    >
-                        {suggestions.map((suggestion, index) => (
-                            <motion.button
-                                key={`${suggestion.type}-${suggestion.url || suggestion.title}`}
-                                type="button"
-                                initial={{ opacity: 0, x: -4 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.12, delay: index * 0.03 }}
-                                onClick={() => handleSelectSuggestion(suggestion)}
-                                className={cn(
-                                    "flex items-center gap-3 w-full px-4 py-3 text-left transition-colors",
-                                    "hover:bg-white/[0.06]",
-                                    index === selectedIndex && "bg-white/[0.06]"
-                                )}
-                            >
-                                {/* Icon */}
-                                <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-white/[0.06] shrink-0">
-                                    {suggestion.type === 'history' && suggestion.favicon ? (
-                                        <img
-                                            src={suggestion.favicon}
-                                            alt=""
-                                            className="h-4 w-4 rounded"
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
-                                            }}
-                                        />
-                                    ) : suggestion.type === 'history' ? (
-                                        <ClockCounterClockwise className="h-4 w-4 text-text-tertiary" />
-                                    ) : (
-                                        <MagnifyingGlass className="h-4 w-4 text-text-tertiary" />
+                    {showSuggestions && suggestions.length > 0 && (
+                        <motion.div
+                            ref={suggestionsRef}
+                            className="absolute z-50 w-full bg-[#1A1A1D]/95 backdrop-blur-xl border border-t-0 border-white/[0.08] rounded-b-2xl shadow-large overflow-hidden"
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.14, ease: 'easeOut' }}
+                        >
+                            {suggestions.map((suggestion, index) => (
+                                <motion.button
+                                    key={`${suggestion.type}-${suggestion.url || suggestion.title}`}
+                                    type="button"
+                                    initial={{ opacity: 0, x: -4 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ duration: 0.12, delay: index * 0.03 }}
+                                    onClick={() => handleSelectSuggestion(suggestion)}
+                                    className={cn(
+                                        "flex items-center gap-3 w-full px-4 py-3 text-left transition-colors",
+                                        "hover:bg-white/[0.06]",
+                                        index === selectedIndex && "bg-white/[0.06]"
                                     )}
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium text-text-primary truncate">
-                                        {suggestion.title}
+                                >
+                                    {/* Icon */}
+                                    <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-white/[0.06] shrink-0">
+                                        {suggestion.type === 'history' && suggestion.favicon ? (
+                                            <img
+                                                src={suggestion.favicon}
+                                                alt=""
+                                                className="h-4 w-4 rounded"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                        ) : suggestion.type === 'history' ? (
+                                            <ClockCounterClockwise className="h-4 w-4 text-text-tertiary" />
+                                        ) : (
+                                            <MagnifyingGlass className="h-4 w-4 text-text-tertiary" />
+                                        )}
                                     </div>
-                                    {suggestion.type === 'history' && suggestion.url && (
-                                        <div className="text-xs text-text-tertiary truncate">
-                                            {suggestion.url}
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Badge */}
-                                {suggestion.type === 'history' && suggestion.visitCount && suggestion.visitCount > 1 && (
-                                    <span className="text-[10px] text-text-tertiary bg-white/[0.06] px-1.5 py-0.5 rounded">
-                                        {suggestion.visitCount} visits
-                                    </span>
-                                )}
-                                {suggestion.type === 'search' && (
-                                    <span className="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded">
-                                        Search
-                                    </span>
-                                )}
-                            </motion.button>
-                        ))}
-                    </motion.div>
-                )}
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-text-primary truncate">
+                                            {suggestion.title}
+                                        </div>
+                                        {suggestion.type === 'history' && suggestion.url && (
+                                            <div className="text-xs text-text-tertiary truncate">
+                                                {suggestion.url}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Badge */}
+                                    {suggestion.type === 'history' && suggestion.visitCount && suggestion.visitCount > 1 && (
+                                        <span className="text-[10px] text-text-tertiary bg-white/[0.06] px-1.5 py-0.5 rounded">
+                                            {suggestion.visitCount} visits
+                                        </span>
+                                    )}
+                                    {suggestion.type === 'search' && (
+                                        <span className="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded">
+                                            Search
+                                        </span>
+                                    )}
+                                </motion.button>
+                            ))}
+                        </motion.div>
+                    )}
                 </AnimatePresence>
             </form>
 
