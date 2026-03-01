@@ -679,9 +679,10 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                         </div>
 
                         <button
+                            type="button"
                             onClick={() => onPinnedChange(!isPinned)}
                             className={cn(
-                                "btn-icon h-8 w-8",
+                                "btn-icon h-8 w-8 pointer-events-auto",
                                 isPinned && "bg-brand-muted text-brand"
                             )}
                             title={isPinned ? "Unpin (⌘\\)" : "Pin (⌘\\)"}

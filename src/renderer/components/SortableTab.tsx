@@ -50,7 +50,7 @@ function TabPreview({ tab, anchorY }: { tab: Tab; anchorY: number }) {
         <motion.div
             className={cn(
                 'fixed z-[600] pointer-events-none',
-                'left-[232px]', // just to the right of the sidebar (228px wide + 4px gap)
+                'left-[304px]', // just to the right of the sidebar (280px wide + 12px left padding + 12px gap)
                 'w-64 rounded-xl overflow-hidden',
                 'bg-[#1C1C1F]/95 backdrop-blur-2xl',
                 'border border-white/[0.08]',
