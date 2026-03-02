@@ -602,7 +602,6 @@ function App() {
                             case 'fast_action':
                                 if (event.action === 'navigate' && event.url) {
                                     window.electron?.navigation.navigate(event.url);
-                                    setIsAgentPanelOpen(false);
                                 }
                                 break;
                             case 'agent_starting':
@@ -711,6 +710,15 @@ function App() {
             setAgentStatus('running');
             setAgentAuthUrl(undefined);
         } catch { /* ignore */ }
+    }, []);
+
+    const handleClearAgent = useCallback(() => {
+        setAgentInstruction('');
+        setAgentSteps([]);
+        setAgentResult(undefined);
+        setAgentAuthService(undefined);
+        setAgentAuthUrl(undefined);
+        setAgentStatus('idle');
     }, []);
 
     // Navigation handlers
@@ -1015,6 +1023,7 @@ function App() {
                 onStop={handleStopAgent}
                 onResume={handleResumeAgent}
                 onFollowUp={handleRunAgent}
+                onClear={handleClearAgent}
             />
 
             {/* First-run onboarding wizard */}

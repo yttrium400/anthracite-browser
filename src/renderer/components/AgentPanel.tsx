@@ -19,6 +19,7 @@ import {
     ArrowsClockwise,
     FloppyDisk,
     Info,
+    Trash,
 } from '@phosphor-icons/react';
 
 export type AgentStatus = 'idle' | 'thinking' | 'running' | 'done' | 'error' | 'stopped' | 'auth';
@@ -41,6 +42,7 @@ interface AgentPanelProps {
     onStop: () => void;
     onResume: () => void;
     onFollowUp: (instruction: string) => void;
+    onClear?: () => void;
 }
 
 function getStepIcon(action: string) {
@@ -143,6 +145,7 @@ export function AgentPanel({
     onStop,
     onResume,
     onFollowUp,
+    onClear,
 }: AgentPanelProps) {
     const [followUp, setFollowUp] = useState('');
     const [workflowSaved, setWorkflowSaved] = useState(false);
@@ -156,15 +159,15 @@ export function AgentPanel({
         }
     }, [steps.length]);
 
-    // Focus follow-up input when done; reset workflow saved flag on new run
+    // Focus input when done, stopped, or idle with no task; reset workflow saved flag on new run
     useEffect(() => {
-        if (status === 'done' || status === 'stopped') {
+        if (status === 'done' || status === 'stopped' || (status === 'idle' && !instruction)) {
             setTimeout(() => inputRef.current?.focus(), 300);
         }
         if (status === 'thinking' || status === 'running') {
             setWorkflowSaved(false);
         }
-    }, [status]);
+    }, [status, instruction]);
 
     const handleFollowUp = (e: React.FormEvent) => {
         e.preventDefault();
@@ -202,26 +205,41 @@ export function AgentPanel({
                                 <span className="text-sm font-semibold text-text-primary tracking-tight leading-none">
                                     AI Agent
                                 </span>
-                                <div className="mt-0.5">
-                                    <StatusBadge status={status} />
-                                </div>
+                                {status !== 'done' && status !== 'idle' && (
+                                    <div className="mt-0.5">
+                                        <StatusBadge status={status} />
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="btn-icon h-7 w-7"
-                        >
-                            <X className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            {onClear && (steps.length > 0 || status !== 'idle') && (
+                                <button
+                                    onClick={onClear}
+                                    className="btn-icon h-7 w-7 text-text-tertiary hover:text-red-400 hover:bg-red-400/10"
+                                    title="Clear Chat"
+                                >
+                                    <Trash className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                            <button
+                                onClick={onClose}
+                                className="btn-icon h-7 w-7"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Instruction */}
-                    <div className="px-4 py-3 border-b border-white/[0.06] shrink-0">
-                        <p className="text-[11px] text-text-tertiary uppercase font-semibold tracking-widest mb-1">Task</p>
-                        <p className="text-[13px] text-text-primary leading-snug line-clamp-2 font-medium">
-                            {instruction || '—'}
-                        </p>
-                    </div>
+                    {instruction ? (
+                        <div className="px-4 py-3 border-b border-white/[0.06] shrink-0">
+                            <p className="text-[11px] text-text-tertiary uppercase font-semibold tracking-widest mb-1">Task</p>
+                            <p className="text-[13px] text-text-primary leading-snug line-clamp-2 font-medium">
+                                {instruction}
+                            </p>
+                        </div>
+                    ) : null}
 
                     {/* Steps */}
                     <div className="flex-1 overflow-y-auto thin-scrollbar px-3 py-3 space-y-2">
@@ -325,6 +343,32 @@ export function AgentPanel({
                                 <StopCircle className="h-4 w-4" weight="fill" />
                                 Stop Agent
                             </button>
+                        )}
+
+                        {/* Initial task input — when idle with no instruction */}
+                        {status === 'idle' && !instruction && (
+                            <form onSubmit={handleFollowUp} className="flex items-center gap-2">
+                                <input
+                                    ref={inputRef}
+                                    value={followUp}
+                                    onChange={e => setFollowUp(e.target.value)}
+                                    placeholder="Give the agent a task..."
+                                    className={cn(
+                                        'flex-1 h-9 px-3 rounded-xl text-sm',
+                                        'bg-white/[0.05] border border-white/[0.08]',
+                                        'text-text-primary placeholder:text-text-tertiary',
+                                        'focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/30',
+                                        'transition-all duration-150'
+                                    )}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!followUp.trim()}
+                                    className="btn-icon h-9 w-9 bg-brand/10 hover:bg-brand/20 text-brand disabled:opacity-30 disabled:hover:bg-brand/10"
+                                >
+                                    <PaperPlaneTilt className="h-4 w-4" weight="fill" />
+                                </button>
+                            </form>
                         )}
 
                         {/* Follow-up input — when done */}
