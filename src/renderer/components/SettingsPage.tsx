@@ -1020,24 +1020,35 @@ export function SettingsPage({ className }: SettingsPageProps) {
                                             ))}
                                         </div>
 
-                                        {/* Custom URL input */}
+                                        {/* Custom file picker */}
                                         {settings.homeBackground === 'custom' && (
                                             <div className="mt-4">
-                                                <label className="text-xs font-medium text-text-secondary mb-1.5 block">Image URL</label>
-                                                <input
-                                                    type="url"
-                                                    value={settings.homeBackgroundCustomUrl || ''}
-                                                    onChange={(e) => updateSetting('homeBackgroundCustomUrl', e.target.value)}
-                                                    placeholder="https://example.com/your-image.jpg"
-                                                    className={cn(
-                                                        'w-full h-9 px-3 rounded-xl text-sm',
-                                                        'bg-white/[0.05] border border-white/[0.08]',
-                                                        'text-text-primary placeholder:text-text-tertiary',
-                                                        'focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/30',
-                                                        'transition-all duration-150'
+                                                <label className="text-xs font-medium text-text-secondary mb-1.5 block">Background Image</label>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={async () => {
+                                                            const filePath = await window.electron?.settings.selectImageFile();
+                                                            if (filePath) {
+                                                                updateSetting('homeBackgroundCustomUrl', filePath);
+                                                            }
+                                                        }}
+                                                        className={cn(
+                                                            'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium',
+                                                            'bg-white/[0.06] border border-white/[0.08]',
+                                                            'text-text-secondary hover:bg-white/[0.1] hover:text-text-primary',
+                                                            'transition-colors'
+                                                        )}
+                                                    >
+                                                        <Palette className="h-4 w-4" />
+                                                        Choose Image
+                                                    </button>
+                                                    {settings.homeBackgroundCustomUrl && (
+                                                        <span className="text-xs text-text-tertiary truncate max-w-[200px]">
+                                                            ✓ Image selected
+                                                        </span>
                                                     )}
-                                                />
-                                                <p className="text-[10px] text-text-tertiary mt-1">Paste a direct link to an image (JPG, PNG, WebP)</p>
+                                                </div>
+                                                <p className="text-[10px] text-text-tertiary mt-1.5">Supports JPG, PNG, WebP, GIF, and SVG</p>
                                             </div>
                                         )}
                                     </div>

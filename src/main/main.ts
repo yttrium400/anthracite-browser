@@ -1,4 +1,4 @@
-import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents, shell } from 'electron'
+import { app, BrowserWindow, BrowserView, ipcMain, session, Menu, webContents, shell, dialog } from 'electron'
 import path from 'node:path'
 import * as dotenv from 'dotenv'
 dotenv.config({ path: path.join(__dirname, '../.env') })
@@ -1164,6 +1164,25 @@ function setupIPC(): void {
         return settings
     })
 
+    ipcMain.handle('select-image-file', async () => {
+        if (!win || win.isDestroyed()) return null
+        const result = await dialog.showOpenDialog(win, {
+            title: 'Choose Background Image',
+            filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'] }],
+            properties: ['openFile'],
+        })
+        if (result.canceled || result.filePaths.length === 0) return null
+        const fs = await import('node:fs')
+        const filePath = result.filePaths[0]
+        const ext = path.extname(filePath).toLowerCase().replace('.', '')
+        const mimeMap: Record<string, string> = {
+            jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+            webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp', svg: 'image/svg+xml',
+        }
+        const mime = mimeMap[ext] || 'image/png'
+        const data = fs.readFileSync(filePath)
+        return `data:${mime};base64,${data.toString('base64')}`
+    })
     // Sidebar state tracking (no bounds adjustment - sidebar floats over)
     ipcMain.handle('sidebar-set-open', (_, isOpen: boolean) => {
         sidebarOpen = isOpen
