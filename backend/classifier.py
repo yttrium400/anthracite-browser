@@ -31,7 +31,26 @@ _NAVIGATE_PATTERNS = [
     r"(?:go\s+to|open|navigate\s+to|visit|load)\s+(.+?)\.(?:com|org|net|io|dev|co|ai|app|edu|gov|me|tv|gg|xyz)(?:\s|$|/.*)",
     # Bare domain: "youtube.com", "google.com"
     r"^([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)*)\.(?:com|org|net|io|dev|co|ai|app|edu|gov|me|tv|gg|xyz)(?:\s*$|/.*$)",
+    # Verb + short name (no TLD): "visit yt", "go to reddit", "open google"
+    r"(?:go\s+to|open|navigate\s+to|visit|load)\s+([a-zA-Z0-9][-a-zA-Z0-9]{0,20})\s*$",
 ]
+
+# Well-known site nicknames / abbreviations → full domain
+_SITE_NICKNAMES: dict[str, str] = {
+    'yt': 'youtube.com', 'youtube': 'youtube.com',
+    'fb': 'facebook.com', 'facebook': 'facebook.com',
+    'ig': 'instagram.com', 'insta': 'instagram.com', 'instagram': 'instagram.com',
+    'tw': 'twitter.com', 'twitter': 'twitter.com', 'x': 'x.com',
+    'reddit': 'reddit.com',
+    'gh': 'github.com', 'github': 'github.com',
+    'gm': 'gmail.com', 'gmail': 'gmail.com',
+    'google': 'google.com',
+    'amazon': 'amazon.com',
+    'linkedin': 'linkedin.com',
+    'netflix': 'netflix.com',
+    'wiki': 'wikipedia.org', 'wikipedia': 'wikipedia.org',
+    'so': 'stackoverflow.com', 'stackoverflow': 'stackoverflow.com',
+}
 
 _SEARCH_PATTERNS = [
     # "search for X on google", "google X", "search X"
@@ -51,11 +70,19 @@ def _try_regex_classify(instruction: str) -> ClassifiedIntent | None:
     """Try to classify using regex patterns. Returns None if no match."""
     text = instruction.strip().lower()
 
+    # The last pattern is the nickname pattern (verb + short name, no TLD)
+    nickname_pattern = _NAVIGATE_PATTERNS[-1]
+
     # Check navigate patterns
     for pattern in _NAVIGATE_PATTERNS:
         match = re.match(pattern, text, re.IGNORECASE)
         if match:
             raw = match.group(1) if not text.startswith("http") else match.group(0)
+            # Nickname pattern matched — resolve via lookup or fallback to .com
+            if pattern is nickname_pattern:
+                domain = _SITE_NICKNAMES.get(raw.strip(), f"{raw.strip()}.com")
+                url = _normalize_url(domain)
+                return ClassifiedIntent(action="fast_navigate", params={"url": url})
             # Reconstruct domain if needed
             if not raw.startswith("http"):
                 # The pattern captures the part before TLD, reconstruct

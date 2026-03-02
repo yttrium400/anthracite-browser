@@ -157,3 +157,30 @@ class TestClassifyAsync:
         result = await classify("https://anthropic.com")
         assert result.action == "fast_navigate"
         assert "anthropic.com" in result.params["url"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Nickname / shorthand navigation (verb + short name, no TLD)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestNicknameNavigation:
+    def _assert_navigate(self, instruction: str, expected_url_fragment: str):
+        result = _try_regex_classify(instruction)
+        assert result is not None, f"Expected a match for: {instruction!r}"
+        assert result.action == "fast_navigate"
+        assert expected_url_fragment in result.params["url"], (
+            f"Expected {expected_url_fragment!r} in {result.params['url']!r}"
+        )
+
+    def test_visit_yt(self):
+        self._assert_navigate("visit yt", "youtube.com")
+
+    def test_go_to_reddit(self):
+        self._assert_navigate("go to reddit", "reddit.com")
+
+    def test_open_gh(self):
+        self._assert_navigate("open gh", "github.com")
+
+    def test_unknown_fallback_to_com(self):
+        self._assert_navigate("visit unknownsite", "unknownsite.com")
+
