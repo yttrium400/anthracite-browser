@@ -346,7 +346,7 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
                 {/* Card Container */}
                 <div
                     className={cn(
-                        "relative bg-white/[0.04] backdrop-blur-2xl rounded-2xl border border-white/[0.08] overflow-hidden transition-all duration-300",
+                        "relative bg-[#1A1A1D]/50 backdrop-blur-2xl rounded-2xl border border-white/[0.08] overflow-hidden transition-all duration-300",
                         isFocused ? "shadow-large ring-1 ring-brand/20 border-brand/30" : "shadow-medium",
                         isRunning && "ring-1 ring-brand/30",
                         showSuggestions && "rounded-b-none"
@@ -568,15 +568,17 @@ export function CommandBar({ onRun, isRunning, status = 'idle' }: CommandBarProp
 
             {/* Hints */}
             <div className="flex items-center justify-center gap-4 mt-4">
-                <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
-                    <kbd className="kbd">Enter</kbd>
-                    <span>to run</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
-                    <kbd className="kbd">Shift</kbd>
-                    <span>+</span>
-                    <kbd className="kbd">Enter</kbd>
-                    <span>for new line</span>
+                <div className="inline-flex items-center gap-4 px-4 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+                    <div className="flex items-center gap-1.5 text-xs text-white/50">
+                        <kbd className="kbd">Enter</kbd>
+                        <span>to run</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-white/50">
+                        <kbd className="kbd">Shift</kbd>
+                        <span>+</span>
+                        <kbd className="kbd">Enter</kbd>
+                        <span>for new line</span>
+                    </div>
                 </div>
             </div>
 

@@ -96,6 +96,7 @@ export function HomePage({ className, onRun, agentStatus }: HomePageProps) {
             </div>
             {/* minimal = no background layers, just solid #0A0A0B */}
 
+
             {/* Subtle ambient orb (always present, very faint) */}
             <div className="absolute inset-0 pointer-events-none">
                 <motion.div
@@ -126,6 +127,7 @@ export function HomePage({ className, onRun, agentStatus }: HomePageProps) {
                     {/* Wordmark */}
                     <motion.h2
                         className="font-display text-sm font-medium tracking-[0.3em] uppercase text-white/25"
+                        style={{ textShadow: background === 'custom' ? '0 1px 8px rgba(0,0,0,0.7)' : undefined }}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.1 }}
@@ -140,10 +142,14 @@ export function HomePage({ className, onRun, agentStatus }: HomePageProps) {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.2 }}
                     >
-                        <h1 className="font-display text-5xl font-extralight text-text-primary tracking-tight">
+                        <h1 className="font-display text-5xl font-extralight text-text-primary tracking-tight"
+                            style={{ textShadow: background === 'custom' ? '0 2px 12px rgba(0,0,0,0.6)' : undefined }}
+                        >
                             {greeting}
                         </h1>
-                        <p className="mt-3 text-text-tertiary text-base font-light">
+                        <p className="mt-3 text-text-tertiary text-base font-light"
+                            style={{ textShadow: background === 'custom' ? '0 1px 6px rgba(0,0,0,0.6)' : undefined }}
+                        >
                             Search the web, or let AI browse for you.
                         </p>
                     </motion.div>
