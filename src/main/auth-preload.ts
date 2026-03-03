@@ -30,13 +30,13 @@ try {
 // 2. Override navigator.userAgentData so JS-side brand checks match the HTTP headers
 const chromeBrands = [
     { brand: 'Not A(Brand', version: '99' },
-    { brand: 'Google Chrome', version: '131' },
-    { brand: 'Chromium', version: '131' },
+    { brand: 'Google Chrome', version: '120' },
+    { brand: 'Chromium', version: '120' },
 ]
 const chromeBrandsFull = [
     { brand: 'Not A(Brand', version: '99.0.0.0' },
-    { brand: 'Google Chrome', version: '131.0.0.0' },
-    { brand: 'Chromium', version: '131.0.0.0' },
+    { brand: 'Google Chrome', version: '120.0.0.0' },
+    { brand: 'Chromium', version: '120.0.0.0' },
 ]
 const fakeUAData = {
     brands: chromeBrands,

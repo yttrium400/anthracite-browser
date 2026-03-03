@@ -27,74 +27,15 @@ app.commandLine.appendSwitch('remote-debugging-port', String(CDP_PORT))
 // Google and other sites block login with "This browser may not be secure"
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled')
 
+// ── GPU & media performance flags ────────────────────────────────────────────
+app.commandLine.appendSwitch('enable-gpu-rasterization')
+app.commandLine.appendSwitch('enable-zero-copy')
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization')
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
+
 // Clean Chrome UA — no "Electron/" token which Google blocks
-const CLEAN_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-
-// Track auth popup webContents IDs so the global window-open handler skips them
-const authPopupIds = new Set<number>()
-
-/**
- * Open a Google auth page in a dedicated BrowserWindow using the same
- * persist:anthracite session. This bypasses Google's <webview> block —
- * Google treats BrowserWindows as real browsers, not embedded webviews.
- * Cookies written during login are immediately available to the main webview
- * since both share the same session partition.
- */
-function openAuthPopup(url: string): void {
-    if (authPopupIds.size > 0) return // already open
-
-    const authSession = session.fromPartition('persist:anthracite')
-
-    // contextIsolation: false so auth-preload.js runs in the page's main world
-    // and can set navigator.webdriver = false before any Google script reads it.
-    // nodeIntegration remains false — only the preload has Node access.
-    const popup = new BrowserWindow({
-        width: 480,
-        height: 640,
-        resizable: true,
-        autoHideMenuBar: true,
-        title: 'Sign In',
-        webPreferences: {
-            session: authSession,
-            nodeIntegration: false,
-            contextIsolation: false,
-            preload: path.join(__dirname, 'auth-preload.js'),
-        },
-    })
-
-    // Capture ID immediately — popup.webContents is null after the window closes
-    const wcId = popup.webContents.id
-    authPopupIds.add(wcId)
-    popup.webContents.setUserAgent(CLEAN_UA)
-
-    // Allow Google's own sub-popups (account chooser, 2FA prompts, etc.)
-    // with the same session so cookies flow through
-    popup.webContents.setWindowOpenHandler(({ url: openUrl }) => {
-        if (openUrl.includes('google.com')) {
-            return {
-                action: 'allow',
-                overrideBrowserWindowOptions: {
-                    autoHideMenuBar: true,
-                    webPreferences: { session: authSession, contextIsolation: false },
-                },
-            }
-        }
-        return { action: 'deny' }
-    })
-
-    popup.on('closed', () => {
-        authPopupIds.delete(wcId)
-    })
-
-    // Close popup once Google redirects away from the auth domain (login complete)
-    popup.webContents.on('did-navigate', (_, navUrl) => {
-        if (!navUrl.includes('accounts.google.com') && !popup.isDestroyed()) {
-            setTimeout(() => { if (!popup.isDestroyed()) popup.close() }, 800)
-        }
-    })
-
-    popup.loadURL(url)
-}
+// Version must match Electron 28's Chromium (120) to avoid codec/feature mismatches
+const CLEAN_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 import { spawn, ChildProcess } from 'node:child_process'
 
 import fetch from 'cross-fetch'
@@ -162,7 +103,6 @@ app.on('web-contents-created', (_, contents) => {
     // Intercept window open requests from any web contents (including <webview>),
     // EXCEPT auth popup windows which manage their own window-open handler.
     contents.setWindowOpenHandler((details) => {
-        if (authPopupIds.has(contents.id)) return { action: 'allow' } // let popup handle its own children
         if (details.url && details.url !== 'about:blank') {
             setImmediate(() => {
                 const tab = createTab(details.url)
@@ -174,8 +114,7 @@ app.on('web-contents-created', (_, contents) => {
     })
 
     // Intercept navigations to Google sign-in pages from <webview> contents.
-    // Google blocks login attempts from embedded webviews — opening a BrowserWindow
-    // with the same session bypasses this while keeping cookies shared.
+    // Google blocks login from embedded webviews — open in system browser instead.
     contents.on('will-navigate', (event, url) => {
         if (
             contents.getType() === 'webview' &&
@@ -185,7 +124,7 @@ app.on('web-contents-created', (_, contents) => {
                 url.includes('accounts.google.com/o/oauth2'))
         ) {
             event.preventDefault()
-            openAuthPopup(url)
+            shell.openExternal(url)
         }
     })
 })
@@ -398,6 +337,8 @@ function createTab(url: string = 'anthracite://newtab', options?: { realmId?: st
             nodeIntegration: false,
             contextIsolation: true,
             sandbox: false,
+            backgroundThrottling: false,
+            autoplayPolicy: 'no-user-gesture-required' as any,
             preload: path.join(__dirname, 'webview-preload.js'), // Inject cosmetic filtering script + swipe gestures
         }
     })
@@ -1642,7 +1583,7 @@ function setupIPC(): void {
         if (typeof url !== 'string') return { success: false }
         const safe = url.startsWith('https://') ? url : 'https://accounts.google.com/signin'
         try {
-            openAuthPopup(safe)
+            await shell.openExternal(safe)
             return { success: true }
         } catch {
             return { success: false }
@@ -2123,9 +2064,16 @@ app.whenReady().then(async () => {
     // Override Sec-CH-UA client-hint headers so Google's SERVER-SIDE check sees
     // Chrome brands instead of "Electron". setUserAgent() only fixes the User-Agent
     // string; Sec-CH-UA is a separate header that Electron sends independently.
-    const CH_UA = '"Not A(Brand";v="99", "Google Chrome";v="131", "Chromium";v="131"'
-    const CH_UA_FULL = '"Not A(Brand";v="99.0.0.0", "Google Chrome";v="131.0.0.0", "Chromium";v="131.0.0.0"'
+    const CH_UA = '"Not A(Brand";v="99", "Google Chrome";v="120", "Chromium";v="120"'
+    const CH_UA_FULL = '"Not A(Brand";v="99.0.0.0", "Google Chrome";v="120.0.0.0", "Chromium";v="120.0.0.0"'
+    // Skip UA rewriting for media/streaming URLs to reduce overhead on video playback
+    const MEDIA_HOSTS = ['googlevideo.com', 'youtube.com/videoplayback', 'ytimg.com', 'ggpht.com', 'gstatic.com']
     webviewSession.webRequest.onBeforeSendHeaders((details, callback) => {
+        // Fast-path: skip media/CDN requests that don't need UA rewriting
+        const url = details.url
+        if (MEDIA_HOSTS.some(host => url.includes(host))) {
+            return callback({ requestHeaders: details.requestHeaders })
+        }
         const h = details.requestHeaders
         h['User-Agent'] = CLEAN_UA
         h['Sec-CH-UA'] = CH_UA
