@@ -23,10 +23,114 @@ export class AdBlockService {
     private engine: Engine | null = null;
     private isEnabled = true;
     private blockedCount = 0;
+    private attachedCDPTargets = new Set<string>();
 
     constructor() {
         this.setupIPC();
         this.init();
+
+        // Poll for new CDP targets to attach YouTube ad scrubbing
+        setInterval(async () => {
+            if (!this.isEnabled) return;
+            try {
+                const res = await fetch('http://127.0.0.1:9222/json');
+                const targets = (await res.json()) as any[];
+                for (const target of targets) {
+                    if ((target.type === 'page' || target.type === 'webview' || target.type === 'iframe') &&
+                        !target.url?.startsWith('devtools://') &&
+                        !this.attachedCDPTargets.has(target.id)) {
+                        this.attachCRI(target);
+                    }
+                }
+            } catch (err: any) {
+                if (!err.message?.includes('ECONNREFUSED')) {
+                    console.error('[AdBlock] CDP poll error:', err.message);
+                }
+            }
+        }, 2000);
+    }
+
+    /**
+     * Fast YouTube ad scrubbing via string key-renaming.
+     * ~100x faster than JSON.parse + recursive walk + JSON.stringify.
+     * Renames ad-related keys so YouTube's player can't find them.
+     */
+    private scrubAdsFast(body: string): string | null {
+        if (!body.includes('"adPlacements"') &&
+            !body.includes('"playerAds"') &&
+            !body.includes('"adSlots"')) {
+            return null; // no ad data, skip
+        }
+        return body
+            .replace(/"adPlacements"\s*:/g, '"_blocked_adPlacements":')
+            .replace(/"playerAds"\s*:/g, '"_blocked_playerAds":')
+            .replace(/"adSlots"\s*:/g, '"_blocked_adSlots":')
+            .replace(/"adBreakParams"\s*:/g, '"_blocked_adBreakParams":');
+    }
+
+    private async attachCRI(target: any) {
+        if (target.url && (target.url.startsWith('devtools://') || target.url.startsWith('chrome-extension://'))) return;
+        this.attachedCDPTargets.add(target.id);
+
+        let CDP: any;
+        try {
+            CDP = require('chrome-remote-interface');
+        } catch { return; }
+
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl || target });
+            client.on('disconnect', () => {
+                this.attachedCDPTargets.delete(target.id);
+            });
+
+            if (target.type !== 'service_worker') {
+                try { await client.Page.enable(); } catch { }
+            }
+
+            client.Fetch.requestPaused(async (params: any) => {
+                const { requestId, request, responseStatusCode } = params;
+
+                // Fast-path: if disabled, let through immediately
+                if (!this.isEnabled) {
+                    try { await client.Fetch.continueRequest({ requestId }); } catch { }
+                    return;
+                }
+
+                try {
+                    const response = await client.Fetch.getResponseBody({ requestId });
+                    let body: string = response.base64Encoded
+                        ? Buffer.from(response.body, 'base64').toString('utf8')
+                        : response.body;
+
+                    const scrubbed = this.scrubAdsFast(body);
+                    if (scrubbed) {
+                        const responseHeaders = params.responseHeaders
+                            ? params.responseHeaders.map((h: any) => ({ name: h.name, value: String(h.value) }))
+                            : [];
+                        await client.Fetch.fulfillRequest({
+                            requestId,
+                            responseCode: responseStatusCode || 200,
+                            responseHeaders,
+                            body: Buffer.from(scrubbed).toString('base64')
+                        });
+                        return;
+                    }
+                } catch { }
+
+                try { await client.Fetch.continueRequest({ requestId }); } catch { }
+            });
+
+            await client.Fetch.enable({
+                patterns: [
+                    // Document HTML (contains ytInitialPlayerResponse with ad metadata)
+                    { urlPattern: '*youtube.com/watch*', requestStage: 'Response', resourceType: 'Document' },
+                    // Player API (contains ad placements for SPA navigations)
+                    { urlPattern: '*youtubei/v1/player*', requestStage: 'Response' },
+                ]
+            });
+        } catch (err) {
+            this.attachedCDPTargets.delete(target.id);
+        }
     }
 
     private async init() {
