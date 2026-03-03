@@ -169,6 +169,13 @@ export class AdBlockService {
 
             client.Fetch.requestPaused(async (params: any) => {
                 const { requestId, request, responseStatusCode } = params;
+
+                // Fast-path: if ad blocking is disabled, let all requests through immediately
+                if (!this.isEnabled) {
+                    try { await client.Fetch.continueRequest({ requestId }); } catch { }
+                    return;
+                }
+
                 const responseHeaders = params.responseHeaders ? params.responseHeaders.map((h: any) => ({ name: h.name, value: String(h.value) })) : [];
 
                 // 1) Handle Embedded HTML Ad Payloads (ytInitialPlayerResponse)
@@ -206,7 +213,6 @@ export class AdBlockService {
                         let modified = false;
 
                         try {
-                            console.time('[AdBlock] Rust execution time');
                             // Try blazing-fast native Rust N-API execution first
                             let nativeCore: any;
                             try {
@@ -220,14 +226,13 @@ export class AdBlockService {
                                     modified = true;
                                 }
                             } else {
-                                // Fallback to slow JS execution
+                                // Fallback to JS execution
                                 const parsed = JSON.parse(body);
                                 if (this.scrubAds(parsed)) {
                                     body = JSON.stringify(parsed);
                                     modified = true;
                                 }
                             }
-                            console.timeEnd('[AdBlock] Rust execution time');
                         } catch (e: any) { }
 
                         if (modified) {

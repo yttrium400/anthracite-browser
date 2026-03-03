@@ -32,6 +32,7 @@ app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
 app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization')
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
+app.commandLine.appendSwitch('no-proxy-server') // Skip proxy auto-detection to reduce network latency
 
 // Clean Chrome UA — no "Electron/" token which Google blocks
 // Version must match Electron 28's Chromium (120) to avoid codec/feature mismatches
