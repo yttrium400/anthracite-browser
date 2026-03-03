@@ -10,45 +10,72 @@ import { ipcRenderer, webFrame } from 'electron';
 // The remote-debugging-port flag sets this to true; we undo it here.
 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 
-// ── YouTube Ad Scrubber (non-blocking, runs in page's main world) ────────
-// Patches fetch() to strip ad metadata from YouTube API responses client-side.
-// This replaces the old CDP Fetch approach which blocked the response pipeline.
+// ── YouTube Ad Scrubber (non-blocking, injected BEFORE page scripts) ─────
+// Injects a <script> element from the preload that runs in the main world
+// BEFORE YouTube's own scripts execute. Uses Object.defineProperty to trap
+// ytInitialPlayerResponse/ytInitialData assignments, and patches fetch()
+// for SPA navigations. This is how Tampermonkey/uBlock scriptlets work.
 if (window.location.hostname.includes('youtube.com')) {
-    webFrame.executeJavaScript(`(function() {
+    const script = document.createElement('script');
+    script.textContent = `(function() {
         'use strict';
 
         // Recursively strip ad-related keys from YouTube API response objects
         function scrubAds(obj) {
             if (!obj || typeof obj !== 'object') return false;
             var changed = false;
-            var adKeys = ['adPlacements', 'playerAds', 'adSlots', 'adBreakParams'];
+            var adKeys = ['adPlacements', 'playerAds', 'adSlots', 'adBreakParams',
+                          'adBreakHeartbeatParams', 'playerLegacyDesktopWatchAdsRenderer'];
             for (var i = 0; i < adKeys.length; i++) {
-                var key = adKeys[i];
-                if (obj[key] !== undefined) {
-                    if (Array.isArray(obj[key])) { obj[key] = []; changed = true; }
-                    else { delete obj[key]; changed = true; }
+                if (obj[adKeys[i]] !== undefined) {
+                    if (Array.isArray(obj[adKeys[i]])) { obj[adKeys[i]] = []; }
+                    else { delete obj[adKeys[i]]; }
+                    changed = true;
                 }
             }
-            var keys = Array.isArray(obj) ? obj : Object.values(obj);
-            for (var j = 0; j < keys.length; j++) {
-                if (keys[j] && typeof keys[j] === 'object') {
-                    if (scrubAds(keys[j])) changed = true;
+            if (Array.isArray(obj)) {
+                for (var j = 0; j < obj.length; j++) {
+                    if (obj[j] && typeof obj[j] === 'object' && scrubAds(obj[j])) changed = true;
+                }
+            } else {
+                var vals = Object.keys(obj);
+                for (var k = 0; k < vals.length; k++) {
+                    if (obj[vals[k]] && typeof obj[vals[k]] === 'object' && scrubAds(obj[vals[k]])) changed = true;
                 }
             }
             return changed;
         }
 
-        // Patch fetch() to intercept YouTube API responses
+        // Trap ytInitialPlayerResponse — YouTube sets this via inline <script>;
+        // our defineProperty setter fires BEFORE their code continues
+        var _ytPlayerResp = undefined;
+        try {
+            Object.defineProperty(window, 'ytInitialPlayerResponse', {
+                configurable: true,
+                get: function() { return _ytPlayerResp; },
+                set: function(val) { if (val && typeof val === 'object') scrubAds(val); _ytPlayerResp = val; }
+            });
+        } catch(e) {}
+
+        var _ytInitData = undefined;
+        try {
+            Object.defineProperty(window, 'ytInitialData', {
+                configurable: true,
+                get: function() { return _ytInitData; },
+                set: function(val) { if (val && typeof val === 'object') scrubAds(val); _ytInitData = val; }
+            });
+        } catch(e) {}
+
+        // Patch fetch() to intercept YouTube API responses (SPA navigations)
         var origFetch = window.fetch;
         window.fetch = function() {
-            var url = arguments[0];
-            if (typeof url === 'string' &&
-                (url.includes('/youtubei/v1/player') ||
-                 url.includes('/youtubei/v1/next') ||
-                 url.includes('/youtubei/v1/get_watch'))) {
+            var url = (typeof arguments[0] === 'string') ? arguments[0] :
+                      (arguments[0] && arguments[0].url) ? arguments[0].url : '';
+            if (url.includes('/youtubei/v1/player') ||
+                url.includes('/youtubei/v1/next') ||
+                url.includes('/youtubei/v1/get_watch')) {
                 return origFetch.apply(this, arguments).then(function(response) {
-                    var clone = response.clone();
-                    return clone.text().then(function(body) {
+                    return response.clone().text().then(function(body) {
                         try {
                             var data = JSON.parse(body);
                             if (scrubAds(data)) {
@@ -66,33 +93,37 @@ if (window.location.hostname.includes('youtube.com')) {
             return origFetch.apply(this, arguments);
         };
 
-        // Also patch XMLHttpRequest for older YouTube API calls
+        // Patch XMLHttpRequest for any XHR-based API calls
         var origXHROpen = XMLHttpRequest.prototype.open;
         var origXHRSend = XMLHttpRequest.prototype.send;
-        XMLHttpRequest.prototype.open = function(method, url) {
-            this._ytAdScrubUrl = (typeof url === 'string' &&
+        XMLHttpRequest.prototype.open = function() {
+            var url = arguments[1];
+            this._anthraciteAdScrub = (typeof url === 'string' &&
                 (url.includes('/youtubei/v1/player') ||
                  url.includes('/youtubei/v1/next') ||
                  url.includes('/youtubei/v1/get_watch')));
             return origXHROpen.apply(this, arguments);
         };
-
-        // Clean ytInitialPlayerResponse and ytInitialData after DOM loads
-        function scrubInitialData() {
-            try {
-                if (window.ytInitialPlayerResponse) scrubAds(window.ytInitialPlayerResponse);
-                if (window.ytInitialData) scrubAds(window.ytInitialData);
-            } catch(e) {}
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', scrubInitialData);
-        } else {
-            scrubInitialData();
-        }
-    })();`);
+        XMLHttpRequest.prototype.send = function() {
+            if (this._anthraciteAdScrub) {
+                this.addEventListener('readystatechange', function() {
+                    if (this.readyState === 4 && this.status === 200) {
+                        try {
+                            var data = JSON.parse(this.responseText);
+                            if (scrubAds(data)) {
+                                Object.defineProperty(this, 'responseText', { value: JSON.stringify(data) });
+                                Object.defineProperty(this, 'response', { value: JSON.stringify(data) });
+                            }
+                        } catch(e) {}
+                    }
+                });
+            }
+            return origXHRSend.apply(this, arguments);
+        };
+    })();`;
+    // Inject at the very top of <html> so it runs before any YouTube script
+    (document.head || document.documentElement).prepend(script);
 }
-
 
 
 // CSS Cosmetic Filtering (runs when DOM is ready to parse classes/IDs)
