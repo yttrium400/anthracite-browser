@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { HomePage } from './components/HomePage';
 import { SettingsPage } from './components/SettingsPage';
@@ -8,6 +7,7 @@ import { RealmSearch } from './components/RealmSearch';
 import { SwipeNavigator, type SwipeNavigatorHandle } from './components/SwipeNavigator';
 import { AgentPanel, type AgentStatus, type AgentStep } from './components/AgentPanel';
 import { CommandPalette } from './components/CommandPalette';
+import { NavigationOverlay } from './components/NavigationOverlay';
 import OnboardingWizard from './components/OnboardingWizard';
 import { useAdaptiveTheme } from './hooks/useAdaptiveTheme';
 import { cn } from './lib/utils';
@@ -178,6 +178,10 @@ function App() {
     const [showCommandPalette, setShowCommandPalette] = useState(false);
     const [adBlockEnabled, setAdBlockEnabled] = useState(true);
 
+    // Navigation overlay state (Arc-style centered URL bar)
+    const [showNavigationOverlay, setShowNavigationOverlay] = useState(false);
+    const [navigationOverlayMode, setNavigationOverlayMode] = useState<'new-tab' | 'edit-url'>('new-tab');
+
     // Onboarding wizard
     const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -305,6 +309,13 @@ function App() {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey === cpShift && e.key === (cpShift ? commandPalette : commandPalette.toLowerCase())) {
                 e.preventDefault();
                 setShowCommandPalette(prev => !prev);
+                return;
+            }
+            // Cmd+L — open navigation overlay to edit current URL
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'l') {
+                e.preventDefault();
+                setNavigationOverlayMode('edit-url');
+                setShowNavigationOverlay(true);
             }
         };
 
@@ -370,8 +381,21 @@ function App() {
                 });
             });
 
+            const previousTabIds = new Set(tabs.map(t => t.id));
+            const isInitialLoad = { current: true };
+
             const unsubscribeActive = window.electron.tabs.onActiveTabChanged((tab: any | null) => {
-                if (tab) setActiveTabId(tab.id);
+                if (tab) {
+                    setActiveTabId(tab.id);
+                    // Auto-open navigation overlay only when a genuinely NEW tab is created (Cmd+T)
+                    // Skip initial load and switching between existing tabs
+                    if (!isInitialLoad.current && tab.url === 'anthracite://newtab' && !previousTabIds.has(tab.id)) {
+                        setNavigationOverlayMode('new-tab');
+                        setShowNavigationOverlay(true);
+                    }
+                    previousTabIds.add(tab.id);
+                }
+                isInitialLoad.current = false;
             });
 
             const unsubscribeUpdate = window.electron.tabs.onTabUpdated((updatedTab: any) => {
@@ -850,41 +874,37 @@ function App() {
     }, []);
 
     return (
-        <div className="h-screen w-full bg-[#0A0A0B] overflow-hidden font-sans flex flex-col">
-            {/* Top Navigation Bar */}
-            <TopBar
-                isSidebarPinned={isSidebarPinned}
-                onBack={handleBack}
-                onForward={handleForward}
-                onReload={handleReload}
-                canGoBack={activeTab?.canGoBack || (!!activeTabId && !isHomePage && tabsWithWebview.has(activeTabId))}
-                canGoForward={activeTab?.canGoForward || (isHomePage && !!activeTabId && tabsWithWebview.has(activeTabId))}
-                isLoading={activeTab?.isLoading}
-                onNavigate={(url) => {
-                    // Optimistically set loading state
-                    if (activeTabId) {
-                        // Set loading true immediately
-                        handleTabUpdate(activeTabId, { isLoading: true });
-                        // Execute navigation
-                        handleNavigate(url);
-                    }
-                }}
-                onToggleAgentPanel={() => setIsAgentPanelOpen(prev => !prev)}
-            />
-
+        <div className="h-screen w-full bg-[#0A0A0B] overflow-hidden font-sans">
             {/* Floating Sidebar - z-index ensures it's above webview */}
             <Sidebar
                 isPinned={isSidebarPinned}
                 onPinnedChange={setIsSidebarPinned}
                 tabs={tabs}
                 activeTabId={activeTabId}
+                onNewTabWithOverlay={() => {
+                    window.electron?.tabs.create();
+                    setNavigationOverlayMode('new-tab');
+                    setShowNavigationOverlay(true);
+                }}
+                onBack={handleBack}
+                onForward={handleForward}
+                onReload={handleReload}
+                canGoBack={activeTab?.canGoBack || (!!activeTabId && !isHomePage && tabsWithWebview.has(activeTabId))}
+                canGoForward={activeTab?.canGoForward || (isHomePage && !!activeTabId && tabsWithWebview.has(activeTabId))}
+                isLoading={activeTab?.isLoading}
+                onEditUrl={() => {
+                    setNavigationOverlayMode('edit-url');
+                    setShowNavigationOverlay(true);
+                }}
+                onToggleAgentPanel={() => setIsAgentPanelOpen(prev => !prev)}
+                currentUrl={activeTab?.url}
             />
 
-            {/* Main Content Area */}
+            {/* Main Content Area — full screen, no top bar */}
             <motion.main
-                className="flex-1 relative"
+                className="h-full relative"
                 animate={{
-                    marginLeft: isSidebarPinned ? 300 : 0,
+                    marginLeft: isSidebarPinned ? 340 : 0,
                 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
@@ -1024,6 +1044,20 @@ function App() {
                 onResume={handleResumeAgent}
                 onFollowUp={handleRunAgent}
                 onClear={handleClearAgent}
+            />
+
+            {/* Arc-Style Navigation Overlay */}
+            <NavigationOverlay
+                isOpen={showNavigationOverlay}
+                onClose={() => setShowNavigationOverlay(false)}
+                onNavigate={(url) => {
+                    if (activeTabId) {
+                        handleTabUpdate(activeTabId, { isLoading: true });
+                        handleNavigate(url);
+                    }
+                }}
+                currentUrl={activeTab?.url}
+                mode={navigationOverlayMode}
             />
 
             {/* First-run onboarding wizard */}

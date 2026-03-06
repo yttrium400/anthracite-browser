@@ -35,6 +35,12 @@ import {
     Copy,
     CaretDown,
     ClockCounterClockwise,
+    ArrowLeft,
+    ArrowRight,
+    ArrowClockwise,
+    Lock,
+    LockOpen,
+    Sparkle,
 } from '@phosphor-icons/react';
 import { RealmSwitcher } from './RealmSwitcher';
 import { RealmModal } from './RealmModal';
@@ -49,6 +55,17 @@ interface SidebarProps {
     onPinnedChange: (pinned: boolean) => void;
     tabs: Tab[];
     activeTabId: string | null;
+    onNewTabWithOverlay?: () => void;
+    // Navigation props (Arc-style: nav controls live in sidebar)
+    onBack?: () => void;
+    onForward?: () => void;
+    onReload?: () => void;
+    canGoBack?: boolean;
+    canGoForward?: boolean;
+    isLoading?: boolean;
+    onEditUrl?: () => void;
+    onToggleAgentPanel?: () => void;
+    currentUrl?: string;
 }
 
 // ... existing interfaces ...
@@ -103,7 +120,7 @@ function LooseTabsDropZone({ looseTabs, children }: LooseTabsDropZoneProps) {
 }
 
 
-export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId }: SidebarProps) {
+export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId, onNewTabWithOverlay, onBack, onForward, onReload, canGoBack, canGoForward, isLoading, onEditUrl, onToggleAgentPanel, currentUrl }: SidebarProps) {
     const [isVisible, setIsVisible] = useState(false);
 
     // Ad blocker state
@@ -319,8 +336,12 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
 
     // Tab actions
     const handleCreateTab = useCallback(() => {
-        window.electron?.tabs.create();
-    }, []);
+        if (onNewTabWithOverlay) {
+            onNewTabWithOverlay();
+        } else {
+            window.electron?.tabs.create();
+        }
+    }, [onNewTabWithOverlay]);
 
     const handleSwitchTab = useCallback((tabId: string) => {
         window.electron?.tabs.switch(tabId);
@@ -651,7 +672,7 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                     onMouseLeave={handleMouseLeave}
                     style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                     className={cn(
-                        "fixed left-3 top-3 bottom-3 w-[280px] z-[200]",
+                        "fixed left-3 top-1 bottom-3 w-[320px] z-[200]",
                         "bg-[#111113]/90 backdrop-blur-2xl",
                         "rounded-2xl border border-white/[0.06]",
                         "shadow-large",
@@ -660,41 +681,99 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                     )}
                     initial={false}
                     animate={{
-                        x: isPinned || isVisible ? 0 : -(280 + 20),
+                        x: isPinned || isVisible ? 0 : -(320 + 20),
                         opacity: isPinned || isVisible ? 1 : 0,
                     }}
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 >
                     {/* Traffic Light Spacer — reserves space for macOS window controls */}
                     <div
-                        className="h-[38px] shrink-0"
+                        className="h-[32px] shrink-0"
                         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
                     />
 
-                    {/* Header */}
-                    <header className="flex items-center justify-between px-4 pb-3 border-b border-white/[0.06]">
-                        <div className="flex items-center gap-2.5">
-                            <div className="flex flex-col">
-                                <span className="font-semibold text-sm text-text-primary tracking-tight">
-                                    {currentRealm?.name || 'Anthracite'}
-                                </span>
-                                <span className="text-[10px] text-text-tertiary font-medium">
-                                    {activeRealmTabs.length} tabs
-                                </span>
+                    {/* Arc-style Header: Nav Controls + URL Display */}
+                    <header className="px-3 pb-3 border-b border-white/[0.06] space-y-2">
+                        {/* Navigation Controls Row */}
+                        <div className="flex items-center gap-1.5">
+                            {/* Nav buttons */}
+                            <div className="flex items-center gap-1 text-text-secondary" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                                <button type="button" onClick={onBack} disabled={!canGoBack}
+                                    className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent active:scale-90">
+                                    <ArrowLeft size={16} />
+                                </button>
+                                <button type="button" onClick={onForward} disabled={!canGoForward}
+                                    className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent active:scale-90">
+                                    <ArrowRight size={16} />
+                                </button>
+                                <button type="button" onClick={onReload}
+                                    className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors active:scale-90">
+                                    {isLoading ? <X size={16} /> : <ArrowClockwise size={16} />}
+                                </button>
                             </div>
+
+                            <div className="flex-1" />
+
+                            {/* Pin toggle */}
+                            <button
+                                type="button"
+                                onClick={() => onPinnedChange(!isPinned)}
+                                className={cn(
+                                    "btn-icon h-8 w-8 pointer-events-auto",
+                                    isPinned && "bg-brand-muted text-brand"
+                                )}
+                                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                                title={isPinned ? "Unpin (⌘\\)" : "Pin (⌘\\)"}
+                            >
+                                {isPinned ? <PushPinSlash className="h-4 w-4" /> : <PushPin className="h-4 w-4" />}
+                            </button>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => onPinnedChange(!isPinned)}
-                            className={cn(
-                                "btn-icon h-8 w-8 pointer-events-auto",
-                                isPinned && "bg-brand-muted text-brand"
-                            )}
-                            title={isPinned ? "Unpin (⌘\\)" : "Pin (⌘\\)"}
-                        >
-                            {isPinned ? <PushPinSlash className="h-4 w-4" /> : <PushPin className="h-4 w-4" />}
-                        </button>
+                        {/* URL Display — clickable to open navigation overlay */}
+                        {(() => {
+                            const isInternalUrl = !currentUrl || currentUrl.startsWith('anthracite://') || currentUrl.startsWith('about:');
+                            const isSecure = currentUrl?.startsWith('https://');
+                            const getDomain = (url: string) => { try { return new URL(url).hostname; } catch { return url; } };
+                            const displayDomain = currentUrl && !isInternalUrl ? getDomain(currentUrl) : null;
+
+                            if (!displayDomain) {
+                                return (
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-sm text-text-primary tracking-tight">
+                                            {currentRealm?.name || 'Anthracite'}
+                                        </span>
+                                        <span className="text-[10px] text-text-tertiary font-medium">
+                                            {activeRealmTabs.length} tabs
+                                        </span>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <button
+                                    type="button"
+                                    onClick={onEditUrl}
+                                    className={cn(
+                                        "flex items-center gap-2.5 w-full px-3 py-2 rounded-lg",
+                                        "text-[13px] text-text-secondary font-medium",
+                                        "bg-white/[0.04] border border-white/[0.06]",
+                                        "hover:bg-white/[0.08] hover:text-text-primary transition-colors",
+                                        "active:scale-[0.98]"
+                                    )}
+                                    style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                                    title={currentUrl}
+                                >
+                                    {isLoading ? (
+                                        <CircleNotch className="h-3 w-3 text-brand animate-spin shrink-0" />
+                                    ) : isSecure ? (
+                                        <Lock className="h-3 w-3 text-success shrink-0" />
+                                    ) : (
+                                        <LockOpen className="h-3 w-3 text-text-tertiary shrink-0" />
+                                    )}
+                                    <span className="truncate">{displayDomain}</span>
+                                </button>
+                            );
+                        })()}
                     </header>
 
                     {/* New Tab Button */}
@@ -932,6 +1011,15 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                                 )}
                             </div>
                         )}
+
+                        <button
+                            onClick={onToggleAgentPanel}
+                            className="flex items-center w-full gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-text-secondary hover:bg-white/[0.06] hover:text-text-primary transition-all duration-200"
+                            title="Toggle Agent Panel"
+                        >
+                            <Sparkle weight="fill" size={18} className="text-brand shrink-0" />
+                            <span>Agent</span>
+                        </button>
 
                         <button
                             onClick={() => window.electron?.navigation.navigate('anthracite://settings')}
