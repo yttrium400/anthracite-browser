@@ -665,8 +665,14 @@ export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId
                     }}
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 >
+                    {/* Traffic Light Spacer — reserves space for macOS window controls */}
+                    <div
+                        className="h-[38px] shrink-0"
+                        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+                    />
+
                     {/* Header */}
-                    <header className="flex items-center justify-between h-14 px-4 border-b border-white/[0.06]">
+                    <header className="flex items-center justify-between px-4 pb-3 border-b border-white/[0.06]">
                         <div className="flex items-center gap-2.5">
                             <div className="flex flex-col">
                                 <span className="font-semibold text-sm text-text-primary tracking-tight">
