@@ -235,11 +235,14 @@ export function TopBar({
         setIsFocused(true);
         setIsEditing(true);
         const isInternalPage = activeTab?.url.startsWith('anthracite://') || activeTab?.url.startsWith('about:');
-        if (!isInternalPage && !inputValue) {
-            setInputValue(activeTab?.url || '');
+        if (!isInternalPage) {
+            if (!inputValue) {
+                setInputValue(activeTab?.url || '');
+            }
+            // Always select the full URL text so the user can immediately type to replace it
             setTimeout(() => inputRef.current?.select(), 0);
         }
-        if (inputValue) fetchSuggestions(inputValue);
+        // Don't show suggestions on focus — only when the user starts typing
     };
 
     const handleBlur = () => {
@@ -376,7 +379,7 @@ export function TopBar({
                     {showSuggestions && suggestions.length > 0 && (
                         <motion.div
                             ref={suggestionsRef}
-                            className="absolute z-[9999] w-full bg-[#1A1A1D]/97 backdrop-blur-xl border border-t-0 border-white/[0.08] rounded-b-xl shadow-large overflow-hidden"
+                            className="absolute z-[9999] w-full bg-[#1A1A1D] border border-t-0 border-white/[0.08] rounded-b-xl shadow-[0_8px_32px_rgba(0,0,0,0.7)] overflow-hidden"
                             initial={{ opacity: 0, y: -4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
