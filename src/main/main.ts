@@ -1190,6 +1190,13 @@ function setupIPC(): void {
         // The 16px trigger zone is always visible for hover detection
     })
 
+    // Toggle macOS traffic light buttons visibility (Arc-style: only show when sidebar is open)
+    ipcMain.handle('set-traffic-light-visibility', (_, visible: boolean) => {
+        if (win && process.platform === 'darwin') {
+            win.setWindowButtonVisibility(visible)
+        }
+    })
+
     // History
     ipcMain.handle('history-search', (_, query: string, limit?: number) => {
         return searchHistory(query, limit || 10)

@@ -140,6 +140,7 @@ contextBridge.exposeInMainWorld('electron', {
     // Sidebar
     sidebar: {
         setOpen: (isOpen: boolean) => ipcRenderer.invoke('sidebar-set-open', isOpen),
+        setTrafficLightVisibility: (visible: boolean) => ipcRenderer.invoke('set-traffic-light-visibility', visible),
     },
 
     // History
@@ -429,6 +430,7 @@ declare global {
             }
             sidebar: {
                 setOpen: (isOpen: boolean) => Promise<void>
+                setTrafficLightVisibility: (visible: boolean) => Promise<void>
             }
             history: {
                 search: (query: string, limit?: number) => Promise<HistoryEntry[]>

@@ -908,11 +908,6 @@ function App() {
                 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
-                {/* Transparent drag strip for macOS traffic lights */}
-                <div
-                    className="absolute top-0 left-0 right-0 h-[38px] z-[50]"
-                    style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-                />
                 {/* Loading state */}
                 {!isReady ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-[#0A0A0B] z-10">

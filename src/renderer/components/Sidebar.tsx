@@ -123,6 +123,17 @@ function LooseTabsDropZone({ looseTabs, children }: LooseTabsDropZoneProps) {
 export function Sidebar({ className, isPinned, onPinnedChange, tabs, activeTabId, onNewTabWithOverlay, onBack, onForward, onReload, canGoBack, canGoForward, isLoading, onEditUrl, onToggleAgentPanel, currentUrl }: SidebarProps) {
     const [isVisible, setIsVisible] = useState(false);
 
+    // Toggle macOS traffic light buttons with sidebar visibility
+    useEffect(() => {
+        const sidebarShowing = isPinned || isVisible;
+        window.electron?.sidebar.setTrafficLightVisibility(sidebarShowing);
+    }, [isPinned, isVisible]);
+
+    // Hide traffic lights on initial mount (sidebar starts hidden)
+    useEffect(() => {
+        window.electron?.sidebar.setTrafficLightVisibility(false);
+    }, []);
+
     // Ad blocker state
     const [adBlockEnabled, setAdBlockEnabled] = useState(true);
     const [blockedCount, setBlockedCount] = useState(0);
