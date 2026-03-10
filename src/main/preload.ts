@@ -489,6 +489,12 @@ declare global {
                 disconnect: (domain: string) => Promise<{ success: boolean }>
                 openLoginPopup: (url: string) => Promise<{ success: boolean }>
             }
+            importer: {
+                detectBrowsers: () => Promise<Array<{ browser: string; profileName: string; historyPath: string; bookmarksPath?: string; type: string }>>
+                importHistory: (profile: any) => Promise<{ imported: number }>
+                importBookmarks: (bookmarksPath: string) => Promise<{ imported: number }>
+                importBookmarksToRealms: (bookmarksPath: string) => Promise<{ imported: number }>
+            }
             agentHistory: {
                 save: (task: {
                     instruction: string; status: string; steps: string; result: string;
