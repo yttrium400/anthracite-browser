@@ -95,7 +95,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     keybindingSidebar: '\\',
 
     // Onboarding
-    hasCompletedOnboarding: false,
+    hasCompletedOnboarding: true,
 };
 
 // ============================================

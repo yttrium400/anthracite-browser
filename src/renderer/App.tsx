@@ -1061,9 +1061,9 @@ function App() {
             />
 
             {/* First-run onboarding wizard */}
-            {showOnboarding && (
+            {/* showOnboarding && (
                 <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
-            )}
+            ) */}
         </div>
     );
 }
