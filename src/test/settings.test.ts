@@ -19,7 +19,7 @@ describe('SettingsStore', () => {
         expect(all.theme).toBe('dark')
         expect(all.defaultSearchEngine).toBe('google')
         expect(all.historyEnabled).toBe(true)
-        expect(all.hasCompletedOnboarding).toBe(false)
+        expect(all.hasCompletedOnboarding).toBe(true)
     })
 
     it('get() returns individual settings', () => {
@@ -40,8 +40,8 @@ describe('SettingsStore', () => {
     })
 
     it('set() returns the updated settings object', () => {
-        const result = settingsStore.set('hasCompletedOnboarding', true)
-        expect(result.hasCompletedOnboarding).toBe(true)
+        const result = settingsStore.set('hasCompletedOnboarding', false)
+        expect(result.hasCompletedOnboarding).toBe(false)
     })
 
     it('update() applies a partial patch', () => {
